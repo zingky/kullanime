@@ -1,0 +1,2 @@
+# kullanime
+my anime list
