@@ -78,6 +78,7 @@ export default function Navbar() {
   const navItems = [
     { href: "/", label: "Trang chủ" },
     { href: "/search", label: "Tìm kiếm" },
+    ...(user ? [{ href: "/my-list", label: "My List" }] : []),
     ...(user?.role === "admin"
       ? [{ href: "/dashboard", label: "Quản trị" }]
       : []),
@@ -243,13 +244,13 @@ export default function Navbar() {
             ))}
             {user ? (
               <>
-                <Link
-                  href={`/u/${user.username}`}
-                  onClick={() => setMobileOpen(false)}
-                  className="rounded-xl px-3 py-2 text-sm font-medium text-gray-500 hover:bg-dark-100 hover:text-dark-900 dark:text-gray-400 dark:hover:bg-dark-800 dark:hover:text-white"
-                >
-                  Hồ sơ của tôi
-                </Link>
+              <Link
+                href={`/u/${user.username}`}
+                onClick={() => setMobileOpen(false)}
+                className="rounded-xl px-3 py-2 text-sm font-medium text-gray-500 hover:bg-dark-100 hover:text-dark-900 dark:text-gray-400 dark:hover:bg-dark-800 dark:hover:text-white"
+              >
+                Hồ sơ của tôi
+              </Link>
                 <button
                   onClick={handleLogout}
                   className="rounded-xl px-3 py-2 text-left text-sm font-medium text-red-500 hover:bg-red-500/10 dark:text-red-400"

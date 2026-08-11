@@ -63,7 +63,18 @@ export default function RegisterPage() {
       });
 
       if (error) {
-        setError(error.message);
+        const msg = error.message.toLowerCase();
+        if (
+          msg.includes("sending confirmation email") ||
+          msg.includes("failed to send email") ||
+          msg.includes("smtp")
+        ) {
+          setError(
+            "Không thể gửi email xác thực. Nếu bạn đang phát triển (dev), hãy tạm tắt 'Confirm email' trong Supabase Dashboard (Authentication → Sign In / Up) hoặc kiểm tra cấu hình SMTP Resend theo tài liệu docs/SUPABASE_EMAIL_SETUP.md."
+          );
+        } else {
+          setError(error.message);
+        }
         return;
       }
 
