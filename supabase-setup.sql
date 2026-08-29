@@ -113,6 +113,25 @@ alter table public.songs   enable row level security;
 alter table public.comments enable row level security;
 
 -- ============================================================
+-- 5b) GRANT QUYỀN TRUY CẬP BẢNG
+--     RLS quyết định "dòng" nào được phép, GRANT quyết định
+--     "vào bảng" được hay không. Với role anon/authenticated
+--     như bên dưới, truy vấn của web sẽ hoạt động đúng.
+-- ============================================================
+grant usage on schema public to anon, authenticated;
+
+-- Animes & Songs: công khai chỉ đọc; admin (authenticated) ghi/sửa/xóa
+grant select on public.animes to anon, authenticated;
+grant insert, update, delete on public.animes to authenticated;
+
+grant select on public.songs to anon, authenticated;
+grant insert, update, delete on public.songs to authenticated;
+
+-- Comments: công khai đọc + ghi; admin sửa (ghim) + xóa
+grant select, insert on public.comments to anon, authenticated;
+grant update, delete on public.comments to authenticated;
+
+-- ============================================================
 -- 6) HÀM KIỂM TRA ADMIN
 --    Admin = user đã đăng nhập (auth.uid() != null) VÀ có
 --    app_metadata.is_admin = 'true' trong user.
