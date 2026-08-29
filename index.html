@@ -42,7 +42,7 @@
     <div class="header-inner container">
       <button class="brand" id="brandBtn" aria-label="Về đầu trang">
         <span class="brand-logo">🎌</span>
-        <span class="brand-name">Kull<em>Anime</em></span>
+        <span class="brand-name" id="brandName">Kull<em>Anime</em></span>
       </button>
 
       <nav class="main-nav" aria-label="Điều hướng chính">
@@ -50,10 +50,7 @@
           <span class="tab-icon">🎬</span><span class="tab-label">Anime</span>
         </button>
         <button class="nav-tab" data-tab="music" id="tabMusicBtn">
-          <span class="tab-icon">🎵</span><span class="tab-label">Nhạc OST</span>
-        </button>
-        <button class="nav-tab" data-tab="chat" id="tabChatBtn">
-          <span class="tab-icon">💬</span><span class="tab-label">Chat chung</span>
+          <span class="tab-icon">🎵</span><span class="tab-label">Song</span>
         </button>
       </nav>
 
@@ -99,6 +96,9 @@
 
       <!-- Lưới thẻ anime -->
       <div class="anime-grid" id="animeGrid"></div>
+      <div class="load-more-wrap" id="animeLoadMoreWrap">
+        <button type="button" class="btn btn-primary load-more-btn" id="animeLoadMoreBtn" data-label="Xem thêm anime ▼">Xem thêm anime ▼</button>
+      </div>
       <div class="empty-state hidden" id="animeEmpty">
         <p class="empty-emoji">🍃</p>
         <p class="empty-title">Chưa có anime nào</p>
@@ -149,6 +149,9 @@
             <span class="playlist-count" id="songCount">0 bài</span>
           </div>
           <div id="songList" class="song-list"></div>
+          <div class="load-more-wrap" id="songLoadMoreWrap">
+            <button type="button" class="btn btn-primary load-more-btn" id="songLoadMoreBtn" data-label="Xem thêm nhạc ▼">Xem thêm nhạc ▼</button>
+          </div>
           <div class="load-state hidden" id="songLoading">
             <div class="spinner" aria-hidden="true"></div>
             <p>Đang tải nhạc...</p>
@@ -167,13 +170,30 @@
       </div>
     </section>
 
-    <!-- ═══════════════ TAB: CHAT CHUNG ═══════════════ -->
-    <section class="tab-panel" id="tab-chat" data-panel="chat">
-      <div class="section-heading">
-        <h1 class="section-title">💬 Chat chung</h1>
-        <p class="section-subtitle">Trò chuyện toàn site — mọi bình luận (chung & trong từng phim)</p>
-      </div>
+  </main>
 
+  <!-- ======================= FOOTER ======================= -->
+  <footer class="app-footer">
+    <div class="footer-inner container">
+      <p class="footer-brand">🎌 <strong>Kull<em>Anime</em></strong> — anime đã xem & OST Player (Kull-Vietsub)</p>
+      <p class="footer-meta">© 2026 Kull Vietsub · Website cá nhân · Trình phát nhạc kèm phụ đề .ass</p>
+    </div>
+  </footer>
+
+  <!-- ======================= CHAT CHUNG (sticky bar dưới footer) ======================= -->
+  <aside class="chat-dock" id="chatDock" aria-label="Chat chung">
+    <!-- Thanh header luôn hiển thị: 3 tin mới nhất + nút mở rộng/thu gọn -->
+    <div class="chat-dock-header" id="chatDockHeader" role="button" tabindex="0" aria-expanded="false" title="Bấm để mở rộng / thu gọn chat chung">
+      <span class="chat-dock-title">💬 Chat chung</span>
+      <span class="chat-dock-status" id="chatDockStatus">3 tin mới nhất</span>
+      <span class="chat-dock-toggle" id="chatDockToggle">▲</span>
+    </div>
+
+    <!-- 3 tin mới nhất (thu gọn) -->
+    <div class="chat-dock-preview" id="chatPreview"></div>
+
+    <!-- Panel đầy đủ (mở rộng) -->
+    <div class="chat-dock-body hidden" id="chatDockBody">
       <div class="chat-layout">
         <!-- Khung soạn thảo chung -->
         <div class="composer" id="chatComposer">
@@ -184,14 +204,11 @@
             <button type="button" class="tb-btn" data-fmt="strike" title="Gạch ngang"><s>S</s></button>
             <button type="button" class="tb-btn" data-fmt="quote" title="Trích dẫn">❝</button>
             <button type="button" class="tb-btn" data-fmt="code" title="Code">&lt;/&gt;</button>
-            <button type="button" class="tb-btn" data-fmt="link" title="Chèn link">🔗</button>
-            <button type="button" class="tb-btn" data-fmt="image" title="Chèn ảnh bằng URL">🖼</button>
-            <button type="button" class="tb-btn" id="chatUploadImgBtn" title="Tải ảnh lên Cloudinary">📤</button>
             <input type="file" id="chatUploadImgInput" accept="image/*" class="hidden" />
           </div>
           <label class="visually-hidden" for="chatBox">Nội dung chat chung</label>
           <textarea id="chatBox" class="composer-input" rows="3"
-                    placeholder="Gửi tin nhắn chat chung... Hỗ trợ Markdown & BBCode ([b]chữ đậm[/b])"></textarea>
+                    placeholder="Gửi tin nhắn chat chung... ✓ Paste link/ảnh tự xử lý"></textarea>
           <div class="composer-footer">
             <input type="text" id="chatAuthor" class="input comment-author-input"
                    placeholder="Tên hiển thị (bắt buộc)" maxlength="60" autocomplete="nickname" />
@@ -207,9 +224,8 @@
         </div>
 
         <div id="chatList" class="comment-list"></div>
-        <div class="load-state hidden" id="chatLoading">
-          <div class="spinner" aria-hidden="true"></div>
-          <p>Đang tải tin nhắn...</p>
+        <div class="load-more-wrap" id="chatLoadMoreWrap">
+          <button type="button" class="btn btn-primary load-more-btn" id="chatLoadMoreBtn" data-label="Xem thêm tin nhắn ▼">Xem thêm tin nhắn ▼</button>
         </div>
         <div class="empty-state hidden" id="chatEmpty">
           <p class="empty-emoji">💬</p>
@@ -217,8 +233,8 @@
           <p class="empty-desc">Hãy là người đầu tiên chat chung nhé!</p>
         </div>
       </div>
-    </section>
-  </main>
+    </div>
+  </aside>
 
 
   <!-- ═══════════════ MODAL: CHI TIẾT ANIME + BÌNH LUẬN ═══════════════ -->
@@ -240,14 +256,11 @@
             <button type="button" class="tb-btn" data-fmt="strike" title="Gạch ngang"><s>S</s></button>
             <button type="button" class="tb-btn" data-fmt="quote" title="Trích dẫn">❝</button>
             <button type="button" class="tb-btn" data-fmt="code" title="Code">&lt;/&gt;</button>
-            <button type="button" class="tb-btn" data-fmt="link" title="Chèn link">🔗</button>
-            <button type="button" class="tb-btn" data-fmt="image" title="Chèn ảnh bằng URL">🖼</button>
-            <button type="button" class="tb-btn" id="uploadImgBtn" title="Tải ảnh lên Cloudinary">📤</button>
             <input type="file" id="uploadImgInput" accept="image/*" class="hidden" />
           </div>
           <label class="visually-hidden" for="commentBox">Nội dung bình luận</label>
           <textarea id="commentBox" class="composer-input" rows="3"
-                    placeholder="Viết bình luận... Hỗ trợ Markdown & BBCode ([b]chữ đậm[/b])"></textarea>
+                    placeholder="Viết bình luận... ✓ Paste link/ảnh tự xử lý"></textarea>
           <div class="composer-footer">
             <input type="text" id="commentAuthor" class="input comment-author-input"
                    placeholder="Tên hiển thị (bắt buộc)" maxlength="60" autocomplete="nickname" />
@@ -263,6 +276,9 @@
         </div>
 
         <div id="commentList" class="comment-list"></div>
+        <div class="load-more-wrap" id="commentLoadMoreWrap">
+          <button type="button" class="btn btn-primary load-more-btn" id="commentLoadMoreBtn">Xem thêm bình luận ▼</button>
+        </div>
         <div class="load-state hidden" id="commentLoading">
           <div class="spinner" aria-hidden="true"></div>
           <p>Đang tải bình luận...</p>

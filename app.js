@@ -42,7 +42,15 @@
     captcha: { a: 0, b: 0, result: 0 },
     chatCaptcha: { a: 0, b: 0, result: 0 },
     // Jikan
-    jikanAbort: null
+    jikanAbort: null,
+    // Phân trang hiển thị trên 1 trang
+    animeVisible: 10,      // số anime render mỗi lượt
+    songVisible: 15,       // số bài hát render mỗi lượt
+    commentAll: [],        // toàn bộ bình luận của anime đang mở
+    commentVisible: 20,    // số bình luận anime hiển thị hiện tại
+    chatAll: [],           // toàn bộ tin chat chung
+    chatVisible: 3,        // số tin chat hiển thị (thu gọn = 3)
+    chatExpanded: false    // trạng thái mở rộng sticky chat
   };
 
   const REFRESH_MS = 60000; // tự làm mới dữ liệu công khai mỗi phút
@@ -671,10 +679,30 @@
     if (list.length === 0) {
       grid.innerHTML = '';
       empty.classList.remove('hidden');
+      updateLoadMore('#animeLoadMoreWrap', 0);
       return;
     }
     empty.classList.add('hidden');
-    grid.innerHTML = list.map((a) => animeCardHTML(a)).join('');
+    // Phân trang: chỉ hiển thị animeVisible phần tử đầu
+    const visible = list.slice(0, State.animeVisible);
+    grid.innerHTML = visible.map((a) => animeCardHTML(a)).join('');
+    updateLoadMore('#animeLoadMoreWrap', list.length - State.animeVisible);
+  }
+
+  // Helper: hiện/ẩn nút "Xem thêm" và cập nhật số còn lại
+  function updateLoadMore(wrapSel, remaining) {
+    const wrap = $(wrapSel);
+    if (!wrap) return;
+    if (remaining > 0) {
+      wrap.classList.remove('hidden');
+      const btn = wrap.querySelector('.load-more-btn');
+      if (btn) {
+        const base = btn.dataset.label || 'Xem thêm ▼';
+        btn.textContent = base + ' (' + remaining + ' còn)';
+      }
+    } else {
+      wrap.classList.add('hidden');
+    }
   }
 
   function animeCardHTML(a) {
@@ -709,10 +737,12 @@
     if (State.songs.length === 0) {
       list.innerHTML = '';
       empty.classList.remove('hidden');
+      updateLoadMore('#songLoadMoreWrap', 0);
       return;
     }
     empty.classList.add('hidden');
-    list.innerHTML = State.songs.map((s) => {
+    const visible = State.songs.slice(0, State.songVisible);
+    list.innerHTML = visible.map((s) => {
       const hasSub = !!matchSubtitleFor(s);
       const thumb = s.cover_url
         ? '<div class="song-thumb"><img src="' + esc(s.cover_url) + '" alt="" loading="lazy" onerror="this.remove()" /></div>'
@@ -728,6 +758,7 @@
         '</div>'
       );
     }).join('');
+    updateLoadMore('#songLoadMoreWrap', State.songs.length - State.songVisible);
   }
 
   // Event delegation: click bài hát
@@ -815,7 +846,7 @@
       .eq('anime_id', animeId)
       .order('is_pinned', { ascending: false })
       .order('created_at', { ascending: false })
-      .limit(200);
+      .limit(100);
     $('#commentLoading').classList.add('hidden');
     if (error) {
       console.error('Lỗi đọc bình luận:', error);
@@ -824,15 +855,27 @@
       return;
     }
     const comments = data || [];
+    State.commentAll = comments;
+    State.commentVisible = 20;
+    renderCommentList();
+  }
+
+  function renderCommentList() {
+    const list = $('#commentList');
+    const empty = $('#commentEmpty');
+    const comments = State.commentAll || [];
     if (comments.length === 0) {
       list.innerHTML = '';
       list.classList.add('hidden');
       empty.classList.remove('hidden');
+      updateLoadMore('#commentLoadMoreWrap', 0);
       return;
     }
     empty.classList.add('hidden');
     list.classList.remove('hidden');
-    list.innerHTML = comments.map((c) => commentHTML(c)).join('');
+    const visible = comments.slice(0, State.commentVisible);
+    list.innerHTML = visible.map((c) => commentHTML(c)).join('');
+    updateLoadMore('#commentLoadMoreWrap', comments.length - State.commentVisible);
   }
 
   function commentHTML(c) {
@@ -861,37 +904,53 @@
   // Tải toàn bộ chat chung (anime_id = null + tất cả bình luận trong phim, kèm tên anime)
   async function loadGlobalChat() {
     if (!State.supabase) return;
-    const list = $('#chatList');
-    const empty = $('#chatEmpty');
-    const loading = $('#chatLoading');
-    if (list.classList.contains('hidden')) loading.classList.remove('hidden');
-    // Lấy tất cả bình luận (từ mọi phim + chung) gần nhất
     const { data, error } = await State.supabase
       .from('comments')
       .select('*')
       .order('created_at', { ascending: false })
-      .limit(200);
-    if (loading) loading.classList.add('hidden');
+      .limit(100);
     if (error) {
       console.error('Lỗi đọc chat chung:', error);
-      list.innerHTML = '<p class="empty-desc">Không tải được tin nhắn.</p>';
-      list.classList.remove('hidden');
-      empty.classList.add('hidden');
       return;
     }
     const comments = data || [];
-    if (comments.length === 0) {
-      list.innerHTML = '';
-      list.classList.add('hidden');
-      empty.classList.remove('hidden');
-      return;
-    }
-    empty.classList.add('hidden');
-    list.classList.remove('hidden');
-    // Map anime_id → title để gắn nhãn
     const animeMap = {};
     State.animes.forEach((a) => { animeMap[String(a.id)] = a; });
-    list.innerHTML = comments.map((c) => chatHTML(c, animeMap)).join('');
+    State.chatAll = comments;
+    State.chatMap = animeMap;
+    renderGlobalChat();
+  }
+
+  // Render chat chung: preview (3 tin) khi thu gọn; list đầy đủ khi mở rộng
+  function renderGlobalChat() {
+    const comments = State.chatAll || [];
+    const map = State.chatMap || {};
+
+    // Preview: luôn hiển thị 3 tin mới nhất trong thanh thu gọn
+    const preview = $('#chatPreview');
+    if (preview) {
+      preview.innerHTML = comments.slice(0, 3).map((c) => chatHTML(c, map)).join('');
+      $('#chatDockStatus').textContent = comments.length > 0
+        ? Math.min(3, comments.length) + ' tin mới nhất' + (comments.length > 3 ? ' · ' + comments.length + ' tin' : '')
+        : 'Chưa có tin nhắn';
+    }
+
+    // List đầy đủ
+    const list = $('#chatList');
+    const empty = $('#chatEmpty');
+    if (comments.length === 0) {
+      if (list) list.innerHTML = '';
+      if (empty) empty.classList.remove('hidden');
+      updateLoadMore('#chatLoadMoreWrap', 0);
+      return;
+    }
+    if (empty) empty.classList.add('hidden');
+    const visible = comments.slice(0, State.chatVisible);
+    if (list) {
+      list.classList.remove('hidden');
+      list.innerHTML = visible.map((c) => chatHTML(c, map)).join('');
+    }
+    updateLoadMore('#chatLoadMoreWrap', comments.length - State.chatVisible);
   }
 
   // Render 1 tin chat chung: nếu có anime_id → thêm nhãn học phim
@@ -1097,27 +1156,16 @@
     const input = $('#uploadImgInput');
     const file = input.files && input.files[0];
     if (!file) return;
-    const btn = $('#uploadImgBtn');
-    btn.disabled = true;
-    btn.textContent = '⏳';
     try {
       const result = await uploadImageToCloudinary(file);
       const url = result.secure_url || result.url;
       if (!url) throw new Error('Không lấy được URL ảnh.');
-      const box = $('#commentBox');
-      const imgMd = '![' + esc(file.name || 'ảnh') + '](' + esc(url) + ')';
-      // Chèn vào vị trí con trỏ hoặc thêm vào cuối
-      const start = box.selectionStart != null ? box.selectionStart : box.value.length;
-      box.value = box.value.slice(0, start) + imgMd + box.value.slice(box.selectionEnd || start);
+      insertAtCursor($('#commentBox'), '![' + esc(file.name || 'ảnh') + '](' + esc(url) + ')');
       toast('Đã tải ảnh lên Cloudinary ✅', 'success');
-      // Xóa preview để cho chọn file mới
-      input.value = '';
     } catch (err) {
       toast('Lỗi tải ảnh: ' + err.message, 'error', 5000);
-    } finally {
-      btn.disabled = false;
-      btn.textContent = '📤';
     }
+    input.value = '';
   }
 
   // Toolbar soạn thảo: chèn BBCode/Markdown vào textarea
@@ -1157,6 +1205,69 @@
     pos = start + insert.length;
     box.focus();
     box.setSelectionRange(pos, pos);
+  }
+
+  /* ──────────────────────────────────────────────────────
+     PASTE THÔNG MINH: URL → link, URL ảnh → ảnh, file ảnh → upload
+     ────────────────────────────────────────────────────── */
+  // Chèn text vào vị trí con trỏ trong textarea
+  function insertAtCursor(box, text) {
+    if (!box) return;
+    const start = box.selectionStart != null ? box.selectionStart : box.value.length;
+    const end = box.selectionEnd != null ? box.selectionEnd : start;
+    box.value = box.value.slice(0, start) + text + box.value.slice(end);
+    const pos = start + text.length;
+    box.focus();
+    box.setSelectionRange(pos, pos);
+  }
+
+  function isLikelyUrl(s) {
+    try {
+      const u = new URL(s);
+      return u.protocol === 'http:' || u.protocol === 'https:';
+    } catch (_e) { return false; }
+  }
+
+  const IMG_URL_RE = /\.(png|jpe?g|gif|webp|bmp|svg|avif|ico)(\?[^\s]*)?$/i;
+
+  // Xử lý khi người dùng paste vào ô nhập (cả bình luận lẫn chat)
+  function onSmartPaste(e, box) {
+    const cd = e.clipboardData;
+    if (!cd) return;
+    // 1) Paste file ảnh từ clipboard (vd: chụp màn hình, sao chép ảnh) → tự upload
+    const items = Array.from(cd.items || []);
+    const imageFile = items
+      .map((it) => (it.kind === 'file' ? it.getAsFile() : null))
+      .find((f) => f && f.type && f.type.startsWith('image/'));
+    if (imageFile) {
+      e.preventDefault();
+      smartUploadImage(imageFile, box);
+      return;
+    }
+    // 2) Paste text: nếu là URL → tự chuyển thành link / ảnh
+    const text = (cd.getData('text/plain') || '').trim();
+    if (!text) return;
+    if (isLikelyUrl(text)) {
+      e.preventDefault();
+      const isImg = IMG_URL_RE.test(text);
+      const md = isImg ? '![' + text + '](' + text + ')' : '[' + text + '](' + text + ')';
+      insertAtCursor(box, md);
+      toast(isImg ? 'Đã chèn ảnh từ link ✅' : 'Đã chèn link ✅', 'success');
+    }
+  }
+
+  // Tự upload ảnh dán (paste) lên Cloudinary rồi chèn markdown ảnh
+  async function smartUploadImage(file, box) {
+    try {
+      const result = await uploadImageToCloudinary(file);
+      const url = result.secure_url || result.url;
+      if (!url) throw new Error('Không lấy được URL ảnh.');
+      const md = '![' + esc(file.name || 'ảnh') + '](' + esc(url) + ')';
+      insertAtCursor(box, md);
+      toast('Đã tải ảnh lên Cloudinary ✅', 'success');
+    } catch (err) {
+      toast('Lỗi tải ảnh: ' + err.message, 'error', 5000);
+    }
   }
 
   /* ──────────────────────────────────────────────────────
@@ -1716,17 +1827,32 @@
     if (stf) stf.addEventListener('change', renderAnimeGrid);
     const srt = $('#sortFilter');
     if (srt) srt.addEventListener('change', renderAnimeGrid);
+    const animeLoadMore = $('#animeLoadMoreBtn');
+    if (animeLoadMore) animeLoadMore.addEventListener('click', () => {
+      State.animeVisible += 10;
+      renderAnimeGrid();
+    });
+    const songLoadMore = $('#songLoadMoreBtn');
+    if (songLoadMore) songLoadMore.addEventListener('click', () => {
+      State.songVisible += 15;
+      renderSongList();
+    });
 
-    // Bình luận: gửi & captcha & toolbar
+    // Bình luận: gửi & captcha & toolbar (bold/italic/.../) + paste tự xử lý link/ảnh
     $('#submitCommentBtn').addEventListener('click', submitComment);
     $('#captchaRefresh').addEventListener('click', newCaptcha);
-    $$('.tl-btn[data-fmt]').forEach((btn) => {
+    $$('#composer .tb-btn[data-fmt]').forEach((btn) => {
       btn.addEventListener('click', () => applyFormat(btn.dataset.fmt));
     });
-    $('#uploadImgBtn').addEventListener('click', () => $('#uploadImgInput').click());
+    const commentBox = $('#commentBox');
+    if (commentBox) commentBox.addEventListener('paste', (e) => onSmartPaste(e, commentBox));
     $('#uploadImgInput').addEventListener('change', handleImageUpload);
+    $('#commentLoadMoreBtn').addEventListener('click', () => {
+      State.commentVisible += 20;
+      renderCommentList();
+    });
 
-    // Chat chung: gửi & captcha & toolbar & upload ảnh & click nhãn anime
+    // Chat chung (sticky dock): gửi & captcha & toolbar & paste & click nhãn anime & mở rộng
     $('#chatSendBtn').addEventListener('click', submitChat);
     $('#chatCaptchaRefresh').addEventListener('click', newChatCaptcha);
     $$('#chatComposer [data-fmt]').forEach((btn) => {
@@ -1735,10 +1861,38 @@
         applyFormatTo(box, btn.dataset.fmt);
       });
     });
-    $('#chatUploadImgBtn').addEventListener('click', () => $('#chatUploadImgInput').click());
+    const chatBox = $('#chatBox');
+    if (chatBox) chatBox.addEventListener('paste', (e) => onSmartPaste(e, chatBox));
     $('#chatUploadImgInput').addEventListener('change', handleChatImageUpload);
-    $('#chatList').addEventListener('click', (e) => {
-      // Click nhãn anime → mở modal chi tiết
+    $('#chatLoadMoreBtn').addEventListener('click', () => {
+      State.chatVisible += 20;
+      renderGlobalChat();
+    });
+    // Bật/tắt mở rộng sticky chat
+    const dockHeader = $('#chatDockHeader');
+    const toggleDock = () => {
+      State.chatExpanded = !State.chatExpanded;
+      const body = $('#chatDockBody');
+      const toggle = $('#chatDockToggle');
+      const header = $('#chatDockHeader');
+      if (header) header.setAttribute('aria-expanded', String(State.chatExpanded));
+      if (body) body.classList.toggle('hidden', !State.chatExpanded);
+      if (toggle) toggle.textContent = State.chatExpanded ? '▼' : '▲';
+      if (State.chatExpanded) {
+        renderGlobalChat();
+        newChatCaptcha();
+        const box = $('#chatBox');
+        if (box) box.focus();
+      }
+    };
+    if (dockHeader) {
+      dockHeader.addEventListener('click', toggleDock);
+      dockHeader.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleDock(); }
+      });
+    }
+    $('#chatDock').addEventListener('click', (e) => {
+      // Click nhãn anime trong chat (cả preview lẫn list) → mở modal chi tiết
       const tag = e.target.closest('[data-anime-id]');
       if (tag) {
         e.preventDefault();
@@ -1875,14 +2029,12 @@
   /* ──────────────────────────────────────────────────────
      20. SWITCH TAB (Anime / Music / Chat chung)
      ────────────────────────────────────────────────────── */
-  // Tự làm mới chat chung mỗi 30s khi đang mở tab chat
+  // Tự làm mới chat chung mỗi 30s (chat luôn trực quan trong sticky bar)
   function refreshChat() {
     loadGlobalChat();
     if (State.chatTimer) clearInterval(State.chatTimer);
     State.chatTimer = setInterval(() => {
-      // chỉ refresh khi tab chat đang mở
-      const chatPanel = $('#tab-chat');
-      if (chatPanel && chatPanel.classList.contains('active')) loadGlobalChat();
+      loadGlobalChat();
     }, 30000);
   }
 
@@ -1891,9 +2043,6 @@
     const input = $('#chatUploadImgInput');
     const file = input.files && input.files[0];
     if (!file) return;
-    const btn = $('#chatUploadImgBtn');
-    btn.disabled = true;
-    btn.textContent = '⏳';
     try {
       const result = await uploadImageToCloudinary(file);
       const url = result.secure_url || result.url;
@@ -1905,23 +2054,21 @@
     } catch (err) {
       toast('Lỗi tải ảnh: ' + err.message, 'error', 5000);
     }
-    btn.disabled = false;
-    btn.textContent = '📤';
     input.value = '';
   }
 
   function switchTab(tabName) {
-    if (tabName !== 'anime' && tabName !== 'music' && tabName !== 'chat') return;
+    if (tabName !== 'anime' && tabName !== 'music') return;
     $$('.tab-panel').forEach((p) => {
       p.classList.toggle('active', p.dataset.panel === tabName);
     });
     $$('.nav-tab[data-tab]').forEach((b) => {
       b.classList.toggle('active', b.dataset.tab === tabName);
     });
-    if (tabName === 'chat') {
-      // Bắt đầu/refresh chat chung lần đầu + tự refresh
-      refreshChat();
-      newChatCaptcha();
+    // Đổi brand theo tab: KullAnime hoặc KullSong
+    const brand = $('#brandName');
+    if (brand) {
+      brand.innerHTML = tabName === 'anime' ? 'Kull<em>Anime</em>' : 'Kull<em>Song</em>';
     }
   }
 
@@ -1951,6 +2098,9 @@
     fetchSubsFiles();
     updateLoginUI();
     refreshAuthState();
+    // Khởi động chat chung (sticky bar) + captcha chat
+    newChatCaptcha();
+    refreshChat();
     // Tự làm mới dữ liệu công khai mỗi phút
     setInterval(() => { loadAnimes(); loadSongs(); }, REFRESH_MS);
   }
