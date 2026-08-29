@@ -185,7 +185,24 @@ select.input { appearance: none; -webkit-appearance: none; background-image: url
 .ass-file-item { font-size: 12px; color: var(--text-faint); padding: 3px 0; display: flex; align-items: center; gap: 6px; }
 .ass-file-item .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); flex-shrink: 0; }
 
-/* ============ MODALS ============ */
+/* ============ CHAT CHUNG ============ */
+.chat-layout { max-width: 900px; margin: 0 auto; }
+.chat-layout .composer { margin-bottom: 20px; }
+#chatList { display: flex; flex-direction: column; gap: 10px; }
+.chat-item { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 14px; transition: border-color 0.15s ease; }
+.chat-item:hover { border-color: var(--border-strong); }
+.chat-item.pinned { border-color: rgba(245, 158, 11, 0.5); background: color-mix(in srgb, rgba(245,158,11,0.07), var(--bg-card)); }
+.chat-item .comment-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 6px; }
+.chat-item .chat-anime-tag { font-size: 11px; font-weight: 700; color: var(--accent); background: var(--bg-elev); border: 1px solid var(--border); border-radius: 999px; padding: 2px 9px; cursor: pointer; text-decoration: none; transition: border-color 0.15s ease, color 0.15s ease; }
+.chat-item .chat-anime-tag:hover { border-color: var(--accent); color: var(--accent); }
+.chat-item .chat-anime-tag.chat-general { color: var(--text-dim); cursor: default; }
+.chat-item .chat-anime-tag.chat-general:hover { border-color: var(--border); color: var(--text-dim); }
+.chat-item .comment-body { font-size: 14.5px; line-height: 1.6; color: var(--text); word-wrap: break-word; overflow-wrap: break-word; }
+.chat-item .comment-body img { max-width: 100%; border-radius: 10px; }
+
+@media (max-width: 640px) {
+  .chat-layout { max-width: 100%; }
+}
 .modal-overlay { position: fixed; inset: 0; z-index: 100; background: rgba(4, 7, 15, 0.72); backdrop-filter: blur(6px); display: none; align-items: flex-start; justify-content: center; overflow-y: auto; padding: 20px 12px 60px; -webkit-overflow-scrolling: touch; }
 .modal-overlay.open { display: flex; animation: fadeIn 0.2s ease; }
 @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }

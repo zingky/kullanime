@@ -42,6 +42,9 @@
         <button class="nav-tab" data-tab="music" id="tabMusicBtn">
           <span class="tab-icon">🎵</span><span class="tab-label">Nhạc OST</span>
         </button>
+        <button class="nav-tab" data-tab="chat" id="tabChatBtn">
+          <span class="tab-icon">💬</span><span class="tab-label">Chat chung</span>
+        </button>
       </nav>
 
       <div class="header-actions">
@@ -151,6 +154,58 @@
             <div class="ass-files" id="assFileList"></div>
           </div>
         </aside>
+      </div>
+    </section>
+
+    <!-- ═══════════════ TAB: CHAT CHUNG ═══════════════ -->
+    <section class="tab-panel" id="tab-chat" data-panel="chat">
+      <div class="section-heading">
+        <h1 class="section-title">💬 Chat chung</h1>
+        <p class="section-subtitle">Trò chuyện toàn site — mọi bình luận (chung & trong từng phim)</p>
+      </div>
+
+      <div class="chat-layout">
+        <!-- Khung soạn thảo chung -->
+        <div class="composer" id="chatComposer">
+          <div class="composer-toolbar" role="toolbar" aria-label="Thanh công cụ soạn thảo chat">
+            <button type="button" class="tb-btn" data-fmt="bold" title="In đậm"><b>B</b></button>
+            <button type="button" class="tb-btn" data-fmt="italic" title="In nghiêng"><i>I</i></button>
+            <button type="button" class="tb-btn" data-fmt="underline" title="Gạch chân"><u>U</u></button>
+            <button type="button" class="tb-btn" data-fmt="strike" title="Gạch ngang"><s>S</s></button>
+            <button type="button" class="tb-btn" data-fmt="quote" title="Trích dẫn">❝</button>
+            <button type="button" class="tb-btn" data-fmt="code" title="Code">&lt;/&gt;</button>
+            <button type="button" class="tb-btn" data-fmt="link" title="Chèn link">🔗</button>
+            <button type="button" class="tb-btn" data-fmt="image" title="Chèn ảnh bằng URL">🖼</button>
+            <button type="button" class="tb-btn" id="chatUploadImgBtn" title="Tải ảnh lên Cloudinary">📤</button>
+            <input type="file" id="chatUploadImgInput" accept="image/*" class="hidden" />
+          </div>
+          <label class="visually-hidden" for="chatBox">Nội dung chat chung</label>
+          <textarea id="chatBox" class="composer-input" rows="3"
+                    placeholder="Gửi tin nhắn chat chung... Hỗ trợ Markdown & BBCode ([b]chữ đậm[/b])"></textarea>
+          <div class="composer-footer">
+            <input type="text" id="chatAuthor" class="input comment-author-input"
+                   placeholder="Tên hiển thị (bắt buộc)" maxlength="60" autocomplete="nickname" />
+            <div class="captcha-wrap">
+              <span id="chatCaptchaQ" class="captcha-question">—</span>
+              <input type="text" id="chatCaptchaInput" class="input captcha-input"
+                     placeholder="Kết quả" inputmode="numeric" maxlength="3" />
+              <button type="button" class="captcha-refresh" id="chatCaptchaRefresh" title="Đổi phép tính khác">🔄</button>
+            </div>
+            <button class="btn btn-primary" id="chatSendBtn">Gửi 💬</button>
+            <span class="rate-limit-hint" id="chatRateHint"></span>
+          </div>
+        </div>
+
+        <div id="chatList" class="comment-list"></div>
+        <div class="load-state hidden" id="chatLoading">
+          <div class="spinner" aria-hidden="true"></div>
+          <p>Đang tải tin nhắn...</p>
+        </div>
+        <div class="empty-state hidden" id="chatEmpty">
+          <p class="empty-emoji">💬</p>
+          <p class="empty-title">Chưa có tin nhắn nào</p>
+          <p class="empty-desc">Hãy là người đầu tiên chat chung nhé!</p>
+        </div>
       </div>
     </section>
   </main>
