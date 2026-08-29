@@ -36,8 +36,11 @@
     ytPlayer: null,
     // Rate limit comment
     lastCommentAt: 0,
+    lastChatAt: 0,
+    chatTimer: null,
     // Captcha hiện tại
     captcha: { a: 0, b: 0, result: 0 },
+    chatCaptcha: { a: 0, b: 0, result: 0 },
     // Jikan
     jikanAbort: null
   };
@@ -807,7 +810,72 @@
     );
   }
 
-  // Rate limiting: chặn gửi liên tục trong 45s
+  // Tải toàn bộ chat chung (anime_id = null + tất cả bình luận trong phim, kèm tên anime)
+  async function loadGlobalChat() {
+    if (!State.supabase) return;
+    const list = $('#chatList');
+    const empty = $('#chatEmpty');
+    const loading = $('#chatLoading');
+    if (list.classList.contains('hidden')) loading.classList.remove('hidden');
+    // Lấy tất cả bình luận (từ mọi phim + chung) gần nhất
+    const { data, error } = await State.supabase
+      .from('comments')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .limit(200);
+    if (loading) loading.classList.add('hidden');
+    if (error) {
+      console.error('Lỗi đọc chat chung:', error);
+      list.innerHTML = '<p class="empty-desc">Không tải được tin nhắn.</p>';
+      list.classList.remove('hidden');
+      empty.classList.add('hidden');
+      return;
+    }
+    const comments = data || [];
+    if (comments.length === 0) {
+      list.innerHTML = '';
+      list.classList.add('hidden');
+      empty.classList.remove('hidden');
+      return;
+    }
+    empty.classList.add('hidden');
+    list.classList.remove('hidden');
+    // Map anime_id → title để gắn nhãn
+    const animeMap = {};
+    State.animes.forEach((a) => { animeMap[String(a.id)] = a; });
+    list.innerHTML = comments.map((c) => chatHTML(c, animeMap)).join('');
+  }
+
+  // Render 1 tin chat chung: nếu có anime_id → thêm nhãn học phim
+  function chatHTML(c, animeMap) {
+    const anime = animeMap[String(c.anime_id)] || null;
+    const isPinned = !!c.is_pinned;
+    let actions = '';
+    if (State.isAdmin) {
+      actions =
+        '<div class="comment-actions">' +
+          '<button class="comment-action-btn" data-cact2="pin" data-id="' + esc(c.id) + '" title="' + (isPinned ? 'Bỏ ghim' : 'Ghim') + '">' + (isPinned ? '📌 Ghim' : '📍 Ghim') + '</button>' +
+          '<button class="comment-action-btn danger" data-cact2="del" data-id="' + esc(c.id) + '" title="Xóa">🗑</button>' +
+        '</div>';
+    }
+    const tag = anime
+      ? '<a href="#" class="chat-anime-tag" data-anime-id="' + esc(anime.id) + '" title="Mở chi tiết ' + esc(anime.title) + '">🎬 ' + esc(anime.title) + '</a>'
+      : '<span class="chat-anime-tag chat-general">💬 Chat chung</span>';
+    return (
+      '<div class="chat-item' + (isPinned ? ' pinned' : '') + '" data-id="' + esc(c.id) + '">' +
+        '<div class="comment-head">' +
+          '<span class="comment-author">' + esc(c.author_name || 'Ẩn danh') + '</span>' +
+          tag +
+          (isPinned ? '<span class="pin-badge">📌 Đã ghim</span>' : '') +
+          '<span class="comment-time">' + timeAgo(c.created_at) + '</span>' +
+          actions +
+        '</div>' +
+        '<div class="comment-body">' + renderRichText(c.content) + '</div>' +
+      '</div>'
+    );
+  }
+
+  // Rate limiting: chặn gửi liên tục trong 45s (dùng chung cho cả bình luận & chat)
   function enforceRateLimit() {
     const now = Date.now();
     const diff = now - State.lastCommentAt;
@@ -826,6 +894,14 @@
     State.captcha = { a, b, result: a + b };
     $('#captchaQ').textContent = a + ' + ' + b + ' = ?';
     $('#captchaInput').value = '';
+  }
+
+  function newChatCaptcha() {
+    const a = 1 + Math.floor(Math.random() * 9);
+    const b = 1 + Math.floor(Math.random() * 9);
+    State.chatCaptcha = { a, b, result: a + b };
+    $('#chatCaptchaQ').textContent = a + ' + ' + b + ' = ?';
+    $('#chatCaptchaInput').value = '';
   }
 
   async function submitComment() {
@@ -861,6 +937,50 @@
     loadComments(anime.id);
   }
 
+  // Gửi tin nhắn chat chung (anime_id = null)
+  function enforceChatRateLimit() {
+    const now = Date.now();
+    const diff = now - State.lastChatAt;
+    if (diff < 45000) {
+      const remain = Math.ceil((45000 - diff) / 1000);
+      $('#chatRateHint').textContent = '⏳ Chờ ' + remain + 's nữa để gửi tiếp.';
+      return false;
+    }
+    $('#chatRateHint').textContent = '';
+    return true;
+  }
+
+  async function submitChat() {
+    if (!State.supabase) { toast('Hệ thống chưa sẵn sàng.', 'error'); return; }
+    const author = $('#chatAuthor').value.trim();
+    const content = $('#chatBox').value.trim();
+    if (!author) { toast('Vui lòng nhập tên hiển thị.', 'warning'); return; }
+    if (!content) { toast('Vui lòng nhập nội dung chat.', 'warning'); return; }
+    if (!enforceChatRateLimit()) return;
+    const captchaVal = parseInt($('#chatCaptchaInput').value, 10);
+    if (isNaN(captchaVal) || captchaVal !== State.chatCaptcha.result) {
+      toast('Sai kết quả captcha. Thử lại.', 'error');
+      newChatCaptcha();
+      return;
+    }
+    const btn = $('#chatSendBtn');
+    btn.disabled = true;
+    const safeContent = filterBadWords(content).slice(0, 5000);
+    const { error } = await State.supabase
+      .from('comments')
+      .insert({ anime_id: null, author_name: author.slice(0, 60), content: safeContent, is_pinned: false });
+    btn.disabled = false;
+    if (error) {
+      toast('Không gửi được tin nhắn: ' + error.message, 'error', 5000);
+      return;
+    }
+    State.lastChatAt = Date.now();
+    $('#chatBox').value = '';
+    newChatCaptcha();
+    toast('Đã gửi tin nhắn 💬', 'success');
+    loadGlobalChat();
+  }
+
   // Xử lý pin/delete (admin)
   async function handleCommentAction(act, id) {
     if (!State.isAdmin) return;
@@ -877,6 +997,27 @@
       toast(isPinnedNow ? 'Đã bỏ ghim.' : 'Đã ghim 📌', 'success');
     }
     if (State.currentAnime) loadComments(State.currentAnime.id);
+  }
+
+  // Xử lý pin/delete trong chat chung (admin)
+  async function handleChatAdminAction(act, id) {
+    if (!State.isAdmin) return;
+    if (act === 'del') {
+      if (!confirm('Xóa tin nhắn này?')) return;
+      const { error } = await State.supabase.from('comments').delete().eq('id', id);
+      if (error) { toast('Xóa thất bại: ' + error.message, 'error'); return; }
+      toast('Đã xóa tin nhắn.', 'success');
+      loadGlobalChat();
+      if (State.currentAnime) loadComments(State.currentAnime.id);
+    } else if (act === 'pin') {
+      const item = document.querySelector('.chat-item[data-id="' + id + '"]');
+      const isPinnedNow = item ? item.classList.contains('pinned') : false;
+      const { error } = await State.supabase.from('comments').update({ is_pinned: !isPinnedNow }).eq('id', id);
+      if (error) { toast('Ghim thất bại: ' + error.message, 'error'); return; }
+      toast(isPinnedNow ? 'Đã bỏ ghim.' : 'Đã ghim 📌', 'success');
+      loadGlobalChat();
+      if (State.currentAnime) loadComments(State.currentAnime.id);
+    }
   }
 
   /* ──────────────────────────────────────────────────────
@@ -933,7 +1074,11 @@
 
   // Toolbar soạn thảo: chèn BBCode/Markdown vào textarea
   function applyFormat(fmt) {
-    const box = $('#commentBox');
+    applyFormatTo($('#commentBox'), fmt);
+  }
+
+  function applyFormatTo(box, fmt) {
+    if (!box) return;
     const start = box.selectionStart != null ? box.selectionStart : box.value.length;
     const end = box.selectionEnd != null ? box.selectionEnd : start;
     const selected = box.value.slice(start, end) || 'văn bản';
@@ -1314,7 +1459,9 @@
       return;
     }
     list.innerHTML = data.map((c) => {
-      const animeName = (State.animes.find((a) => a.id === c.anime_id) || {}).title || '';
+      const animeName = c.anime_id == null
+        ? '💬 Chat chung'
+        : ((State.animes.find((a) => a.id === c.anime_id) || {}).title || '—');
       return (
         '<div class="admin-row" data-id="' + esc(c.id) + '">' +
           '<div class="admin-row-info">' +
@@ -1531,6 +1678,31 @@
     $('#uploadImgBtn').addEventListener('click', () => $('#uploadImgInput').click());
     $('#uploadImgInput').addEventListener('change', handleImageUpload);
 
+    // Chat chung: gửi & captcha & toolbar & upload ảnh & click nhãn anime
+    $('#chatSendBtn').addEventListener('click', submitChat);
+    $('#chatCaptchaRefresh').addEventListener('click', newChatCaptcha);
+    $$('#chatComposer [data-fmt]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const box = $('#chatBox');
+        applyFormatTo(box, btn.dataset.fmt);
+      });
+    });
+    $('#chatUploadImgBtn').addEventListener('click', () => $('#chatUploadImgInput').click());
+    $('#chatUploadImgInput').addEventListener('change', handleChatImageUpload);
+    $('#chatList').addEventListener('click', (e) => {
+      // Click nhãn anime → mở modal chi tiết
+      const tag = e.target.closest('[data-anime-id]');
+      if (tag) {
+        e.preventDefault();
+        const a = State.animes.find((x) => String(x.id) === String(tag.dataset.animeId));
+        if (a) openAnimeDetail(a);
+        return;
+      }
+      // Admin actions trong chat
+      const btn = e.target.closest('[data-cact2]');
+      if (btn) handleChatAdminAction(btn.dataset.cact2, btn.dataset.id);
+    });
+
     // Admin: mở panel
     $('#adminBtn').addEventListener('click', () => {
       openModal('adminModal');
@@ -1653,16 +1825,56 @@
   }
 
   /* ──────────────────────────────────────────────────────
-     20. SWITCH TAB (Anime / Music)
+     20. SWITCH TAB (Anime / Music / Chat chung)
      ────────────────────────────────────────────────────── */
+  // Tự làm mới chat chung mỗi 30s khi đang mở tab chat
+  function refreshChat() {
+    loadGlobalChat();
+    if (State.chatTimer) clearInterval(State.chatTimer);
+    State.chatTimer = setInterval(() => {
+      // chỉ refresh khi tab chat đang mở
+      const chatPanel = $('#tab-chat');
+      if (chatPanel && chatPanel.classList.contains('active')) loadGlobalChat();
+    }, 30000);
+  }
+
+  // Upload ảnh trong chat chung
+  async function handleChatImageUpload() {
+    const input = $('#chatUploadImgInput');
+    const file = input.files && input.files[0];
+    if (!file) return;
+    const btn = $('#chatUploadImgBtn');
+    btn.disabled = true;
+    btn.textContent = '⏳';
+    try {
+      const result = await uploadImageToCloudinary(file);
+      const url = result.secure_url || result.url;
+      if (!url) throw new Error('Không lấy được URL ảnh.');
+      const box = $('#chatBox');
+      const imgMd = '![' + esc(file.name || 'ảnh') + '](' + esc(url) + ')';
+      box.value = (box.value || '') + (box.value ? '\n' : '') + imgMd;
+      toast('Đã tải ảnh lên ✅', 'success');
+    } catch (err) {
+      toast('Lỗi tải ảnh: ' + err.message, 'error', 5000);
+    }
+    btn.disabled = false;
+    btn.textContent = '📤';
+    input.value = '';
+  }
+
   function switchTab(tabName) {
-    if (tabName !== 'anime' && tabName !== 'music') return;
+    if (tabName !== 'anime' && tabName !== 'music' && tabName !== 'chat') return;
     $$('.tab-panel').forEach((p) => {
       p.classList.toggle('active', p.dataset.panel === tabName);
     });
     $$('.nav-tab[data-tab]').forEach((b) => {
       b.classList.toggle('active', b.dataset.tab === tabName);
     });
+    if (tabName === 'chat') {
+      // Bắt đầu/refresh chat chung lần đầu + tự refresh
+      refreshChat();
+      newChatCaptcha();
+    }
   }
 
   function closeAllModals() {
