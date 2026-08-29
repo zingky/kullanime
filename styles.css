@@ -56,6 +56,9 @@ html, body {
 .container { width: 100%; max-width: 1240px; margin: 0 auto; padding: 0 16px; }
 .hidden { display: none !important; }
 .visually-hidden { position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+/* Tab panels: chỉ hiện panel active */
+.tab-panel { display: none; }
+.tab-panel.active { display: block; animation: fadeIn 0.2s ease; }
 
 /* ============ HEADER ============ */
 .app-header {
