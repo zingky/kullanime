@@ -167,7 +167,60 @@
     return s;
   }
 
-  // Sanitize XSS bằng DOMPurify. KHÔNG BAO GIỜ render HTML chưa qua đây.
+  // Fallback sanitizer khi DOMPurify CDN không tải được.
+  // Chỉ cho phép một tập tag/attr an toàn, loại bỏ mọi script/event/iframe.
+  const SAFE_TAGS = new Set(['a', 'b', 'strong', 'i', 'em', 'u', 's', 'strike', 'del',
+    'code', 'pre', 'blockquote', 'p', 'br', 'ul', 'ol', 'li', 'span', 'div', 'h1', 'h2', 'h3', 'h4', 'img']);
+  function sanitizeHTMLFallback(html) {
+    if (typeof DOMPurify !== 'undefined') {
+      return DOMPurify.sanitize(html, {
+        USE_PROFILES: { html: true },
+        FORBID_TAGS: ['style', 'iframe', 'form', 'input', 'button', 'object', 'embed', 'script'],
+        FORBID_ATTR: ['style', 'onerror', 'onload', 'onclick', 'onmouseover'],
+        ADD_ATTR: ['target', 'rel', 'class']
+      });
+    }
+    // Không có DOMPurify (CDN lỗi) → tự làm sạch qua DOM (vẫn an toàn XSS)
+    const doc = new DOMParser().parseFromString('<div id="__root">' + html + '</div>', 'text/html');
+    const root = doc.getElementById('__root');
+    function walk(node) {
+      // Xử lý text node: yên tâm giữ nguyên
+      Array.from(node.children || []).forEach((el) => {
+        const tag = (el.tagName || '').toLowerCase();
+        if (!SAFE_TAGS.has(tag) || /script|style|iframe|form|input|button|object|embed|link|meta/i.test(tag)) {
+          // Thay thế element nguy hiểm bằng text thuần (mất tag nhưng an toàn)
+          const txt = document.createTextNode(el.textContent || '');
+          el.replaceWith(txt);
+          return;
+        }
+        // Lọc attribute: chỉ giữ attr an toàn, và chỉ trên <a>/<img>
+        Array.from(el.attributes || []).forEach((attr) => {
+          const name = attr.name.toLowerCase();
+          const isHref = name === 'href' && (tag === 'a');
+          const isImg = (name === 'src' || name === 'alt') && tag === 'img';
+          const isSafeCommon = ['title', 'alt'].includes(name);
+          const isTargetRel = name === 'target' || name === 'rel';
+          if (!(isHref || isImg || isSafeCommon || isTargetRel)) {
+            el.removeAttribute(attr.name);
+          }
+          // Chỉ cho href/src bắt đầu bằng http(s) hoặc # , chặn javascript:
+          if ((name === 'href' || name === 'src') && !/^(https?:|#|\.|\/)/i.test(String(attr.value || ''))) {
+            el.removeAttribute(attr.name);
+            if (name === 'href') el.textContent = '[' + (el.textContent || '') + ']';
+          }
+        });
+        if (tag === 'a') {
+          el.setAttribute('target', '_blank');
+          el.setAttribute('rel', 'noopener noreferrer');
+        }
+        walk(el);
+      });
+    }
+    walk(root);
+    return root.innerHTML;
+  }
+
+  // Sanitize XSS. KHÔNG BAO GIỜ render HTML chưa qua đây.
   function renderRichText(raw) {
     const md = bbcodeToMarkdown(raw || '');
     let html;
@@ -176,14 +229,9 @@
     } catch (_e) {
       html = esc(md);
     }
-    // DOMPurify triệt hạ 100% script/event handler/iframe độc hại
-    const clean = DOMPurify.sanitize(html, {
-      USE_PROFILES: { html: true },
-      FORBID_TAGS: ['style', 'iframe', 'form', 'input', 'button', 'object', 'embed', 'script'],
-      FORBID_ATTR: ['style', 'onerror', 'onload', 'onclick', 'onmouseover'],
-      ADD_ATTR: ['target', 'rel', 'class']
-    });
-    return clean;
+    // DOMPurify triệt hạ 100% script/event handler/iframe độc hại;
+    // nếu CDN DOMPurify lỗi (không tải được) thì dùng fallback an toàn thay vì crash.
+    return sanitizeHTMLFallback(html);
   }
 
   // Bộ lọc từ cấm cơ bản (biến thành ***)
