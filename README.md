@@ -1,89 +1,113 @@
 # KullAnime 🎌
 
-Website quản lý, đánh giá và chia sẻ danh sách Anime cá nhân & cộng đồng. Tự động cào dữ liệu từ MyAnimeList qua Jikan API v4.
-
-## 🚀 Tech Stack
-
-- **Framework:** Next.js 14 (App Router), React 18, Tailwind CSS
-- **Database & Auth:** Supabase (PostgreSQL, RLS, Auth Email/Password)
-- **Media Storage:** Cloudinary (upload ảnh) & Link ảnh ngoài
-- **External API:** Jikan API v4 (https://api.jikan.moe/v4)
-- **Hosting:** Vercel
-
-## 📁 Cấu trúc dự án
-
-```
-├── src/
-│   ├── actions/          # Server Actions (auth, anime, comments, admin)
-│   ├── app/              # App Router pages
-│   │   ├── anime/[id]/   # Trang chi tiết anime
-│   │   ├── dashboard/    # Admin Dashboard
-│   │   ├── login/        # Đăng nhập
-│   │   ├── register/     # Đăng ký
-│   │   ├── search/       # Tìm kiếm & Cross-filter
-│   │   └── u/[username]/ # User Profile
-│   ├── components/       # UI Components
-│   ├── lib/              # Lib (Supabase, Jikan API, Cloudinary, Validation)
-│   ├── types/            # TypeScript types
-│   └── middleware.ts     # Session middleware
-├── supabase/
-│   └── schema.sql        # Database schema + RLS policies
-└── .env.local            # Environment variables
-```
-
-## ⚙️ Cài đặt
-
-### 1. Môi trường (.env.local)
-
-```env
-NEXT_PUBLIC_SUPABASE_URL=your-supabase-url
-NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
-NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME=your-cloud-name
-NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET=your-upload-preset
-NEXT_PUBLIC_DEFAULT_HOMEPAGE_TAB=community
-NEXT_PUBLIC_SITE_URL=http://localhost:3000
-```
-
-### 2. Cài đặt & chạy
-
-```bash
-npm install
-npm run dev
-```
-
-### 3. Tạo database trên Supabase
-
-1. Tạo project trên [Supabase](https://supabase.com)
-2. Vào **SQL Editor**
-3. Chạy toàn bộ nội dung file `supabase/schema.sql`
-4. Tạo admin user:
-   - Đăng ký user qua trang `/register`
-   - Chạy SQL: `UPDATE public.profiles SET role = 'admin' WHERE id = 'UUID_CỦA_USER';`
-
-### 4. Cấu hình Cloudinary
-
-1. Tạo account tại [Cloudinary](https://cloudinary.com)
-2. Tạo **Upload Preset** với mode **Unsigned**
-3. Điền vào `.env.local`
+Website quản lý, đánh giá và chia sẻ danh sách Anime cá nhân & cộng đồng — **site tĩnh 100% (Vanilla JS)**, không cần build, không cần server riêng. Dữ liệu + đăng nhập lưu trên **Supabase**, ảnh upload qua **Cloudinary**, auto-fill dữ liệu từ **Jikan API (MyAnimeList)**, phụ đề `.ass` tải tự động từ GitHub.
 
 ## ✨ Tính năng
 
-- **Homepage:** Tab Community List / Admin List, Filter theo Tên/Studio/Seiyuu/Ca sĩ
-- **Thêm Anime thông minh:** Realtime search Jikan API, tự động lấy Studio, Seiyuu, Trailer, Theme Songs (OP/ED/Insert)
-- **Trang chi tiết:** Trailer YouTube, Gallery ảnh (Cover tự động làm ảnh đầu tiên), Cross-filter Studio/Seiyuu/Ca sĩ, Bình luận (Ẩn danh + Bộ lọc từ cấm + Rate limit)
-- **User Profile:** `/u/[username]`, chế độ riêng tư
-- **Admin Dashboard:** Quản lý anime/bình luận/users, Quản lý từ cấm, Ban user, Export JSON/CSV
+- **Tab Anime / Nhạc OST** — chuyển tab bằng nav trên đầu trang
+- **Bộ sưu tập anime:** lưới card có poster, tìm theo tên/studio/thể loại, lọc theo trạng thái, sắp xếp (mới nhất / đánh giá cao / A-Z)
+- **Chi tiết anime (modal):** synopsis, studio, năm, rating, thanh tiến độ tập, dàn seiyuu
+- **Nhạc OST:** danh sách bài hát + player YouTube, tải phụ đề `.ass` từ GitHub + cập nhật Romaji/Vietsub theo thời gian phát
+- **Bình luận:** rich text (BBCode + Markdown, lọc qua DOMPurify chống XSS), upload ảnh qua Cloudinary, captcha + rate-limit 45s chống spam, admin ghim/xóa
+- **Admin Panel (đăng nhập):** CRUD anime & bài hát, quản lý bình luận, auto-fill form anime từ Jikan API, upload poster Cloudinary, export backup JSON
+
+## 🧱 Tech Stack
+
+- **Frontend:** Vanilla JS (ES6+), HTML5, CSS3 — không framework, không build step
+- **Database & Auth:** [Supabase](https://supabase.com) (PostgreSQL + RLS + Auth Email/Password)
+- **Media Storage:** Cloudinary (unsigned upload preset)
+- **External API:** Jikan API v4 (`https://api.jikan.moe/v4`)
+- **Subtitles:** GitHub API / raw.githubusercontent.com (thư mục `subs` của repo phụ đề)
+
+## 📁 Cấu trúc dự án
+
+| File | Vai trò |
+|---|---|
+| `index.html` | Toàn bộ giao diện (header, tab, modal anime/music, admin panel…) |
+| `styles.css` | Toàn bộ style |
+| `app.js` | Toàn bộ logic (Supabase, Cloudinary, Jikan, bình luận, admin…) |
+| `config.js` | Đọc config (`__APP_ENV__` → `.env.local` → default), dựng URL tiện ích |
+| `supabase-setup.sql` | Schema bảng + RLS + hướng dẫn tạo admin |
+| `.env.local` | Config khi chạy local (**KHÔNG commit** — đã trong `.gitignore`) |
+
+## ⚙️ Cài đặt & chạy local
+
+> ⚠️ **KHÔNG mở `index.html` bằng double-click.** Phải chạy qua HTTP server vì `config.js` dùng `fetch('./.env.local')`, mà trình duyệt chặn fetch trên giao thức `file://`.
+
+```bash
+# Cách 1: Python (đã rất phổ biến)
+python -m http.server 3000
+
+# Cách 2: Node
+npx serve .
+```
+
+Mở `http://localhost:3000`.
+
+### Tạo `.env.local` ở thư mục gốc
+
+```env
+NEXT_PUBLIC_SUPABASE_URL=...
+NEXT_PUBLIC_SUPABASE_ANON_KEY=...
+NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME=...
+NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET=...
+NEXT_PUBLIC_JIKAN_API_URL=https://api.jikan.moe/v4
+```
+
+Nếu thiếu `.env.local` hoặc deploy lên hosting tĩnh không serve file này, `config.js` tự động rơi về các giá trị default khai trong file.
+
+## 🗄️ Supabase
+
+1. Tạo project tại [supabase.com](https://supabase.com)
+2. **SQL Editor** → chạy toàn bộ nội dung `supabase-setup.sql` (tạo bảng `animes`, `songs`, `comments` + RLS)
+3. Tạo **admin** (2 cách — chi tiết ở cuối file `supabase-setup.sql`):
+   - **Dashboard:** `Authentication → Users → chọn user → Edit → App Metadata` thêm `{"is_admin": "true"}`
+   - **SQL:**
+     ```sql
+     update auth.users
+     set raw_app_meta_data =
+         coalesce(raw_app_meta_data,'{}'::jsonb) || '{"is_admin":"true"}'::jsonb
+     where email = 'EMAIL_CỦA_ADMIN';
+     ```
+4. Tạo tài khoản bằng nút **👤 Đăng nhập** trên web (email/password) rồi set admin như trên
+
+## 🖼️ Cloudinary
+
+1. Tạo account tại [cloudinary.com](https://cloudinary.com)
+2. **Settings → Upload → Upload presets** → tạo preset **Unsigned**
+3. Điền `CLOUDINARY_CLOUD_NAME` và `CLOUDINARY_UPLOAD_PRESET` vào `.env.local` / default trong `config.js`
+
+## 🚀 Deploy online
+
+### GitHub Pages (khuyên dùng — miễn phí, không cần CLI)
+
+1. Push code lên GitHub:
+   ```bash
+   git add .
+   git commit -m "update site"
+   git push origin main
+   ```
+2. Trên GitHub: repo `zingky/kullanime` → **Settings → Pages**
+3. **Build and deployment → Source**: chọn **Deploy from a branch**
+4. **Branch**: `main` → thư mục **`/ (root)`** → **Save**
+5. Chờ 1–2 phút, site mở tại: `https://zingky.github.io/kullanime/`
+
+> Khi deploy tĩnh, `.env.local` không được serve → `config.js` tự rơi về default. Hãy đảm bảo các default trong `config.js` đúng project của bạn (hiện đã đúng).
+
+### Netlify (kéo-thả thư mục — không cần git)
+
+1. Vào [netlify.com](https://netlify.com) → **Add new site → Deploy manually**
+2. Kéo thả cả dự án (gồm `index.html`, `app.js`, `config.js`, `styles.css`) vào
+3. Xong — URL dạng `https://<tên>.netlify.app`
 
 ## 🔒 Bảo mật
 
-- **RLS (Row Level Security):** Mọi người đọc public, user chỉ sửa/xóa dữ liệu của mình, admin toàn quyền
-- **Zod validation:** Chống SQL Injection & XSS
-- **Rate Limiting:** 2 bình luận/phút/IP cho khách ẩn danh
-- **Bad words filter:** Từ cấm bị chặn hoặc biến thành `***`
+- **RLS** trên Supabase: public chỉ đọc `animes`/`songs`; bình luận public đọc/ghi; ghi/sửa/xóa dữ liệu admin chỉ dành cho `is_admin`
+- **DOMPurify** lọc mọi HTML render từ user (chống XSS)
+- **Captcha + Rate limit (45s/lần)** chống spam bình luận
+- `.env.local` không commit (chỉ chứa key publishable — không bao giờ để Service Role Key ở client)
 
-## 🚀 Deploy lên Vercel
+## 📌 Lưu ý
 
-1. Push code lên GitHub
-2. Import vào [Vercel](https://vercel.com)
-3. Điền đầy đủ env variables
-4. Deploy!
+- Quyền admin kiểm tra qua `app_metadata.is_admin = 'true'` (không phải email tĩnh)
+- `.env.local` hiện chứa key của project Supabase `mtyfhywujsicnkgtxwya` và preset Cloudinary `datkull_unsign` — chỉ dùng khi dev
