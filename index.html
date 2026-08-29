@@ -12,8 +12,18 @@
 
   <!-- Tailwind CSS (CDN) -->
   <script src="https://cdn.tailwindcss.com"></script>
-  <!-- DOMPurify — chống XSS -->
+  <!-- DOMPurify — chống XSS (có fallback CDN jsdelivr nếu cloudflare lỗi) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/2.5.6/purify.min.js"></script>
+  <script>
+    // Nếu DOMPurify không tải được từ cloudflare (bị chặn/lỗi mạng), thử jsdelivr
+    (function () {
+      if (typeof window.DOMPurify !== 'undefined') return;
+      var s = document.createElement('script');
+      s.src = 'https://cdn.jsdelivr.net/npm/dompurify@3.1.6/dist/purify.min.js';
+      s.async = false;
+      document.head.appendChild(s);
+    })();
+  </script>
   <!-- Marked.js — parse Markdown -->
   <script src="https://cdn.jsdelivr.net/npm/marked@12.0.2/marked.min.js"></script>
   <!-- Supabase JS Client v2 -->
