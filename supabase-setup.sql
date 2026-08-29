@@ -75,6 +75,11 @@ create table if not exists public.comments (
 
 comment on table public.comments is 'Bình luận dạng forum, có thể ghim';
 
+-- (Tự sửa schema nếu bảng comments đã tồn tại từ trước mà thiếu cột —
+--  trường hợp thường gặp: bảng được tạo tay trước khi chạy script này.)
+alter table public.comments add column if not exists is_pinned   boolean not null default false;
+alter table public.comments add column if not exists author_name text    not null default '';
+
 
 -- ============================================================
 -- 4) TRIGGER CẬP NHẬT updated_at
