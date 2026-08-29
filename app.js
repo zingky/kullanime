@@ -1359,9 +1359,27 @@
     show('jikanResults');
     try {
       const url = State.config.JIKAN_API_URL + '/anime?q=' + encodeURIComponent(query) + '&limit=6&sfw=true';
-      const res = await fetch(url, { signal: State.jikanAbort.signal });
-      if (!res.ok) throw new Error('HTTP ' + res.status);
-      const data = await res.json();
+      let data = null;
+      // Jikan (API miễn phí của MAL) thường xuyên quá tải và trả 504.
+      // Tự động thử lại tối đa 3 lần với khoảng chờ ngắn trước khi báo lỗi.
+      let lastErr = null;
+      for (let attempt = 1; attempt <= 3; attempt++) {
+        try {
+          const res = await fetch(url, { signal: State.jikanAbort.signal });
+          if (res.ok) {
+            data = await res.json();
+            break;
+          }
+          lastErr = new Error('HTTP ' + res.status);
+          // 504/429/503 là lỗi quá tải — có thể thử lại. Lỗi 4xx khác thì bỏ qua thử lại.
+          if (res.status !== 504 && res.status !== 429 && res.status !== 503) break;
+        } catch (e) {
+          if (e.name === 'AbortError') throw e;
+          lastErr = e;
+        }
+        if (attempt < 3) await new Promise((r) => setTimeout(r, 1200 * attempt));
+      }
+      if (!data) throw lastErr || new Error('Không có phản hồi từ Jikan.');
       const items = (data && data.data) || [];
       if (items.length === 0) {
         results.innerHTML = '<p class="empty-desc">Không tìm thấy anime nào.</p>';
@@ -1381,7 +1399,10 @@
       }).join('');
     } catch (err) {
       if (err.name !== 'AbortError') {
-        results.innerHTML = '<p class="empty-desc">Lỗi tra cứu Jikan: ' + esc(err.message) + '</p>';
+        const friendly = err.message === 'HTTP 504'
+          ? 'Jikan (MyAnimeList) đang quá tải, chưa phản hồi được. Hãy thử lại sau ít phút — hoặc điền thông tin thủ công bên dưới.'
+          : ('Lỗi tra cứu Jikan: ' + esc(err.message) + '. Có thể thử lại hoặc điền tay.');
+        results.innerHTML = '<p class="empty-desc">' + friendly + '</p>';
       }
     }
   }
