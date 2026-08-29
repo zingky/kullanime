@@ -4,11 +4,12 @@ Website quản lý, đánh giá và chia sẻ danh sách Anime cá nhân & cộn
 
 ## ✨ Tính năng
 
-- **Tab Anime / Nhạc OST** — chuyển tab bằng nav trên đầu trang
+- **Tab Anime / Nhạc OST / Chat chung** — chuyển tab bằng nav trên đầu trang
 - **Bộ sưu tập anime:** lưới card có poster, tìm theo tên/studio/thể loại, lọc theo trạng thái, sắp xếp (mới nhất / đánh giá cao / A-Z)
 - **Chi tiết anime (modal):** synopsis, studio, năm, rating, thanh tiến độ tập, dàn seiyuu
 - **Nhạc OST:** danh sách bài hát + player YouTube, tải phụ đề `.ass` từ GitHub + cập nhật Romaji/Vietsub theo thời gian phát
 - **Bình luận:** rich text (BBCode + Markdown, lọc qua DOMPurify chống XSS), upload ảnh qua Cloudinary, captcha + rate-limit 45s chống spam, admin ghim/xóa
+- **💬 Chat chung:** tab tổng hợp toàn bộ tin nhắn — cả tin chat tự do (không gắn phim) lẫn bình luận trong từng phim, click nhãn phim để mở chi tiết; tự làm mới mỗi 30s
 - **Admin Panel (đăng nhập):** CRUD anime & bài hát, quản lý bình luận, auto-fill form anime từ Jikan API, upload poster Cloudinary, export backup JSON
 
 ## 🧱 Tech Stack
