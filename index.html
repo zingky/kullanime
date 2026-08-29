@@ -1,0 +1,425 @@
+<!DOCTYPE html>
+<html lang="vi" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="description" content="KullAnime — Website cá nhân trưng bày anime đã xem & trình phát nhạc OST kèm phụ đề .ass" />
+  <meta name="theme-color" content="#0b0f19" />
+  <title>KullAnime 🎌 — Anime & OST Player</title>
+
+  <!-- Favicon (emoji SVG, tối ưu di động) -->
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎌</text></svg>" />
+
+  <!-- Tailwind CSS (CDN) -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- DOMPurify — chống XSS -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/2.5.6/purify.min.js"></script>
+  <!-- Marked.js — parse Markdown -->
+  <script src="https://cdn.jsdelivr.net/npm/marked@12.0.2/marked.min.js"></script>
+  <!-- Supabase JS Client v2 -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <!-- YouTube IFrame Player API -->
+  <script src="https://www.youtube.com/iframe_api"></script>
+
+  <!-- File cấu hình (đọc .env.local / fallback) -->
+  <script src="./config.js"></script>
+
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+  <!-- ======================= HEADER / NAV ======================= -->
+  <header class="app-header">
+    <div class="header-inner container">
+      <button class="brand" id="brandBtn" aria-label="Về đầu trang">
+        <span class="brand-logo">🎌</span>
+        <span class="brand-name">Kull<em>Anime</em></span>
+      </button>
+
+      <nav class="main-nav" aria-label="Điều hướng chính">
+        <button class="nav-tab active" data-tab="anime" id="tabAnimeBtn">
+          <span class="tab-icon">🎬</span><span class="tab-label">Anime</span>
+        </button>
+        <button class="nav-tab" data-tab="music" id="tabMusicBtn">
+          <span class="tab-icon">🎵</span><span class="tab-label">Nhạc OST</span>
+        </button>
+      </nav>
+
+      <div class="header-actions">
+        <!-- Nút xuất hiện khi Admin đã đăng nhập -->
+        <button class="btn btn-admin hidden" id="adminBtn">
+          <span>🛠️</span><span class="btn-label">Quản trị</span>
+        </button>
+        <button class="btn btn-login" id="loginBtn">
+          <span id="loginBtnIcon">👤</span>
+          <span class="btn-label" id="loginBtnLabel">Đăng nhập</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- ======================= MAIN ======================= -->
+  <main class="app-main container" id="appMain">
+    <!-- ═══════════════ TAB: ANIME ═══════════════ -->
+    <section class="tab-panel active" id="tab-anime" data-panel="anime">
+      <div class="section-heading">
+        <h1 class="section-title">Anime đã xem 🎬</h1>
+        <p class="section-subtitle">Bộ sưu tập anime yêu thích của Kull</p>
+      </div>
+
+      <!-- Thanh lọc -->
+      <div class="filter-bar">
+        <input type="search" id="animeSearch" class="input filter-input"
+               placeholder="🔍 Tìm theo tên, studio, thể loại..." autocomplete="off" />
+        <select id="statusFilter" class="input filter-select" aria-label="Lọc theo trạng thái">
+          <option value="all">Tất cả trạng thái</option>
+          <option value="Đang chiếu">Đang chiếu</option>
+          <option value="Hoàn thành">Hoàn thành</option>
+          <option value="Sắp chiếu">Sắp chiếu</option>
+          <option value="Tạm ngưng">Tạm ngưng</option>
+        </select>
+        <select id="sortFilter" class="input filter-select" aria-label="Sắp xếp">
+          <option value="newest">Mới nhất</option>
+          <option value="rating">Đánh giá cao</option>
+          <option value="title">Tên A-Z</option>
+        </select>
+      </div>
+
+      <!-- Lưới thẻ anime -->
+      <div class="anime-grid" id="animeGrid"></div>
+      <div class="empty-state hidden" id="animeEmpty">
+        <p class="empty-emoji">🍃</p>
+        <p class="empty-title">Chưa có anime nào</p>
+        <p class="empty-desc">Admin hãy đăng nhập và thêm anime đầu tiên nhé!</p>
+      </div>
+      <div class="load-state hidden" id="animeLoading">
+        <div class="spinner" aria-hidden="true"></div>
+        <p>Đang tải danh sách...</p>
+      </div>
+    </section>
+
+    <!-- ═══════════════ TAB: NHẠC ═══════════════ -->
+    <section class="tab-panel" id="tab-music" data-panel="music">
+      <div class="section-heading">
+        <h1 class="section-title">OST Player 🎶</h1>
+        <p class="section-subtitle">Nhạc anime & phụ đề karaoke .ass (Kull-Vietsub)</p>
+      </div>
+
+      <div class="music-layout">
+        <!-- Trình phát YouTube + phụ đề -->
+        <div class="player-column">
+          <div class="video-wrap">
+            <div id="ytPlayer"></div>
+            <!-- Overlay phụ đề .ass -->
+            <div id="subtitleOverlay" class="subtitle-overlay" aria-live="polite"></div>
+            <div id="playerPlaceholder" class="player-placeholder">
+              <span class="ph-icon">🎵</span>
+              <p>Chọn một bài hát bên dưới để phát</p>
+            </div>
+          </div>
+          <div class="now-playing">
+            <div class="np-thumb" id="npThumb"><span class="np-thumb-ph">🎜</span></div>
+            <div class="np-info">
+              <p class="np-title" id="npTitle">Chưa chọn bài</p>
+              <p class="np-meta" id="npMeta">—</p>
+            </div>
+            <button class="btn btn-subtle" id="subsToggle" title="Bật/tắt phụ đề">
+              <span id="subsToggleIcon">💬</span>
+              <span class="btn-label" id="subsToggleLabel">Phụ đề: Tắt</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Danh sách phát -->
+        <aside class="playlist-column" aria-label="Danh sách phát">
+          <div class="playlist-toolbar">
+            <h2 class="playlist-title">Danh sách phát</h2>
+            <span class="playlist-count" id="songCount">0 bài</span>
+          </div>
+          <div id="songList" class="song-list"></div>
+          <div class="load-state hidden" id="songLoading">
+            <div class="spinner" aria-hidden="true"></div>
+            <p>Đang tải nhạc...</p>
+          </div>
+          <div class="empty-state hidden" id="songEmpty">
+            <p class="empty-emoji">🎵</p>
+            <p class="empty-title">Chưa có bài hát nào</p>
+          </div>
+
+          <div class="ass-status-card">
+            <p class="ass-status-title">📑 Phụ đề .ass từ GitHub</p>
+            <p class="ass-status-text" id="assStatus">Đang kiểm tra kho phụ đề...</p>
+            <div class="ass-files" id="assFileList"></div>
+          </div>
+        </aside>
+      </div>
+    </section>
+  </main>
+
+
+  <!-- ═══════════════ MODAL: CHI TIẾT ANIME + BÌNH LUẬN ═══════════════ -->
+  <div class="modal-overlay" id="animeModal" role="dialog" aria-modal="true" aria-hidden="true">
+    <div class="modal modal-lg anime-modal" role="document">
+      <button class="modal-close" data-close="animeModal" aria-label="Đóng">✕</button>
+      <div class="anime-detail" id="animeDetail">
+        <!-- Nội dung được render bằng JS -->
+      </div>
+      <div class="comment-section">
+        <h3 class="comment-heading">💬 Bình luận</h3>
+
+        <!-- Khung soạn thảo Forum -->
+        <div class="composer" id="composer">
+          <div class="composer-toolbar" role="toolbar" aria-label="Thanh công cụ soạn thảo">
+            <button type="button" class="tb-btn" data-fmt="bold" title="In đậm"><b>B</b></button>
+            <button type="button" class="tb-btn" data-fmt="italic" title="In nghiêng"><i>I</i></button>
+            <button type="button" class="tb-btn" data-fmt="underline" title="Gạch chân"><u>U</u></button>
+            <button type="button" class="tb-btn" data-fmt="strike" title="Gạch ngang"><s>S</s></button>
+            <button type="button" class="tb-btn" data-fmt="quote" title="Trích dẫn">❝</button>
+            <button type="button" class="tb-btn" data-fmt="code" title="Code">&lt;/&gt;</button>
+            <button type="button" class="tb-btn" data-fmt="link" title="Chèn link">🔗</button>
+            <button type="button" class="tb-btn" data-fmt="image" title="Chèn ảnh bằng URL">🖼</button>
+            <button type="button" class="tb-btn" id="uploadImgBtn" title="Tải ảnh lên Cloudinary">📤</button>
+            <input type="file" id="uploadImgInput" accept="image/*" class="hidden" />
+          </div>
+          <label class="visually-hidden" for="commentBox">Nội dung bình luận</label>
+          <textarea id="commentBox" class="composer-input" rows="3"
+                    placeholder="Viết bình luận... Hỗ trợ Markdown & BBCode ([b]chữ đậm[/b])"></textarea>
+          <div class="composer-footer">
+            <input type="text" id="commentAuthor" class="input comment-author-input"
+                   placeholder="Tên hiển thị (bắt buộc)" maxlength="60" autocomplete="nickname" />
+            <div class="captcha-wrap">
+              <span id="captchaQ" class="captcha-question">—</span>
+              <input type="text" id="captchaInput" class="input captcha-input"
+                     placeholder="Kết quả" inputmode="numeric" maxlength="3" />
+              <button type="button" class="captcha-refresh" id="captchaRefresh" title="Đổi phép tính khác">🔄</button>
+            </div>
+            <button class="btn btn-primary" id="submitCommentBtn">Gửi bình luận 📨</button>
+            <span class="rate-limit-hint" id="rateHint"></span>
+          </div>
+        </div>
+
+        <div id="commentList" class="comment-list"></div>
+        <div class="load-state hidden" id="commentLoading">
+          <div class="spinner" aria-hidden="true"></div>
+          <p>Đang tải bình luận...</p>
+        </div>
+        <div class="empty-state hidden" id="commentEmpty">
+          <p class="empty-emoji">💬</p>
+          <p class="empty-title">Chưa có bình luận</p>
+          <p class="empty-desc">Hãy là người đầu tiên bình luận nhé!</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════ MODAL: ĐĂNG NHẬP ADMIN ═══════════════ -->
+  <div class="modal-overlay" id="loginModal" role="dialog" aria-modal="true" aria-hidden="true">
+    <div class="modal modal-sm" role="document">
+      <button class="modal-close" data-close="loginModal" aria-label="Đóng">✕</button>
+      <h3 class="modal-title">🔐 Đăng nhập Admin</h3>
+      <p class="modal-subtitle">Chỉ quản trị viên mới có quyền này</p>
+      <form id="loginForm" novalidate>
+        <div class="field">
+          <label for="loginEmail">Email</label>
+          <input type="email" id="loginEmail" class="input" autocomplete="email" required />
+        </div>
+        <div class="field">
+          <label for="loginPassword">Mật khẩu</label>
+          <input type="password" id="loginPassword" class="input" autocomplete="current-password" required />
+        </div>
+        <p class="form-error hidden" id="loginError" role="alert"></p>
+        <button type="submit" class="btn btn-primary btn-block" id="loginSubmitBtn">Đăng nhập</button>
+      </form>
+    </div>
+  </div>
+
+
+  <!-- ═══════════════ MODAL: QUẢN TRỊ ═══════════════ -->
+  <div class="modal-overlay" id="adminModal" role="dialog" aria-modal="true" aria-hidden="true">
+    <div class="modal modal-xl admin-modal" role="document">
+      <button class="modal-close" data-close="adminModal" aria-label="Đóng">✕</button>
+      <h3 class="modal-title">🛠️ Bảng điều khiển Admin</h3>
+      <p class="modal-subtitle">Quản lý anime, nhạc & bình luận</p>
+
+      <div class="admin-tabs">
+        <button class="admin-tab-btn active" data-atab="animes">🎬 Anime</button>
+        <button class="admin-tab-btn" data-atab="songs">🎵 Nhạc</button>
+        <button class="admin-tab-btn" data-atab="comments">💬 Bình luận</button>
+        <button class="admin-tab-btn" data-atab="backup">📥 Backup</button>
+      </div>
+
+      <!-- ── Quản lý Anime ── -->
+      <div class="admin-pane active" data-apane="animes">
+        <div class="admin-pane-toolbar">
+          <h4 class="admin-pane-title">Danh sách anime</h4>
+          <button class="btn btn-primary" id="addAnimeBtn">＋ Thêm anime mới</button>
+        </div>
+        <div class="admin-list" id="adminAnimeList"></div>
+      </div>
+
+      <!-- ── Quản lý Nhạc ── -->
+      <div class="admin-pane" data-apane="songs">
+        <div class="admin-pane-toolbar">
+          <h4 class="admin-pane-title">Danh sách nhạc</h4>
+          <button class="btn btn-primary" id="addSongBtn">＋ Thêm bài hát</button>
+        </div>
+        <div class="admin-list" id="adminSongList"></div>
+      </div>
+
+      <!-- ── Quản lý Bình luận ── -->
+      <div class="admin-pane" data-apane="comments">
+        <div class="admin-pane-toolbar">
+          <h4 class="admin-pane-title">Toàn bộ bình luận (mới nhất)</h4>
+        </div>
+        <div class="admin-list" id="adminCommentList"></div>
+      </div>
+
+      <!-- ── Backup ── -->
+      <div class="admin-pane" data-apane="backup">
+        <div class="admin-pane-toolbar">
+          <h4 class="admin-pane-title">Sao lưu dữ liệu</h4>
+        </div>
+        <p class="backup-desc">
+          Tải toàn bộ dữ liệu (anime + nhạc + bình luận) về máy dưới dạng file JSON.
+          Dùng để sao lưu hoặc chuyển đổi host.
+        </p>
+        <button class="btn btn-accent" id="exportBackupBtn">📥 Export Backup JSON</button>
+      </div>
+    </div>
+  </div>
+
+
+  <!-- ═══════════════ MODAL: THÊM/SỬA ANIME ═══════════════ -->
+  <div class="modal-overlay" id="animeFormModal" role="dialog" aria-modal="true" aria-hidden="true">
+    <div class="modal modal-xl animate-form-modal" role="document">
+      <button class="modal-close" data-close="animeFormModal" aria-label="Đóng">✕</button>
+      <h3 class="modal-title" id="animeFormTitle">＋ Thêm anime</h3>
+
+      <!-- Tìm kiếm tự động qua Jikan -->
+      <div class="jikan-search">
+        <div class="jikan-search-row">
+          <input type="text" id="jikanQuery" class="input" placeholder="🔍 Gõ tên anime + Enter để tự động điền từ MAL" />
+          <button type="button" class="btn btn-accent" id="jikanSearchBtn">Tra cứu</button>
+        </div>
+        <div class="jikan-results hidden" id="jikanResults"></div>
+      </div>
+
+      <form id="animeForm" novalidate>
+        <input type="hidden" id="af_id" />
+        <div class="form-grid">
+          <div class="field field-span-2">
+            <label for="af_title">Tên anime *</label>
+            <input type="text" id="af_title" class="input" required />
+          </div>
+          <div class="field">
+            <label for="af_status">Trạng thái</label>
+            <select id="af_status" class="input">
+              <option>Đang chiếu</option>
+              <option>Hoàn thành</option>
+              <option>Sắp chiếu</option>
+              <option>Tạm ngưng</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="af_rating">Rating (0-10)</label>
+            <input type="number" id="af_rating" class="input" min="0" max="10" step="0.1" value="0" />
+          </div>
+          <div class="field">
+            <label for="af_year">Năm phát hành</label>
+            <input type="number" id="af_year" class="input" min="1950" max="2100" placeholder="2024" />
+          </div>
+          <div class="field">
+            <label for="af_studio">Studio</label>
+            <input type="text" id="af_studio" class="input" />
+          </div>
+          <div class="field">
+            <label for="af_total_ep">Tổng số tập</label>
+            <input type="number" id="af_total_ep" class="input" min="0" value="0" />
+          </div>
+          <div class="field">
+            <label for="af_watched_ep">Số tập đã xem</label>
+            <input type="number" id="af_watched_ep" class="input" min="0" value="0" />
+          </div>
+          <div class="field field-span-2">
+            <label for="af_poster">Poster URL</label>
+            <input type="url" id="af_poster" class="input" placeholder="https://..." />
+            <div class="poster-upload-row">
+              <button type="button" class="btn btn-ghost" id="af_posterUpload">📤 Tải ảnh lên Cloudinary</button>
+              <input type="file" id="af_avatarInput" accept="image/*" class="hidden" />
+            </div>
+            <div class="poster-preview" id="af_posterPreview"></div>
+          </div>
+          <div class="field field-span-2">
+            <label for="af_genres">Thể loại (phân cách bằng dấu phẩy)</label>
+            <input type="text" id="af_genres" class="input" placeholder="Action, Adventure, Fantasy" />
+          </div>
+          <div class="field field-span-2">
+            <label for="af_synopsis">Synopsis (Tóm tắt)</label>
+            <textarea id="af_synopsis" class="input" rows="4"></textarea>
+          </div>
+          <div class="field field-span-2">
+            <label>Dàn diễn viên lồng tiếng (Seiyuu)</label>
+            <div id="afSeiyuuList" class="seiyuu-list"></div>
+            <button type="button" class="btn btn-ghost" id="addSeiyuuBtn">＋ Thêm dòng Seiyuu</button>
+          </div>
+        </div>
+        <div class="form-actions">
+          <button type="button" class="btn btn-ghost" data-close="animeFormModal">Huỷ</button>
+          <button type="submit" class="btn btn-primary" id="saveAnimeBtn">💾 Lưu anime</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ═══════════════ MODAL: THÊM/SỬA BÀI HÁT ═══════════════ -->
+  <div class="modal-overlay" id="songFormModal" role="dialog" aria-modal="true" aria-hidden="true">
+    <div class="modal modal-md" role="document">
+      <button class="modal-close" data-close="songFormModal" aria-label="Đóng">✕</button>
+      <h3 class="modal-title" id="songFormTitle">＋ Thêm bài hát</h3>
+      <form id="songForm" novalidate>
+        <input type="hidden" id="sf_id" />
+        <div class="field">
+          <label for="sf_title">Tên bài hát *</label>
+          <input type="text" id="sf_title" class="input" required />
+        </div>
+        <div class="field">
+          <label for="sf_artist">Nghệ sĩ</label>
+          <input type="text" id="sf_artist" class="input" />
+        </div>
+        <div class="field">
+          <label for="sf_youtube">YouTube Video ID (phần sau watch?v=) hoặc URL *</label>
+          <input type="text" id="sf_youtube" class="input" placeholder="dQw4w9WgXcQ hoặc https://youtu.be/dQw4w9WgXcQ" required />
+        </div>
+        <div class="field">
+          <label for="sf_anime">Thuộc anime</label>
+          <input type="text" id="sf_anime" class="input" placeholder="Tên anime" />
+        </div>
+        <div class="field">
+          <label for="sf_type">Loại nhạc</label>
+          <select id="sf_type" class="input">
+            <option>OST</option>
+            <option>OP</option>
+            <option>ED</option>
+            <option>Insert</option>
+            <option>Kara</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="sf_cover">Ảnh bìa URL</label>
+          <input type="url" id="sf_cover" class="input" placeholder="https://..." />
+        </div>
+        <div class="form-actions">
+          <button type="button" class="btn btn-ghost" data-close="songFormModal">Huỷ</button>
+          <button type="submit" class="btn btn-primary" id="saveSongBtn">💾 Lưu bài hát</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ═══════════════ TOAST + BACKDROP ═══════════════ -->
+  <div id="toastContainer" class="toast-container" aria-live="polite"></div>
+  <div id="globalBackdrop" class="global-backdrop hidden"></div>
+
+  <script src="./app.js"></script>
+</body>
+</html>
+

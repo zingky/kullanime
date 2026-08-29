@@ -1,6 +1,15 @@
-node_modules
+# Environment (chứa secret — KHÔNG commit)
 .env.local
+.env*.local
+
+# Node / build artifacts (không dùng cho site tĩnh)
+node_modules/
 .next/
 out/
-.env*.local
-.git
+dist/
+build/
+
+# Hệ điều hành / editor
+.DS_Store
+Thumbs.db
+*.log
