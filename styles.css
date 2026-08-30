@@ -440,6 +440,47 @@ html[data-theme="light"] .modal { background: rgba(255, 255, 255, 0.72); }
 .seiyuu-name { font-size: 12.5px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .seiyuu-char { font-size: 11.5px; color: var(--text-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
+/* ── Synopsis: tóm tắt ngắn gọn + thanh cuộn dọc ── */
+.detail-synopsis-scroll { max-height: 190px; overflow-y: auto; padding-right: 6px; scrollbar-width: thin; }
+
+/* ── Chip click để tìm anime theo thể loại ── */
+.chip-btn {
+  cursor: pointer;
+  border: var(--glass-border);
+  background: rgba(255,255,255,0.06);
+  transition: all 0.15s ease;
+}
+.chip-btn:hover {
+  border-color: var(--accent);
+  color: var(--text);
+  background: rgba(99,102,241,0.18);
+}
+
+/* ── Khối Dàn diễn viên: bấm tiêu đề mới sổ ra (details/summary) ── */
+.detail-collapse summary.detail-collapse-head {
+  list-style: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  cursor: pointer;
+}
+.detail-collapse summary.detail-collapse-head::-webkit-details-marker { display: none; }
+.detail-collapse summary.detail-collapse-head .detail-section-title { margin: 0; }
+.detail-collapse-caret { font-size: 14px; color: var(--text-dim); transition: transform 0.2s ease; transform: rotate(0deg); }
+.detail-collapse[open] .detail-collapse-caret { transform: rotate(180deg); }
+.detail-collapse .seiyuu-grid { margin-top: 12px; }
+
+/* ── Tên diễn viên click để tìm anime theo diễn viên ── */
+.seiyuu-link { cursor: pointer; color: var(--accent); padding: 0; background: none; border: none; text-align: left; }
+.seiyuu-link:hover { text-decoration: underline; }
+
+/* ── "Trạng thái xem của tôi" khi nằm trong cột phụ ── */
+.detail-side-meta .my-tracker { padding: 13px; border-radius: var(--radius-sm); box-shadow: none; }
+.detail-side-meta .my-tracker-btns { flex-direction: column; }
+.detail-side-meta .my-tracker-rating { flex-direction: column; align-items: flex-start; }
+.detail-side-meta .my-tracker-rating .input { width: 100%; }
+
 /* ============ "TRẠNG THÁI XEM CỦA TÔI" (my tracker) ============ */
 .my-tracker { margin: 0; padding: 16px; background: var(--bg-card); border: var(--glass-border); border-radius: var(--radius); backdrop-filter: blur(12px) saturate(150%); -webkit-backdrop-filter: blur(12px) saturate(150%); box-shadow: var(--shadow-soft); }
 .my-tracker-title { font-size: 14.5px; font-weight: 700; margin-bottom: 12px; color: var(--text); }
@@ -473,6 +514,21 @@ html[data-theme="light"] .modal { background: rgba(255, 255, 255, 0.72); }
 .captcha-refresh { flex-shrink: 0; width: 38px; height: 38px; display: inline-flex; align-items: center; justify-content: center; border: var(--glass-border); border-radius: var(--radius-sm); background: var(--bg-elev); color: var(--text-dim); font-size: 15px; cursor: pointer; transition: border-color .2s, color .2s, transform .2s; backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); }
 .captcha-refresh:hover { border-color: var(--accent); color: var(--accent); transform: rotate(180deg); }
 .rate-limit-hint { flex-basis: 100%; font-size: 12px; color: var(--warning); }
+/* Dòng trạng thái khi đã đăng nhập (composer bình luận & chat) */
+.auth-name-line {
+  flex: 1 1 100%;
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 13px; color: var(--text-dim);
+  background: var(--bg-soft); border: var(--glass-border); border-radius: 10px;
+  padding: 6px 10px;
+}
+.auth-name-line strong { color: var(--accent); }
+.auth-name-edit {
+  border: none; background: transparent; color: var(--text-dim);
+  cursor: pointer; font-size: 12.5px; padding: 2px 6px; border-radius: 6px;
+  transition: all 0.12s ease;
+}
+.auth-name-edit:hover { color: var(--accent); background: rgba(255,255,255,0.07); }
 .comment-list { display: flex; flex-direction: column; gap: 12px; }
 .comment-item { background: var(--bg-card); border: var(--glass-border); border-radius: var(--radius); padding: 13px 14px; backdrop-filter: blur(12px) saturate(150%); -webkit-backdrop-filter: blur(12px) saturate(150%); box-shadow: var(--shadow-soft); }
 .comment-item.pinned { border-color: rgba(245, 158, 11, 0.5); background: color-mix(in srgb, rgba(245,158,11,0.07), var(--bg-card)); }

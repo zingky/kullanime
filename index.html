@@ -217,9 +217,13 @@
           <textarea id="chatBox" class="composer-input" rows="3"
                     placeholder="Gửi tin nhắn chat chung... ✓ Paste link/ảnh tự xử lý"></textarea>
           <div class="composer-footer">
+            <span class="auth-name-line hidden" id="chatAuthName">
+              👤 Đăng với tên <strong class="auth-name-val" id="chatAuthNameVal"></strong>
+              <button type="button" class="auth-name-edit" id="chatRenameBtn" title="Đổi tên hiển thị (nickname)">✏️ Đổi tên</button>
+            </span>
             <input type="text" id="chatAuthor" class="input comment-author-input"
                    placeholder="Tên hiển thị (bắt buộc)" maxlength="60" autocomplete="nickname" />
-            <div class="captcha-wrap">
+            <div class="captcha-wrap" id="chatCaptchaWrap">
               <span id="chatCaptchaQ" class="captcha-question">—</span>
               <input type="text" id="chatCaptchaInput" class="input captcha-input"
                      placeholder="Kết quả" inputmode="numeric" maxlength="3" />
@@ -269,9 +273,13 @@
           <textarea id="commentBox" class="composer-input" rows="3"
                     placeholder="Viết bình luận... ✓ Paste link/ảnh tự xử lý"></textarea>
           <div class="composer-footer">
+            <span class="auth-name-line hidden" id="commentAuthName">
+              👤 Đăng với tên <strong class="auth-name-val" id="commentAuthNameVal"></strong>
+              <button type="button" class="auth-name-edit" id="commentRenameBtn" title="Đổi tên hiển thị (nickname)">✏️ Đổi tên</button>
+            </span>
             <input type="text" id="commentAuthor" class="input comment-author-input"
                    placeholder="Tên hiển thị (bắt buộc)" maxlength="60" autocomplete="nickname" />
-            <div class="captcha-wrap">
+            <div class="captcha-wrap" id="commentCaptchaWrap">
               <span id="captchaQ" class="captcha-question">—</span>
               <input type="text" id="captchaInput" class="input captcha-input"
                      placeholder="Kết quả" inputmode="numeric" maxlength="3" />
@@ -299,12 +307,12 @@
     </div>
   </div>
 
-  <!-- ═══════════════ MODAL: ĐĂNG NHẬP ADMIN ═══════════════ -->
+  <!-- ═══════════════ MODAL: ĐĂNG NHẬP (ADMIN & THÀNH VIÊN) ═══════════════ -->
   <div class="modal-overlay" id="loginModal" role="dialog" aria-modal="true" aria-hidden="true">
     <div class="modal modal-sm" role="document">
       <button class="modal-close" data-close="loginModal" aria-label="Đóng">✕</button>
-      <h3 class="modal-title">🔐 Đăng nhập Admin</h3>
-      <p class="modal-subtitle">Chỉ quản trị viên mới có quyền này</p>
+      <h3 class="modal-title">🔐 Đăng nhập</h3>
+      <p class="modal-subtitle">Tài khoản thành viên: bình luận & chat không cần nhập tên, không cần captcha</p>
       <form id="loginForm" novalidate>
         <div class="field">
           <label for="loginEmail">Email</label>

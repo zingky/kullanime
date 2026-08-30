@@ -31,7 +31,9 @@
     subsEnabled: false,
     subsTick: null,
     isAdmin: false,
+    isLoggedIn: false,   // đã đăng nhập (thành viên hoặc admin)
     adminEmail: '',
+    nickname: '',        // tên hiển thị (nickname) của tài khoản đã đăng nhập
     youtubeReady: false,
     ytPlayer: null,
     // Rate limit comment
@@ -287,21 +289,47 @@
     if (!State.supabase) return;
     const { data } = await State.supabase.auth.getSession();
     const session = data && data.session;
-    State.isAdmin = !!(session && session.user);
-    State.adminEmail = session ? session.user.email : '';
-    updateLoginUI();
+    State.isLoggedIn = !!session;
+    State.adminEmail = session && session.user ? session.user.email : '';
+    State.nickname = '';
+    if (session && session.user) {
+      const nm = (session.user.user_metadata || {}).nickname;
+      State.nickname = (nm && String(nm).trim()) || (session.user.email || '').split('@')[0] || '';
+    }
+    applyAuthState();
     if (session) {
       const { data: uData, error: uErr } = await State.supabase.auth.getUser();
       if (!uErr && uData && uData.user) {
         const meta = uData.user.app_metadata || {};
-        if (meta.is_admin === 'true' || meta.is_admin === true) {
-          State.isAdmin = true;
-        } else {
-          State.isAdmin = false;
-        }
-        updateLoginUI();
+        State.isAdmin = meta.is_admin === 'true' || meta.is_admin === true;
+        const nm2 = (uData.user.user_metadata || {}).nickname;
+        if (nm2 && String(nm2).trim()) State.nickname = String(nm2).trim();
+        if (!nm2 && State.adminEmail) State.nickname = State.adminEmail.split('@')[0] || State.nickname;
+        applyAuthState();
       }
     }
+  }
+
+  // Đồng bộ giao diện theo trạng thái đăng nhập (nút header + composer)
+  function applyAuthState() {
+    updateLoginUI();
+    updateAuthUI();
+  }
+
+  // Ẩn/hiện ô tên hiển thị + captcha trong composer theo trạng thái đăng nhập
+  function updateAuthUI() {
+    const loggedIn = State.isLoggedIn;
+    const name = State.nickname || (State.adminEmail ? State.adminEmail.split('@')[0] : '') || 'Thành viên';
+    ['comment', 'chat'].forEach((pfx) => {
+      const authorEl = $('#' + pfx + 'Author');
+      const captchaWrap = $('#' + pfx + 'CaptchaWrap');
+      const authLine = $('#' + pfx + 'AuthName');
+      const authVal = $('#' + pfx + 'AuthNameVal');
+      if (authorEl) authorEl.classList.toggle('hidden', loggedIn);
+      if (captchaWrap) captchaWrap.classList.toggle('hidden', loggedIn);
+      if (authLine) authLine.classList.toggle('hidden', !loggedIn);
+      if (authVal) authVal.textContent = name;
+    });
   }
 
   async function loadAnimes() {
@@ -854,14 +882,17 @@
 
     // ══ Phần phải: tiêu đề + chips + synopsis + seiyuu ══
     const chips = [];
-    genres.forEach((g) => chips.push('<span class="chip">' + esc(g) + '</span>'));
+    genres.forEach((g) => chips.push('<button type="button" class="chip chip-btn" data-search="' + esc(g) + '" title="Tìm anime theo thể loại">' + esc(g) + '</button>'));
     chips.push('<span class="chip">📺 ' + (total || '?') + ' tập</span>');
     chips.push('<span class="chip my-status-chip ' + mySt.cls + '">' + mySt.icon + ' ' + esc(mySt.label) + '</span>');
     if (myRating > 0) chips.push('<span class="chip chip-mine">⭐ ' + myRating.toFixed(1) + '/10</span>');
 
     const seiyuuSection = seiyuu.length
-      ? '<section class="detail-section">' +
-          '<h3 class="detail-section-title">🎤 Dàn diễn viên lồng tiếng (Seiyuu)</h3>' +
+      ? '<details class="detail-section detail-collapse">' +
+          '<summary class="detail-collapse-head">' +
+            '<h3 class="detail-section-title">🎤 Dàn diễn viên lồng tiếng (Seiyuu)</h3>' +
+            '<span class="detail-collapse-caret">▾</span>' +
+          '</summary>' +
           '<div class="seiyuu-grid">' +
             seiyuu.map((s) =>
               '<div class="seiyuu-card">' +
@@ -869,20 +900,20 @@
                   ? '<div class="seiyuu-avatar"><img src="' + esc(s.image) + '" alt="" loading="lazy" onerror="this.remove()" /></div>'
                   : '<div class="seiyuu-avatar">🎙</div>') +
                 '<div class="seiyuu-info">' +
-                  '<div class="seiyuu-name">' + esc(s.name || '') + '</div>' +
+                  '<button type="button" class="seiyuu-name seiyuu-link" data-search="' + esc(s.name || '') + '" title="Tìm anime theo diễn viên">' + esc(s.name || '') + '</button>' +
                   '<div class="seiyuu-char">' + esc(s.character || '') + '</div>' +
                 '</div>' +
               '</div>'
             ).join('') +
           '</div>' +
-        '</section>'
+        '</details>'
       : '';
 
     el.innerHTML =
       '<div class="anime-detail">' +
         '<aside class="detail-side">' +
           '<figure class="anime-detail-poster">' + poster + '</figure>' +
-          '<div class="detail-side-meta">' + sideRows.join('') + '</div>' +
+          '<div class="detail-side-meta">' + sideRows.join('') + myPanel + '</div>' +
         '</aside>' +
         '<div class="detail-main">' +
           '<header class="detail-header">' +
@@ -892,10 +923,9 @@
           '<div class="detail-chips">' + chips.join('') + '</div>' +
           '<section class="detail-section">' +
             '<h3 class="detail-section-title">📖 Tóm tắt (Synopsis)</h3>' +
-            '<p class="detail-synopsis">' + esc(synopsis) + '</p>' +
+            '<div class="detail-synopsis-scroll"><p class="detail-synopsis">' + esc(synopsis) + '</p></div>' +
           '</section>' +
           seiyuuSection +
-          myPanel +
         '</div>' +
       '</div>';
   }
@@ -1146,16 +1176,24 @@
     const anime = State.currentAnime;
     if (!anime) return;
     if (!State.supabase) { toast('Hệ thống chưa sẵn sàng.', 'error'); return; }
-    const author = $('#commentAuthor').value.trim();
+    const loggedIn = State.isLoggedIn;
+    const author = loggedIn
+      ? (State.nickname || (State.adminEmail ? State.adminEmail.split('@')[0] : '') || 'Thành viên')
+      : $('#commentAuthor').value.trim();
     const content = $('#commentBox').value.trim();
+    if (loggedIn && !State.nickname && !State.adminEmail) {
+      toast('Không xác định được tên tài khoản. Vui lòng đăng nhập lại.', 'warning'); return;
+    }
     if (!author) { toast('Vui lòng nhập tên hiển thị.', 'warning'); return; }
     if (!content) { toast('Vui lòng nhập nội dung bình luận.', 'warning'); return; }
     if (!enforceRateLimit()) return;
-    const captchaVal = parseInt($('#captchaInput').value, 10);
-    if (isNaN(captchaVal) || captchaVal !== State.captcha.result) {
-      toast('Sai kết quả captcha. Thử lại.', 'error');
-      newCaptcha();
-      return;
+    if (!loggedIn) {
+      const captchaVal = parseInt($('#captchaInput').value, 10);
+      if (isNaN(captchaVal) || captchaVal !== State.captcha.result) {
+        toast('Sai kết quả captcha. Thử lại.', 'error');
+        newCaptcha();
+        return;
+      }
     }
     const btn = $('#submitCommentBtn');
     btn.disabled = true;
@@ -1190,16 +1228,24 @@
 
   async function submitChat() {
     if (!State.supabase) { toast('Hệ thống chưa sẵn sàng.', 'error'); return; }
-    const author = $('#chatAuthor').value.trim();
+    const loggedIn = State.isLoggedIn;
+    const author = loggedIn
+      ? (State.nickname || (State.adminEmail ? State.adminEmail.split('@')[0] : '') || 'Thành viên')
+      : $('#chatAuthor').value.trim();
     const content = $('#chatBox').value.trim();
+    if (loggedIn && !State.nickname && !State.adminEmail) {
+      toast('Không xác định được tên tài khoản. Vui lòng đăng nhập lại.', 'warning'); return;
+    }
     if (!author) { toast('Vui lòng nhập tên hiển thị.', 'warning'); return; }
     if (!content) { toast('Vui lòng nhập nội dung chat.', 'warning'); return; }
     if (!enforceChatRateLimit()) return;
-    const captchaVal = parseInt($('#chatCaptchaInput').value, 10);
-    if (isNaN(captchaVal) || captchaVal !== State.chatCaptcha.result) {
-      toast('Sai kết quả captcha. Thử lại.', 'error');
-      newChatCaptcha();
-      return;
+    if (!loggedIn) {
+      const captchaVal = parseInt($('#chatCaptchaInput').value, 10);
+      if (isNaN(captchaVal) || captchaVal !== State.chatCaptcha.result) {
+        toast('Sai kết quả captcha. Thử lại.', 'error');
+        newChatCaptcha();
+        return;
+      }
     }
     const btn = $('#chatSendBtn');
     btn.disabled = true;
@@ -1409,11 +1455,10 @@
     const icon = $('#loginBtnIcon');
     const label = $('#loginBtnLabel');
     const adminBtn = $('#adminBtn');
-    if (State.isAdmin) {
-      icon.textContent = '🔑';
-      label.textContent = State.adminEmail ? State.adminEmail : 'Admin';
-      adminBtn.classList.remove('hidden');
-      $('#loginBtnLabel').textContent = State.adminEmail || 'Admin';
+    if (State.isLoggedIn) {
+      icon.textContent = State.isAdmin ? '🔑' : '👤';
+      label.textContent = State.nickname || (State.adminEmail ? State.adminEmail.split('@')[0] : '') || (State.isAdmin ? 'Admin' : 'Thành viên');
+      adminBtn.classList.toggle('hidden', !State.isAdmin);
     } else {
       icon.textContent = '👤';
       label.textContent = 'Đăng nhập';
@@ -1422,9 +1467,9 @@
   }
 
   $('#loginBtn').addEventListener('click', () => {
-    if (State.isAdmin) {
+    if (State.isLoggedIn) {
       // Thoát đăng nhập
-      if (confirm('Đăng xuất khỏi tài khoản admin?')) handleLogout();
+      if (confirm('Đăng xuất khỏi tài khoản?')) handleLogout();
     } else {
       openModal('loginModal');
     }
@@ -1454,31 +1499,55 @@
     }
     const user = data && data.user;
     const meta = (user && user.app_metadata) || {};
-    if (meta.is_admin === 'true' || meta.is_admin === true) {
-      State.isAdmin = true;
-      State.adminEmail = user.email;
-      closeModal('loginModal');
+    State.isLoggedIn = true;
+    State.adminEmail = user.email;
+    State.isAdmin = meta.is_admin === 'true' || meta.is_admin === true;
+    const nm = (user.user_metadata || {}).nickname;
+    State.nickname = (nm && String(nm).trim()) || (user.email || '').split('@')[0] || '';
+    closeModal('loginModal');
+    applyAuthState();
+    if (State.isAdmin) {
       toast('Đăng nhập Admin thành công 🎉', 'success');
-      updateLoginUI();
       renderAdminAnimeList();
       renderAdminSongList();
       renderAdminCommentList();
     } else {
-      State.isAdmin = false;
-      await handleLogout(true);
-      toast('Tài khoản này không có quyền admin.', 'error', 5000);
+      toast('Đăng nhập thành công 🎉', 'success');
     }
   }
 
   async function handleLogout(silent) {
     if (State.supabase) await State.supabase.auth.signOut();
     State.isAdmin = false;
+    State.isLoggedIn = false;
     State.adminEmail = '';
-    updateLoginUI();
+    State.nickname = '';
+    applyAuthState();
     if (!silent) toast('Đã đăng xuất.', 'info');
     closeModal('loginModal');
     closeModal('adminModal');
   }
+
+  // Đổi tên hiển thị (nickname) của tài khoản đã đăng nhập
+  async function changeNickname() {
+    if (!State.supabase || !State.isLoggedIn) return;
+    const current = State.nickname || (State.adminEmail ? State.adminEmail.split('@')[0] : '') || '';
+    const name = prompt('Nhập tên hiển thị mới (nickname) cho tài khoản:', current);
+    if (name == null) return; // người dùng bấm Hủy
+    const trimmed = name.trim();
+    if (!trimmed) { toast('Tên hiển thị không được để trống.', 'warning'); return; }
+    if (trimmed.length > 60) { toast('Tên hiển thị tối đa 60 ký tự.', 'warning'); return; }
+    const btn = event && event.currentTarget;
+    if (btn) btn.disabled = true;
+    const { error } = await State.supabase.auth.updateUser({ data: { nickname: trimmed } });
+    if (btn) btn.disabled = false;
+    if (error) { toast('Không đổi được tên hiển thị: ' + error.message, 'error', 5000); return; }
+    State.nickname = trimmed;
+    applyAuthState();
+    toast('Đã đổi tên hiển thị thành "' + trimmed + '" ✅', 'success');
+  }
+  $('#commentRenameBtn').addEventListener('click', changeNickname);
+  $('#chatRenameBtn').addEventListener('click', changeNickname);
 
   // Xóa các container admin khi đăng xuất
   function clearAdminLists() {
@@ -1971,6 +2040,28 @@
         if (a) openAnimeDetail(a);
       }
     });
+
+    // Click thể loại / diễn viên trong modal anime → tìm anime theo từ đó
+    const detailEl = $('#animeDetail');
+    if (detailEl) {
+      detailEl.addEventListener('click', (e) => {
+        const target = e.target.closest('[data-search]');
+        if (!target) return;
+        const term = (target.dataset.search || '').trim();
+        if (!term) return;
+        closeModal('animeModal');
+        switchTab('anime');
+        const as = $('#animeSearch');
+        if (as) as.value = term;
+        const stf = $('#statusFilter');
+        if (stf) stf.value = 'all';
+        const srt = $('#sortFilter');
+        if (srt) srt.value = 'newest';
+        State.animeVisible = 10;
+        renderAnimeGrid();
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      });
+    }
 
     // Lọc & sắp xếp anime đã render sẵn qua renderAnimeGrid()
     const as = $('#animeSearch');
