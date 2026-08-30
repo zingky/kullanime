@@ -71,7 +71,15 @@ Nếu thiếu `.env.local` hoặc deploy lên hosting tĩnh không serve file n�
          coalesce(raw_app_meta_data,'{}'::jsonb) || '{"is_admin":"true"}'::jsonb
      where email = 'EMAIL_CỦA_ADMIN';
      ```
-4. Tạo tài khoản bằng nút **👤 Đăng nhập** trên web (email/password) rồi set admin như trên
+4. Tạo tài khoản quản trị (admin): login bằng email/password trên web rồi set `is_admin` như trên
+5. Tạo tài khoản **thành viên thường** (bình luận/chat): `Authentication → Users → Add user` (nhập email + password, không cần mời qua email). Không cần đặt gì thêm — người dùng tự đặt nickname sau khi đăng nhập.
+
+### Đăng nhập & nickname cho thành viên
+
+- Tài khoản thường đăng nhập bằng nút **👤 Đăng nhập** (email/password) giống admin.
+- Khi đã đăng nhập, bình luận & chat **không cần nhập tên hiển thị và không cần captcha** — hệ thống tự lấy tên theo **nickname** của tài khoản.
+- Nếu tài khoản chưa có nickname, hệ thống hiển thị **phần trước dấu `@`** của email (không lộ cả địa chỉ email). Người dùng bấm **✏️ Đổi tên** trong composer để đặt nickname và được lưu vĩnh viễn (qua `auth.updateUser`) — không cần chỉnh SQL nào.
+- **Khách chưa đăng nhập** vẫn gửi bình luận/chat như cũ: phải nhập tên hiển thị + giải captcha.
 
 ## 🖼️ Cloudinary
 
@@ -106,7 +114,7 @@ Nếu thiếu `.env.local` hoặc deploy lên hosting tĩnh không serve file n�
 
 - **RLS** trên Supabase: public chỉ đọc `animes`/`songs`; bình luận public đọc/ghi; ghi/sửa/xóa dữ liệu admin chỉ dành cho `is_admin`
 - **DOMPurify** lọc mọi HTML render từ user (chống XSS)
-- **Captcha + Rate limit (45s/lần)** chống spam bình luận
+- **Captcha + Rate limit (45s/lần)** chống spam bình luận — **chỉ áp dụng cho khách chưa đăng nhập**; tài khoản đã đăng nhập (thành viên/admin) gửi bình luận/chat không cần captcha
 - `.env.local` không commit (chỉ chứa key publishable — không bao giờ để Service Role Key ở client)
 
 ## 📌 Lưu ý
