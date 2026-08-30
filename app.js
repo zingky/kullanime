@@ -790,47 +790,41 @@
 
   function animeCardHTML(a) {
     const rating = Number(a.rating) || 0;
-    const eps = (a.watched_episodes || 0) + ' / ' + (a.total_episodes || '?') + ' tập';
     const mySt = myStatusMeta(a.my_status);
     const myRating = Math.round(Number(a.my_rating) || 0);
-    const isAdmin = State.isAdmin;
+    const totalEp = Number(a.total_episodes) || 0;
     const img = a.poster_url
       ? '<img src="' + esc(a.poster_url) + '" alt="' + esc(a.title) + '" loading="lazy" data-title="' + esc(a.title) + '" onerror="window.__posterFallback(this, this.dataset.title)" />'
       : posterFallback(a);
 
-    // Admin: nút 🌸 (góc trên-phải) mở menu trạng thái + badge text trạng thái (góc dưới-phải) — kèm số tập khi "Đang xem"
-    let statusUI = '';
-    let heartRow = '';
-    if (isAdmin) {
-      let badgeText;
-      if (mySt.cls === 'my-watching') {
-        const we = Number(a.watched_episodes) || 0;
-        const total = Number(a.total_episodes) || 0;
-        badgeText = '🔥 Đang xem' + ((we > 0 || total > 0) ? ' ' + we + '/' + (total || '?') + ' tập' : '');
-      } else if (mySt.cls === 'my-watched') badgeText = '✅ Đã xem';
-      else if (mySt.cls === 'my-planned') badgeText = '➕ Muốn xem';
-      else badgeText = '⬜ Chưa xem';
-      statusUI =
-        '<button type="button" class="card-sakura" data-quick="menu" title="Đặt trạng thái xem">🌸</button>' +
-        '<span class="card-status-badge ' + mySt.cls + '">' + esc(badgeText) + '</span>';
+    // Nút 🌸 (góc trên-phải) mở menu trạng thái — LUÔN hiển thị để sửa trạng thái nhanh + badge trạng thái (góc dưới-phải)
+    let badgeText;
+    if (mySt.cls === 'my-watching') {
+      const we = Number(a.watched_episodes) || 0;
+      badgeText = '🔥 Đang xem' + ((we > 0 || totalEp > 0) ? ' ' + we + '/' + (totalEp || '?') + ' tập' : '');
+    } else if (mySt.cls === 'my-watched') badgeText = '✅ Đã xem';
+    else if (mySt.cls === 'my-planned') badgeText = '➕ Muốn xem';
+    else badgeText = '⬜ Chưa xem';
+    const statusUI =
+      '<button type="button" class="card-sakura" data-quick="menu" title="Đặt trạng thái xem">🌸</button>' +
+      '<span class="card-status-badge ' + mySt.cls + '">' + esc(badgeText) + '</span>';
 
-      // Hàng 10 trái tim ♥ chấm điểm nhanh (giữa card) — bấm 1 cái là lưu, đồng bộ modal
-      heartRow =
-        '<div class="card-heart-row">' +
-          '<button type="button" class="card-heart-opt clear' + (myRating === 0 ? ' on' : '') + '" data-val="0" title="Xoá điểm ♥">✕</button>' +
-          Array.from({ length: 10 }, (_, i) => {
-            const v = i + 1;
-            return '<button type="button" class="card-heart-opt' + (v <= myRating ? ' on' : '') + '" data-val="' + v + '" title="' + v + '/10">' + (v <= myRating ? '♥' : '♡') + '</button>';
-          }).join('') +
-        '</div>';
-    } else {
-      statusUI = '<span class="card-mystatus ' + mySt.cls + '">' + mySt.icon + ' ' + esc(mySt.label) + '</span>';
-    }
+    // Hàng 10 trái tim ♥ chấm điểm (một hàng giữa card) — ẩn sẵn, bấm nút "7♥" ở meta để hiện & chấm điểm
+    const heartRow =
+      '<div class="card-heart-row hidden">' +
+        '<button type="button" class="card-heart-opt clear' + (myRating === 0 ? ' on' : '') + '" data-val="0" title="Xoá điểm ♥">✕</button>' +
+        Array.from({ length: 10 }, (_, i) => {
+          const v = i + 1;
+          return '<button type="button" class="card-heart-opt' + (v <= myRating ? ' on' : '') + '" data-val="' + v + '" title="Chấm ' + v + '/10 ♥">' + (v <= myRating ? '♥' : '♡') + '</button>';
+        }).join('') +
+      '</div>';
 
-    // Admin: ★ cộng đồng + số tập gọn (♥ đã thành hàng 10 trái tim giữa card)
-    const progressText = isAdmin
-      ? (a.watched_episodes || 0) + '/' + (a.total_episodes || '?')
-      : eps;
+    // Meta: ★ điểm cộng đồng (AniDB) | nút điểm của tôi (bấm để chấm lại) | tổng số tập đã phát hành
+    const metaRight =
+      '<span class="card-meta-right">' +
+        '<button type="button" class="card-heart-btn" title="Điểm của tôi — bấm để chấm ♥">' + (myRating > 0 ? myRating + '♥' : '♥') + '</button>' +
+        '<span class="card-progress">' + (totalEp ? totalEp + '/' + totalEp : '?/?') + '</span>' +
+      '</span>';
 
     return (
       '<article class="anime-card" data-id="' + esc(a.id) + '" role="button" tabindex="0" aria-label="Xem chi tiết ' + esc(a.title) + '">' +
@@ -843,7 +837,7 @@
           heartRow +
           '<div class="card-meta">' +
             '<span class="card-rating">★ ' + rating.toFixed(1) + '</span>' +
-            '<span class="card-progress">' + progressText + '</span>' +
+            metaRight +
           '</div>' +
         '</div>' +
       '</article>'
@@ -2283,7 +2277,15 @@
       const card = e.target.closest('.anime-card');
       if (!card || !card.dataset.id) return;
 
-      // 10 trái tim ♥ trên card: bấm là chấm điểm liền
+      // Nút điểm ♥ ở meta: bấm để hiện/ẩn hàng 10 trái tim chấm điểm (không mở modal)
+      const hBtn = e.target.closest('.card-heart-btn');
+      if (hBtn) {
+        const row = card.querySelector('.card-heart-row');
+        if (row) row.classList.toggle('hidden');
+        return;
+      }
+
+      // 10 trái tim ♥ trên card (hàng chấm điểm): bấm 1 cái là chấm điểm liền
       const hOpt = e.target.closest('.card-heart-opt');
       if (hOpt) {
         const v = Number(hOpt.dataset.val) || 0;
