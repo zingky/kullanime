@@ -58,6 +58,24 @@ html, body {
   scroll-behavior: smooth;
 }
 
+/* ═══════════ FLUID / UNIVERSAL RESPONSIVE BASE ═══════════
+   Đảm bảo mọi nội dung tự co giãn mượt theo mọi kích thước cửa sổ:
+   chống tràn ngang, ảnh/video luôn thu lại đúng khung chứa,
+   và chữ dài / URL dài tự ngắt xuống dòng thay vì đẩy bố cục.
+   (Không đặt overflow-x trên body để giữ position: sticky header hoạt động bình thường.) */
+body {
+  width: 100%;
+  overflow-wrap: anywhere;
+}
+img, video, iframe, canvas, svg {
+  max-width: 100%;
+  height: auto;
+}
+iframe { border: 0; }
+p, h1, h2, h3, h4, h5, h6, li, a, span, div, td, th {
+  overflow-wrap: break-word;
+}
+
 /* ═══════════ AURORA / LIQUID GLASS BACKGROUND ═══════════ */
 .bg-aurora { position: fixed; inset: 0; z-index: -2; overflow: hidden; background: var(--bg); }
 .aurora-blob { position: absolute; border-radius: 50%; filter: blur(70px); opacity: 0.5; will-change: transform; animation: auroraFloat 26s ease-in-out infinite alternate; }
@@ -81,7 +99,7 @@ html, body {
   box-shadow: var(--shadow-soft);
 }
 
-.container { width: 100%; max-width: 1240px; margin: 0 auto; padding: 0 16px; }
+.container { width: 100%; max-width: 1240px; margin: 0 auto; padding: 0 clamp(12px, 3vw, 24px); box-sizing: border-box; }
 .hidden { display: none !important; }
 .visually-hidden { position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 /* Tab panels: chỉ hiện panel active */
@@ -96,18 +114,19 @@ html, body {
 }
 .header-inner {
   display: flex; align-items: center; justify-content: space-between; gap: 10px; height: 58px;
-  padding: 0 14px;
+  padding: 0 clamp(10px, 2vw, 16px);
   border-radius: 18px;
   background: rgba(255, 255, 255, 0.06);
   backdrop-filter: blur(20px) saturate(160%);
   -webkit-backdrop-filter: blur(20px) saturate(160%);
   border: var(--glass-border);
   box-shadow: var(--shadow-soft);
+  min-width: 0;
 }
-.brand { display: inline-flex; align-items: center; gap: 8px; background: none; border: none; cursor: pointer; padding: 4px; color: var(--text); }
-.brand-logo { font-size: 24px; line-height: 1; filter: drop-shadow(0 0 8px rgba(168,85,247,0.6)); }
-.brand-name { font-weight: 800; font-size: 18px; letter-spacing: -0.02em; }
+.brand { display: inline-flex; align-items: center; gap: 8px; background: none; border: none; cursor: pointer; padding: 4px; color: var(--text); min-width: 0; }
+.brand-name { font-weight: 800; font-size: 18px; letter-spacing: -0.02em; white-space: nowrap; }
 .brand-name em { font-style: normal; background: var(--grad); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.brand-logo { font-size: 24px; line-height: 1; filter: drop-shadow(0 0 8px rgba(168,85,247,0.6)); flex-shrink: 0; }
 
 .main-nav { display: flex; gap: 4px; background: rgba(255, 255, 255, 0.06); padding: 4px; border-radius: 14px; border: var(--glass-border); }
 .nav-tab { display: inline-flex; align-items: center; gap: 6px; padding: 8px 14px; border: none; background: transparent; color: var(--text-dim); border-radius: 11px; cursor: pointer; font-weight: 600; font-size: 14px; transition: all 0.18s ease; white-space: nowrap; }
@@ -148,10 +167,9 @@ html, body {
 select.input { appearance: none; -webkit-appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23aab3d0' stroke-width='2' fill='none' stroke-linecap='round'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 14px center; padding-right: 34px; }
 
 /* ============ ANIME GRID ============ */
-.anime-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; }
-@media (min-width: 560px) { .anime-grid { grid-template-columns: repeat(3, 1fr); } }
-@media (min-width: 860px) { .anime-grid { grid-template-columns: repeat(4, 1fr); } }
-@media (min-width: 1100px) { .anime-grid { grid-template-columns: repeat(5, 1fr); } }
+/* Grid tự co giãn mượt theo bất kỳ chiều rộng cửa sổ nào:
+   number of cột được tính tự động từ bề rộng container, không đổi theo mốc cứng. */
+.anime-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(150px, 100%), 1fr)); gap: clamp(10px, 1.6vw, 16px); }
 
 .anime-card { position: relative; background: var(--bg-card); border: var(--glass-border); border-radius: var(--radius); overflow: hidden; cursor: pointer; transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease; backdrop-filter: blur(14px) saturate(150%); -webkit-backdrop-filter: blur(14px) saturate(150%); box-shadow: var(--shadow-soft); }
 .anime-card:hover { transform: translateY(-6px); box-shadow: var(--shadow); border-color: rgba(168, 85, 247, 0.4); }
@@ -184,8 +202,9 @@ select.input { appearance: none; -webkit-appearance: none; background-image: url
 @keyframes spin { to { transform: rotate(360deg); } }
 
 /* ============ MUSIC LAYOUT ============ */
-.music-layout { display: grid; grid-template-columns: 1fr; gap: 18px; padding: 16px 0 40px; }
+.music-layout { display: grid; grid-template-columns: 1fr; gap: clamp(14px, 2vw, 22px); padding: 16px 0 40px; min-width: 0; }
 @media (min-width: 900px) { .music-layout { grid-template-columns: 7fr 5fr; } }
+.music-column, .player-column, .playlist-column { min-width: 0; } /* mọi cột music luôn co được, tránh tràn ngang */
 .video-wrap { position: relative; width: 100%; aspect-ratio: 16 / 9; background: #000; border-radius: var(--radius); overflow: hidden; border: var(--glass-border); box-shadow: var(--shadow-soft); }
 .video-wrap iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: none; }
 .player-placeholder { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; background: radial-gradient(circle at 30% 30%, rgba(168,85,247,0.22), transparent 55%), radial-gradient(circle at 70% 70%, rgba(6,182,212,0.22), transparent 55%), rgba(17,24,39,0.6); color: var(--text-dim); text-align: center; padding: 20px; backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); }
@@ -208,8 +227,8 @@ select.input { appearance: none; -webkit-appearance: none; background-image: url
 .np-meta { margin: 3px 0 0; font-size: 12.5px; color: var(--text-dim); }
 
 .playlist-column { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
-.playlist-toolbar { display: flex; align-items: center; justify-content: space-between; }
-.playlist-title { margin: 0; font-size: 16px; font-weight: 700; }
+.playlist-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; min-width: 0; }
+.playlist-title { margin: 0; font-size: 16px; font-weight: 700; min-width: 0; }
 .playlist-count { font-size: 12.5px; color: var(--text-faint); }
 .song-list { display: flex; flex-direction: column; gap: 8px; max-height: 62vh; overflow-y: auto; padding-right: 2px; }
 .song-list::-webkit-scrollbar { width: 8px; }
@@ -596,6 +615,30 @@ html[data-theme="light"] .modal { background: rgba(255, 255, 255, 0.72); }
 @media (min-width: 641px) {
   .nav-tab .tab-label { display: inline; }
   .btn .btn-label { display: inline; }
+}
+
+/* ═══════════ MƯỢT Ở VÙNG TRUNG GIAN & MÀN RẤT HẸP ═══════════ */
+.main-nav { flex-shrink: 0; }
+.header-actions { flex-shrink: 0; }
+
+/* 641–900px: modal anime 2 cột vẫn đủ rộng nhưng thu poster & khoảng cách gọn hơn */
+@media (min-width: 641px) and (max-width: 900px) {
+  .anime-detail { grid-template-columns: minmax(170px, 200px) minmax(0, 1fr); gap: 18px; }
+  .modal { padding: 18px 16px; }
+}
+
+/* Màn rất hẹp (< 480px): thu nhỏ mọi khoảng cách, tránh tràn do padding */
+@media (max-width: 480px) {
+  .header-inner { height: 54px; gap: 6px; padding: 0 10px; }
+  .brand-logo { font-size: 21px; }
+  .section-heading { padding: 16px 0 6px; }
+  .modal { padding: 16px 12px; }
+  .modal-overlay { padding: 12px 8px 40px; }
+  .anime-detail { padding: 2px; }
+  .detail-section { padding: 13px 14px; }
+  .filter-bar { padding: 10px; }
+  .song-item { gap: 8px; }
+  .btn { padding: 8px 10px; font-size: 13px; }
 }
 
 /* ============ FINISHING TOUCHES (Glass polish) ============ */
