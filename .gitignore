@@ -16,3 +16,9 @@ Thumbs.db
 
 # File clipboard/console tạm
 Clipboard*.txt
+
+# Công cụ chụp màn hình / debug tạm — KHÔNG commit lên repo
+.shots/
+_repro_*.html
+_shot_*.png
+*wide_*.png
