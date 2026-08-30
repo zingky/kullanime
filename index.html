@@ -32,7 +32,7 @@
   <!-- File cấu hình (đọc .env.local / fallback) -->
   <script src="./config.js"></script>
 
-  <link rel="stylesheet" href="./styles.css?v=13" />
+  <link rel="stylesheet" href="./styles.css?v=14" />
 </head>
 <body>
   <!-- Nền aurora động (liquid glass background) -->
@@ -337,7 +337,10 @@
       <div class="admin-pane active" data-apane="animes">
         <div class="admin-pane-toolbar">
           <h4 class="admin-pane-title">Danh sách anime</h4>
-          <button class="btn btn-primary" id="addAnimeBtn">＋ Thêm anime mới</button>
+          <div class="admin-pane-actions">
+            <button class="btn btn-ghost" id="backfillCharsBtn" title="Tự tìm trên AniList và bổ sung ảnh nhân vật (character art) cho các anime đã có, chạy từ từ theo thứ tự toàn bộ danh sách">🧑‍🎤 Lấy ảnh nhân vật</button>
+            <button class="btn btn-primary" id="addAnimeBtn">＋ Thêm anime mới</button>
+          </div>
         </div>
         <div class="admin-list" id="adminAnimeList"></div>
       </div>
@@ -505,7 +508,11 @@
   <div id="toastContainer" class="toast-container" aria-live="polite"></div>
   <div id="globalBackdrop" class="global-backdrop hidden"></div>
 
-  <script src="./app.js?v=12"></script>
+  <!-- Popup mini: chọn tập đã xem / chấm điểm ♥ -->
+  <div class="mini-pop hidden" id="epPop"></div>
+  <div class="mini-pop hidden" id="heartPop"></div>
+
+  <script src="./app.js?v=13"></script>
 </body>
 </html>
 
