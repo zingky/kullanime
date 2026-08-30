@@ -28,8 +28,8 @@
     SUPABASE_ANON_KEY: 'sb_publishable_bW0XvOK3wp8gMJvgpykB9g_LUu1t6Xn',
 
     // Cloudinary
-    CLOUDINARY_CLOUD_NAME: 'datkull',
-    CLOUDINARY_UPLOAD_PRESET: 'datkull_unsign',
+    CLOUDINARY_CLOUD_NAME: 'kull',
+    CLOUDINARY_UPLOAD_PRESET: 'kull_unsign',
 
     // AniList GraphQL API — miễn phí, không cần key, ổn định (thay cho Jikan/MAL hay bị quá tải)
     ANILIST_API_URL: 'https://graphql.anilist.co',

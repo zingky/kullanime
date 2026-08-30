@@ -120,4 +120,4 @@ Nếu thiếu `.env.local` hoặc deploy lên hosting tĩnh không serve file n�
 ## 📌 Lưu ý
 
 - Quyền admin kiểm tra qua `app_metadata.is_admin = 'true'` (không phải email tĩnh)
-- `.env.local` hiện chứa key của project Supabase `mtyfhywujsicnkgtxwya` và preset Cloudinary `datkull_unsign` — chỉ dùng khi dev
+- `.env.local` hiện chứa key của project Supabase `mtyfhywujsicnkgtxwya` và preset Cloudinary `kull_unsign` — chỉ dùng khi dev
