@@ -898,6 +898,33 @@
           myPanel +
         '</div>' +
       '</div>';
+
+    // ── DEBUG TẠM (v11): in số liệu layout thực tế lên console để chẩn đoán cột chữ bị ép.
+    //    Xoá sau khi xác nhận modal hiển thị đúng trên màn hình lớn.
+    try {
+      const st = (sel) => {
+        const n = document.querySelector(sel);
+        if (!n) return null;
+        const cs = getComputedStyle(n);
+        return {
+          display: cs.display,
+          flexDirection: cs.flexDirection,
+          flex: cs.flex,
+          flexBasis: cs.flexBasis,
+          width: cs.width,
+          maxWidth: cs.maxWidth,
+          minWidth: cs.minWidth,
+          gridTemplateColumns: cs.gridTemplateColumns,
+          writingMode: cs.writingMode,
+          whiteSpace: cs.whiteSpace
+        };
+      };
+      console.log('[DETAIL-DEBUG] .anime-detail =', st('.anime-detail'));
+      console.log('[DETAIL-DEBUG] .detail-side   =', st('.detail-side'));
+      console.log('[DETAIL-DEBUG] .detail-main   =', st('.detail-main'));
+      console.log('[DETAIL-DEBUG] .detail-title  =', st('.detail-title'));
+      console.log('[DETAIL-DEBUG] .anime-modal   =', st('.anime-modal'));
+    } catch (e) { console.warn('[DETAIL-DEBUG]', e); }
   }
 
   // Panel chỉnh trạng thái xem + điểm của tôi (chỉ hiện khi admin đăng nhập)
