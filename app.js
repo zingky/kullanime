@@ -806,45 +806,75 @@
     const myPanel = State.isAdmin ? myStatusEditorHTML(a) : '';
 
     const poster = a.poster_url
-      ? '<img src="' + esc(a.poster_url) + '" alt="' + esc(a.title) + '" onerror="this.remove()" />'
+      ? '<img src="' + esc(a.poster_url) + '" alt="' + esc(a.title) + '" loading="lazy" onerror="this.outerHTML=`' + posterFallback(a) + '`" />'
       : '<div class="poster-fallback">🎞</div>';
+
+    // Làm sạch synopsis: gộp dòng trống liên tiếp, cắt khoảng trắng 2 đầu để căn đều mượt hơn
+    const synopsis =
+      String(a.synopsis || '')
+        .replace(/\r\n/g, '\n')
+        .replace(/[ \t]+\n/g, '\n')
+        .replace(/\n{3,}/g, '\n\n')
+        .trim() || 'Chưa có mô tả.';
+
+    const seiyuuSection = seiyuu.length
+      ? '<section class="detail-section">' +
+          '<h3 class="detail-section-title">🎤 Dàn diễn viên lồng tiếng (Seiyuu)</h3>' +
+          '<div class="seiyuu-grid">' +
+            seiyuu.map((s) =>
+              '<div class="seiyuu-card">' +
+                (s.image
+                  ? '<div class="seiyuu-avatar"><img src="' + esc(s.image) + '" alt="" loading="lazy" onerror="this.remove()" /></div>'
+                  : '<div class="seiyuu-avatar">🎙</div>') +
+                '<div class="seiyuu-info">' +
+                  '<div class="seiyuu-name">' + esc(s.name || '') + '</div>' +
+                  '<div class="seiyuu-char">' + esc(s.character || '') + '</div>' +
+                '</div>' +
+              '</div>'
+            ).join('') +
+          '</div>' +
+        '</section>'
+      : '';
 
     el.innerHTML =
       '<div class="anime-detail">' +
-        '<div class="anime-detail-poster">' + poster + '</div>' +
-        '<div class="detail-info">' +
-          '<h2 class="detail-title">' + esc(a.title || '') + '</h2>' +
-          '<p class="detail-subtitle">' + esc([a.studio, a.year].filter(Boolean).join(' · ') || '—') + '</p>' +
-          '<p class="detail-synopsis">' + esc(a.synopsis || 'Chưa có mô tả.') + '</p>' +
+        '<aside class="detail-side">' +
+          '<figure class="anime-detail-poster">' + poster + '</figure>' +
+          '<div class="detail-side-meta">' +
+            (a.status
+              ? '<div class="detail-side-row">' +
+                  '<span class="detail-side-label">Trạng thái</span>' +
+                  '<span class="detail-side-value">' + esc(a.status) + '</span>' +
+                '</div>'
+              : '') +
+            '<div class="detail-side-row">' +
+              '<span class="detail-side-label">Điểm cộng đồng</span>' +
+              '<span class="detail-side-value detail-rating">★ ' + rating.toFixed(1) + '/10</span>' +
+            '</div>' +
+            '<div class="detail-side-row detail-side-progress">' +
+              '<span class="detail-side-label">Tiến độ</span>' +
+              '<div class="progress-bar"><div class="progress-fill" style="width:' + pct + '%"></div></div>' +
+              '<span class="detail-progress-text">' + watched + ' / ' + (total || '?') + ' tập · ' + pct + '%</span>' +
+            '</div>' +
+          '</div>' +
+        '</aside>' +
+        '<div class="detail-main">' +
+          '<header class="detail-header">' +
+            '<h2 class="detail-title">' + esc(a.title || '') + '</h2>' +
+            '<p class="detail-subtitle">' + esc([a.studio, a.year].filter(Boolean).join(' · ') || '—') + '</p>' +
+          '</header>' +
           '<div class="detail-chips">' +
             (genres.length ? genres.map((g) => '<span class="chip">' + esc(g) + '</span>').join('') : '') +
-            '<span class="chip">★ ' + rating.toFixed(1) + '/10</span>' +
-            '<span class="chip">' + esc(a.status || '') + '</span>' +
+            '<span class="chip">📺 ' + (total || '?') + ' tập</span>' +
             '<span class="chip my-status-chip ' + mySt.cls + '">' + mySt.icon + ' ' + esc(mySt.label) + '</span>' +
-            (myRating > 0 ? '<span class="chip">⭐ ' + myRating.toFixed(1) + '/10 (của tôi)</span>' : '') +
+            (myRating > 0 ? '<span class="chip chip-mine">⭐ ' + myRating.toFixed(1) + '/10</span>' : '') +
           '</div>' +
-          '<div class="detail-progress">' +
-            '<span>Tiến độ</span>' +
-            '<div class="progress-bar"><div class="progress-fill" style="width:' + pct + '%"></div></div>' +
-            '<span>' + watched + ' / ' + (total || '?') + ' tập (' + pct + '%)</span>' +
-          '</div>' +
+          '<section class="detail-section">' +
+            '<h3 class="detail-section-title">📖 Tóm tắt (Synopsis)</h3>' +
+            '<p class="detail-synopsis">' + esc(synopsis) + '</p>' +
+          '</section>' +
+          seiyuuSection +
           myPanel +
-          (seiyuu.length
-            ? '<h4 class="seiyuu-title">🎤 Dàn diễn viên lồng tiếng (Seiyuu)</h4>' +
-              '<div class="seiyuu-grid">' +
-                seiyuu.map((s) =>
-                  '<div class="seiyuu-card">' +
-                    (s.image
-                      ? '<div class="seiyuu-avatar"><img src="' + esc(s.image) + '" alt="" onerror="this.remove()" /></div>'
-                      : '<div class="seiyuu-avatar">🎙</div>') +
-                    '<div class="seiyuu-info">' +
-                      '<div class="seiyuu-name">' + esc(s.name || '') + '</div>' +
-                      '<div class="seiyuu-char">' + esc(s.character || '') + '</div>' +
-                    '</div>' +
-                  '</div>'
-                ).join('') +
-              '</div>'
-            : '') +
         '</div>' +
       '</div>';
   }

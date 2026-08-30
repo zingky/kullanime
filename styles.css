@@ -305,30 +305,100 @@ html[data-theme="light"] .modal { background: rgba(255, 255, 255, 0.72); }
 .modal-title { margin: 0 0 6px; font-size: 20px; font-weight: 800; }
 .modal-subtitle { margin: 0 0 18px; color: var(--text-dim); font-size: 13.5px; }
 
-.anime-detail { display: grid; grid-template-columns: 1fr; gap: 20px; padding: 6px 4px 10px; min-width: 0; }
-@media (min-width: 640px) { .anime-detail { grid-template-columns: 220px minmax(0, 1fr); } }
-.anime-detail-poster { width: 100%; max-width: 220px; margin: 0 auto; border-radius: 14px; overflow: hidden; border: var(--glass-border); aspect-ratio: 3 / 4.2; background: var(--bg-elev); box-shadow: var(--shadow-soft); }
+/* ── Grid chính: mặc định 1 cột (mobile); từ 641px thành 2 cột: poster trái + chữ phải ── */
+.anime-detail { display: grid; grid-template-columns: 1fr; gap: 20px; padding: 4px 4px 10px; min-width: 0; align-items: start; }
+@media (min-width: 641px) {
+  .anime-detail { grid-template-columns: minmax(210px, 240px) minmax(0, 1fr); gap: clamp(18px, 3vw, 34px); }
+}
+
+/* ── Cột trái: poster + thông tin nhanh ── */
+.detail-side { min-width: 0; display: flex; flex-direction: column; gap: 14px; }
+.anime-detail-poster {
+  width: 100%;
+  max-width: 220px;
+  margin: 0 auto;
+  border-radius: 16px;
+  overflow: hidden;
+  border: var(--glass-border);
+  aspect-ratio: 3 / 4.2;
+  background: var(--bg-elev);
+  box-shadow: var(--shadow-soft);
+}
+@media (min-width: 641px) {
+  .anime-detail-poster { max-width: 100%; margin: 0; }
+}
 .anime-detail-poster img { width: 100%; height: 100%; object-fit: cover; display: block; }
-.detail-info { min-width: 0; }
-.detail-title { margin: 0 0 8px; font-size: clamp(19px, 3vw, 25px); font-weight: 800; line-height: 1.25; }
-.detail-subtitle { margin: 0 0 14px; font-size: 13.5px; color: var(--text-dim); }
-.detail-synopsis { margin: 0 0 16px; font-size: 14.5px; line-height: 1.8; color: color-mix(in srgb, var(--text) 88%, transparent); white-space: pre-wrap; text-align: justify; }
-.detail-chips { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
-.chip { padding: 4px 11px; background: rgba(255,255,255,0.06); border: var(--glass-border); border-radius: 999px; font-size: 12.5px; color: var(--text-dim); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); }
-.detail-progress { display: flex; align-items: center; gap: 10px; margin-bottom: 18px; font-size: 13px; color: var(--text-dim); }
+.detail-side-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 14px;
+  background: var(--bg-card);
+  border: var(--glass-border);
+  border-radius: var(--radius-sm);
+  backdrop-filter: blur(12px) saturate(150%);
+  -webkit-backdrop-filter: blur(12px) saturate(150%);
+  box-shadow: var(--shadow-soft);
+}
+.detail-side-row { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 10px; font-size: 13px; }
+.detail-side-label { color: var(--text-dim); font-weight: 600; white-space: nowrap; }
+.detail-side-value { text-align: right; font-weight: 700; color: var(--text); overflow-wrap: anywhere; }
+.detail-rating { color: var(--warning); }
+.detail-side-progress { grid-template-columns: 1fr; gap: 6px; }
 .progress-bar { flex: 1; height: 8px; background: rgba(255,255,255,0.1); border-radius: 999px; overflow: hidden; box-shadow: inset 0 1px 3px rgba(0,0,0,0.3); }
 .progress-fill { height: 100%; border-radius: 999px; background: var(--grad); }
-.seiyuu-title { margin: 2px 0 10px; font-size: 15px; font-weight: 700; }
-.seiyuu-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
-.seiyuu-card { display: flex; align-items: center; gap: 9px; padding: 8px; background: var(--bg-card); border: var(--glass-border); border-radius: var(--radius-sm); backdrop-filter: blur(10px) saturate(150%); -webkit-backdrop-filter: blur(10px) saturate(150%); }
-.seiyuu-avatar { width: 42px; height: 42px; border-radius: 50%; overflow: hidden; background: var(--bg-soft); flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 18px; }
+.detail-progress-text { font-size: 12px; color: var(--text-faint); }
+
+/* ── Cột phải: nội dung chính — chữ thoáng, căn đều ── */
+.detail-main { min-width: 0; display: flex; flex-direction: column; gap: 18px; }
+.detail-header { border-bottom: 1px solid var(--border); padding-bottom: 14px; }
+.detail-title { margin: 0 0 6px; font-size: clamp(20px, 3vw, 27px); font-weight: 800; line-height: 1.28; letter-spacing: -0.01em; }
+.detail-subtitle { margin: 0; font-size: 13.5px; color: var(--text-dim); }
+
+.detail-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip {
+  padding: 5px 12px;
+  background: rgba(255,255,255,0.06);
+  border: var(--glass-border);
+  border-radius: 999px;
+  font-size: 12.5px;
+  color: var(--text-dim);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+.chip-mine { color: var(--warning); border-color: rgba(245, 158, 11, 0.45); }
+
+.detail-section {
+  border: var(--glass-border);
+  background: var(--bg-card);
+  border-radius: var(--radius);
+  padding: 16px 18px;
+  backdrop-filter: blur(12px) saturate(150%);
+  -webkit-backdrop-filter: blur(12px) saturate(150%);
+  box-shadow: var(--shadow-soft);
+}
+.detail-section-title { margin: 0 0 12px; font-size: 15px; font-weight: 700; color: var(--text); }
+.detail-synopsis {
+  margin: 0;
+  font-size: 14.5px;
+  line-height: 1.9;
+  color: color-mix(in srgb, var(--text) 90%, transparent);
+  white-space: pre-wrap;
+  text-align: justify;
+  overflow-wrap: break-word;
+}
+
+/* ── Seiyuu ── */
+.seiyuu-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 10px; }
+.seiyuu-card { display: flex; align-items: center; gap: 10px; padding: 9px 10px; background: var(--bg-elev); border: 1px solid var(--border); border-radius: var(--radius-sm); }
+.seiyuu-avatar { width: 44px; height: 44px; border-radius: 50%; overflow: hidden; background: var(--bg-soft); flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 18px; }
 .seiyuu-avatar img { width: 100%; height: 100%; object-fit: cover; }
 .seiyuu-info { min-width: 0; }
 .seiyuu-name { font-size: 12.5px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .seiyuu-char { font-size: 11.5px; color: var(--text-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
 /* ============ "TRẠNG THÁI XEM CỦA TÔI" (my tracker) ============ */
-.my-tracker { margin: 0 0 20px; padding: 14px; background: var(--bg-card); border: var(--glass-border); border-radius: var(--radius-sm); backdrop-filter: blur(12px) saturate(150%); -webkit-backdrop-filter: blur(12px) saturate(150%); }
+.my-tracker { margin: 0; padding: 16px; background: var(--bg-card); border: var(--glass-border); border-radius: var(--radius); backdrop-filter: blur(12px) saturate(150%); -webkit-backdrop-filter: blur(12px) saturate(150%); box-shadow: var(--shadow-soft); }
 .my-tracker-title { font-size: 14.5px; font-weight: 700; margin-bottom: 12px; color: var(--text); }
 .my-tracker-btns { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
 .my-state-btn { padding: 7px 14px; border-radius: 999px; border: var(--glass-border); background: var(--bg-elev); color: var(--text-dim); font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.15s ease; backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); }
@@ -340,7 +410,7 @@ html[data-theme="light"] .modal { background: rgba(255, 255, 255, 0.72); }
 .my-tracker-rating { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; flex-wrap: wrap; }
 .my-tracker-rating label { font-size: 13px; color: var(--text-dim); }
 .my-tracker-rating .input { width: 110px; }
-.my-tracker-hint { margin-top: 10px; font-size: 12px; color: var(--text-faint); }
+.my-tracker-hint { margin-top: 10px; font-size: 12px; color: var(--text-faint); line-height: 1.6; }
 
 
 /* ============ COMMENT SECTION ============ */
