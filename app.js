@@ -2,7 +2,7 @@
    app.js — Toàn bộ logic KullAnime (Vanilla JS, ES6+ modular)
    ------------------------------------------------------------
    Gồm: Supabase Client, Cloudinary Upload, YouTube Player,
-   Auto-fetch GitHub .ass, Jikan API Auto-fill, Rich Text Parser
+   Auto-fetch GitHub .ass, AniList API Auto-fill, Rich Text Parser
    (BBCode + Markdown), DOMPurify (chống XSS), Admin Panel,
    Rate limiting & Captcha chống spam.
    ============================================================ */
@@ -41,7 +41,7 @@
     // Captcha hiện tại
     captcha: { a: 0, b: 0, result: 0 },
     chatCaptcha: { a: 0, b: 0, result: 0 },
-    // Jikan
+    // AniList (search auto-fill abort)
     jikanAbort: null,
     // Phân trang hiển thị trên 1 trang
     animeVisible: 10,      // số anime render mỗi lượt
@@ -953,10 +953,14 @@
     updateLoadMore('#chatLoadMoreWrap', comments.length - State.chatVisible);
   }
 
-  // Render 1 tin chat chung: nếu có anime_id → thêm nhãn học phim
+  // Render 1 tin chat chung dạng bong bóng; nếu có anime_id → thêm nhãn phim
   function chatHTML(c, animeMap) {
     const anime = animeMap[String(c.anime_id)] || null;
     const isPinned = !!c.is_pinned;
+    const author = c.author_name || 'Ẩn danh';
+    // Bong bóng của mình (trùng tên đang nhập ở ô chat) sẽ căn phải
+    const ownAuthor = ($('#chatAuthor') && $('#chatAuthor').value.trim().toLowerCase()) || '';
+    const isOwn = !!ownAuthor && String(author).trim().toLowerCase() === ownAuthor;
     let actions = '';
     if (State.isAdmin) {
       actions =
@@ -969,15 +973,17 @@
       ? '<a href="#" class="chat-anime-tag" data-anime-id="' + esc(anime.id) + '" title="Mở chi tiết ' + esc(anime.title) + '">🎬 ' + esc(anime.title) + '</a>'
       : '<span class="chat-anime-tag chat-general">💬 Chat chung</span>';
     return (
-      '<div class="chat-item' + (isPinned ? ' pinned' : '') + '" data-id="' + esc(c.id) + '">' +
-        '<div class="comment-head">' +
-          '<span class="comment-author">' + esc(c.author_name || 'Ẩn danh') + '</span>' +
-          tag +
-          (isPinned ? '<span class="pin-badge">📌 Đã ghim</span>' : '') +
-          '<span class="comment-time">' + timeAgo(c.created_at) + '</span>' +
-          actions +
+      '<div class="chat-bubble-row' + (isOwn ? ' own' : '') + '" data-id="' + esc(c.id) + '">' +
+        '<div class="chat-bubble' + (isPinned ? ' pinned' : '') + '">' +
+          '<div class="chat-bubble-head">' +
+            '<span class="chat-bubble-author">' + esc(author) + '</span>' +
+            tag +
+            (isPinned ? '<span class="pin-badge">📌 Đã ghim</span>' : '') +
+            '<span class="chat-bubble-time">' + timeAgo(c.created_at) + '</span>' +
+            actions +
+          '</div>' +
+          '<div class="comment-body chat-bubble-body">' + renderRichText(c.content) + '</div>' +
         '</div>' +
-        '<div class="comment-body">' + renderRichText(c.content) + '</div>' +
       '</div>'
     );
   }
@@ -1117,8 +1123,9 @@
       loadGlobalChat();
       if (State.currentAnime) loadComments(State.currentAnime.id);
     } else if (act === 'pin') {
-      const item = document.querySelector('.chat-item[data-id="' + id + '"]');
-      const isPinnedNow = item ? item.classList.contains('pinned') : false;
+      const row = document.querySelector('.chat-bubble-row[data-id="' + id + '"]');
+      const bubble = row ? row.querySelector('.chat-bubble') : null;
+      const isPinnedNow = bubble ? bubble.classList.contains('pinned') : false;
       const { error } = await State.supabase.from('comments').update({ is_pinned: !isPinnedNow }).eq('id', id);
       if (error) { toast('Ghim thất bại: ' + error.message, 'error'); return; }
       toast(isPinnedNow ? 'Đã bỏ ghim.' : 'Đã ghim 📌', 'success');
@@ -1655,95 +1662,102 @@
   }
 
   /* ──────────────────────────────────────────────────────
-     17. JIKAN API — AUTO-FILL FORM
+     17. ANILIST API — AUTO-FILL FORM
+     (Thay thế Jikan/MAL — AniList GraphQL miễn phí, không cần
+     key, ổn định hơn nhiều so với Jikan hay bị quá tải 504)
      ────────────────────────────────────────────────────── */
-  async function jikanSearch(query) {
+  async function anilistSearch(query) {
     if (State.jikanAbort) State.jikanAbort.abort();
     State.jikanAbort = new AbortController();
     const results = $('#jikanResults');
-    results.innerHTML = '<p class="empty-desc">Đang tra cứu...</p>';
+    results.innerHTML = '<p class="empty-desc">Đang tra cứu trên AniList...</p>';
     show('jikanResults');
     try {
-      const url = State.config.JIKAN_API_URL + '/anime?q=' + encodeURIComponent(query) + '&limit=6&sfw=true';
+      const gql = 'query ($search: String) { Page(page: 1, perPage: 6) { media(search: $search, type: ANIME, sort: SEARCH_MATCH, isAdult: false) { id title { romaji english } coverImage { extraLarge large } description status averageScore seasonYear studios(isMain: true) { nodes { name } } episodes genres } } }';
       let data = null;
-      // Jikan (API miễn phí của MAL) thường xuyên quá tải và trả 504.
-      // Tự động thử lại tối đa 3 lần với khoảng chờ ngắn trước khi báo lỗi.
       let lastErr = null;
+      // Thử lại tối đa 3 lần nếu gặp lỗi tạm thời (429/503/504)
       for (let attempt = 1; attempt <= 3; attempt++) {
         try {
-          const res = await fetch(url, { signal: State.jikanAbort.signal });
-          if (res.ok) {
-            data = await res.json();
-            break;
-          }
+          const res = await fetch(State.config.ANILIST_API_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+            body: JSON.stringify({ query: gql, variables: { search: query } }),
+            signal: State.jikanAbort.signal
+          });
+          if (res.ok) { data = await res.json(); break; }
           lastErr = new Error('HTTP ' + res.status);
-          // 504/429/503 là lỗi quá tải — có thể thử lại. Lỗi 4xx khác thì bỏ qua thử lại.
-          if (res.status !== 504 && res.status !== 429 && res.status !== 503) break;
+          if (res.status !== 429 && res.status !== 503 && res.status !== 504) break;
         } catch (e) {
           if (e.name === 'AbortError') throw e;
           lastErr = e;
         }
-        if (attempt < 3) await new Promise((r) => setTimeout(r, 1200 * attempt));
+        if (attempt < 3) await new Promise((r) => setTimeout(r, 700 * attempt));
       }
-      if (!data) throw lastErr || new Error('Không có phản hồi từ Jikan.');
-      const items = (data && data.data) || [];
+      if (!data) throw lastErr || new Error('Không có phản hồi từ AniList.');
+      const items = (data && data.data && data.data.Page && data.data.Page.media) || [];
       if (items.length === 0) {
-        results.innerHTML = '<p class="empty-desc">Không tìm thấy anime nào.</p>';
+        results.innerHTML = '<p class="empty-desc">Không tìm thấy anime nào. Thử tên khác hoặc điền thủ công bên dưới.</p>';
         return;
       }
       results.innerHTML = items.map((it) => {
-        const thumb = it.images && it.images.jpg ? it.images.jpg.image_url : '';
+        const thumb = (it.coverImage && (it.coverImage.extraLarge || it.coverImage.large)) || '';
+        const subParts = [];
+        subParts.push(it.episodes != null ? it.episodes + ' tập' : 'Chưa rõ số tập');
+        if (it.seasonYear) subParts.push(String(it.seasonYear));
+        if (it.averageScore != null && it.averageScore > 0) subParts.push(Math.round(it.averageScore / 10) + '/10 điểm');
         return (
-          '<div class="jikan-result-item" data-jid="' + esc(it.mal_id) + '" data-json="' + esc(JSON.stringify(it)).replace(/"/g, '&quot;') + '">' +
+          '<div class="jikan-result-item" data-json="' + esc(JSON.stringify(it)).replace(/"/g, '&quot;') + '">' +
             '<div class="jikan-result-thumb">' + (thumb ? '<img src="' + esc(thumb) + '" alt="" loading="lazy" onerror="this.remove()" />' : '') + '</div>' +
             '<div class="jikan-result-info">' +
-              '<div class="jikan-result-title">' + esc(it.title || '') + '</div>' +
-              '<div class="jikan-result-sub">' + esc((it.type || '') + ' · ' + (it.year || '') + ' · ' + (it.episodes != null ? it.episodes + ' tập' : '')) + '</div>' +
+              '<div class="jikan-result-title">' + esc((it.title && (it.title.romaji || it.title.english)) || '') + '</div>' +
+              '<div class="jikan-result-sub">' + esc(subParts.join(' · ')) + '</div>' +
             '</div>' +
           '</div>'
         );
       }).join('');
     } catch (err) {
       if (err.name !== 'AbortError') {
-        const friendly = err.message === 'HTTP 504'
-          ? 'Jikan (MyAnimeList) đang quá tải, chưa phản hồi được. Hãy thử lại sau ít phút — hoặc điền thông tin thủ công bên dưới.'
-          : ('Lỗi tra cứu Jikan: ' + esc(err.message) + '. Có thể thử lại hoặc điền tay.');
-        results.innerHTML = '<p class="empty-desc">' + friendly + '</p>';
+        results.innerHTML = '<p class="empty-desc">Lỗi tra cứu AniList: ' + esc(err.message) + '. Có thể thử lại hoặc điền thủ công bên dưới.</p>';
       }
     }
   }
 
-  // Điền dữ liệu Jikan vào form + fetch seiyuu/characters
-  async function applyJikanToForm(it) {
+  // Điền dữ liệu AniList vào form + fetch seiyuu/characters
+  async function applyAnilistToForm(it) {
     if (!it) return;
-    $('#af_title').value = it.title || '';
-    $('#af_poster').value = (it.images && it.images.jpg && it.images.jpg.large_image_url) || '';
-    $('#af_synopsis').value = it.synopsis || '';
-    $('#af_status').value = mapJikanStatus(it.status);
-    $('#af_rating').value = it.score != null ? it.score : 0;
-    $('#af_year').value = it.year || '';
-    $('#af_studio').value = (it.studios && it.studios[0] && it.studios[0].name) || '';
+    $('#af_title').value = (it.title && (it.title.english || it.title.romaji)) || '';
+    $('#af_poster').value = (it.coverImage && (it.coverImage.extraLarge || it.coverImage.large)) || '';
+    $('#af_synopsis').value = stripHtml(it.description || '');
+    $('#af_status').value = mapAnilistStatus(it.status);
+    $('#af_rating').value = it.averageScore != null ? Math.round((it.averageScore / 10) * 10) / 10 : 0;
+    $('#af_year').value = it.seasonYear || '';
+    $('#af_studio').value = (it.studios && it.studios.nodes && it.studios.nodes[0] && it.studios.nodes[0].name) || '';
     $('#af_total_ep').value = it.episodes != null ? it.episodes : 0;
-    $('#af_genres').value = ((it.genres || []).map((g) => g.name)).join(', ');
+    $('#af_genres').value = (it.genres || []).join(', ');
 
     updatePosterPreview();
 
-    // Fetch seiyuu từ /anime/{id}/characters
+    // Fetch seiyuu từ AniList characters
     toast('Đang tải dàn Seiyuu...', 'info', 1500);
     try {
-      const url = State.config.JIKAN_API_URL + '/anime/' + it.mal_id + '/characters';
-      const res = await fetch(url);
+      const gql = 'query ($id: Int) { Media(id: $id) { characters(sort: ROLE, perPage: 15) { edges { node { name { full } } voiceActors(language: JAPANESE) { name { full } image { large } } } } } }';
+      const res = await fetch(State.config.ANILIST_API_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+        body: JSON.stringify({ query: gql, variables: { id: it.id } })
+      });
       if (res.ok) {
         const data = await res.json();
-        const chars = (data && data.data) || [];
+        const edges = (data && data.data && data.data.Media && data.data.Media.characters && data.data.Media.characters.edges) || [];
         const voices = [];
-        for (const ch of chars) {
-          const person = ch.voice_actors && ch.voice_actors[0];
-          if (person && person.person) {
+        for (const edge of edges) {
+          const va = edge.voiceActors && edge.voiceActors[0];
+          if (va) {
             voices.push({
-              name: person.person.name || '',
-              character: ch.character ? ch.character.name : '',
-              image: (person.person.images && person.person.images.jpg && person.person.images.jpg.image_url) || ''
+              name: (va.name && va.name.full) || '',
+              character: (edge.node && edge.node.name && edge.node.name.full) || '',
+              image: (va.image && va.image.large) || ''
             });
           }
         }
@@ -1752,8 +1766,21 @@
     } catch (_e) { /* bỏ qua lỗi seiyuu */ }
   }
 
-  function mapJikanStatus(s) {
-    const map = { 'Currently Airing': 'Đang chiếu', 'Finished Airing': 'Hoàn thành', 'Not yet aired': 'Sắp chiếu', 'TBA': 'Sắp chiếu' };
+  // Xoá thẻ HTML (AniList trả description dạng rich text)
+  function stripHtml(html) {
+    const t = document.createElement('textarea');
+    t.innerHTML = String(html || '');
+    return t.value;
+  }
+
+  function mapAnilistStatus(s) {
+    const map = {
+      'RELEASING': 'Đang chiếu',
+      'FINISHED': 'Hoàn thành',
+      'NOT_YET_RELEASED': 'Sắp chiếu',
+      'CANCELLED': 'Tạm ngưng',
+      'HIATUS': 'Tạm ngưng'
+    };
     return map[s] || 'Đang chiếu';
   }
 
@@ -1973,16 +2000,16 @@
       wrap.appendChild(row);
     });
 
-    // Jikan tìm kiếm (input id = jikanQuery)
+    // AniList tìm kiếm (input id = jikanQuery)
     $('#jikanSearchBtn').addEventListener('click', () => {
       const q = $('#jikanQuery').value.trim();
-      if (q) jikanSearch(q);
+      if (q) anilistSearch(q);
     });
     $('#jikanQuery').addEventListener('keydown', (e) => {
       if (e.key === 'Enter') {
         e.preventDefault();
         const q = $('#jikanQuery').value.trim();
-        if (q) jikanSearch(q);
+        if (q) anilistSearch(q);
       }
     });
     $('#jikanResults').addEventListener('click', (e) => {
@@ -1990,10 +2017,10 @@
       if (!item) return;
       try {
         const it = JSON.parse(decodeEntities(item.dataset.json));
-        $('#jikanQuery').value = it.title || '';
-        applyJikanToForm(it);
+        $('#jikanQuery').value = (it.title && (it.title.english || it.title.romaji)) || '';
+        applyAnilistToForm(it);
         hi('jikanResults');
-        toast('Đã điền dữ liệu từ Jikan ✅', 'success');
+        toast('Đã điền dữ liệu từ AniList ✅', 'success');
       } catch (err) {
         toast('Lỗi phân tích dữ liệu.', 'error');
       }

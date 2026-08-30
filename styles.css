@@ -192,16 +192,46 @@ select.input { appearance: none; -webkit-appearance: none; background-image: url
 .chat-layout { max-width: 900px; margin: 0 auto; }
 .chat-layout .composer { margin-bottom: 20px; }
 #chatList { display: flex; flex-direction: column; gap: 10px; }
-.chat-item { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 14px; transition: border-color 0.15s ease; }
-.chat-item:hover { border-color: var(--border-strong); }
-.chat-item.pinned { border-color: rgba(245, 158, 11, 0.5); background: color-mix(in srgb, rgba(245,158,11,0.07), var(--bg-card)); }
-.chat-item .comment-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 6px; }
-.chat-item .chat-anime-tag { font-size: 11px; font-weight: 700; color: var(--accent); background: var(--bg-elev); border: 1px solid var(--border); border-radius: 999px; padding: 2px 9px; cursor: pointer; text-decoration: none; transition: border-color 0.15s ease, color 0.15s ease; }
-.chat-item .chat-anime-tag:hover { border-color: var(--accent); color: var(--accent); }
-.chat-item .chat-anime-tag.chat-general { color: var(--text-dim); cursor: default; }
-.chat-item .chat-anime-tag.chat-general:hover { border-color: var(--border); color: var(--text-dim); }
-.chat-item .comment-body { font-size: 14.5px; line-height: 1.6; color: var(--text); word-wrap: break-word; overflow-wrap: break-word; }
-.chat-item .comment-body img { max-width: 100%; border-radius: 10px; }
+/* Bong bóng chat chung */
+.chat-bubble-row { display: flex; flex-direction: column; align-items: flex-start; }
+.chat-bubble-row.own { align-items: flex-end; }
+.chat-bubble {
+  position: relative;
+  max-width: 82%;
+  padding: 9px 13px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 16px 16px 16px 4px;
+  color: var(--text);
+  box-shadow: 0 1px 2px rgba(0,0,0,0.12);
+}
+.chat-bubble-row.own .chat-bubble {
+  background: color-mix(in srgb, var(--primary) 16%, var(--bg-card));
+  border-color: color-mix(in srgb, var(--primary) 45%, transparent);
+  border-radius: 16px 16px 4px 16px;
+}
+.chat-bubble.pinned { border-color: rgba(245, 158, 11, 0.55); }
+.chat-bubble.silent-tail::after {
+  content: ''; position: absolute; bottom: -1px; left: -1px;
+  width: 10px; height: 10px; background: inherit;
+  border-left: 1px solid var(--border); border-bottom: 1px solid var(--border);
+  border-bottom-left-radius: 10px;
+}
+.chat-bubble-head { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-bottom: 5px; }
+.chat-bubble-author { font-weight: 700; font-size: 13px; color: var(--accent); }
+.chat-bubble-time { font-size: 11px; color: var(--text-faint); margin-left: auto; }
+.chat-bubble-row.own .chat-bubble-time { margin-left: 0; margin-right: auto; order: 2; }
+.chat-bubble .chat-anime-tag { font-size: 10.5px; font-weight: 700; color: var(--accent); background: var(--bg-elev); border: 1px solid var(--border); border-radius: 999px; padding: 1px 8px; cursor: pointer; text-decoration: none; transition: border-color 0.15s ease, color 0.15s ease; }
+.chat-bubble .chat-anime-tag:hover { border-color: var(--accent); color: var(--accent); }
+.chat-bubble .chat-anime-tag.chat-general { color: var(--text-dim); cursor: default; }
+.chat-bubble .chat-anime-tag.chat-general:hover { border-color: var(--border); color: var(--text-dim); }
+.chat-bubble-body { font-size: 14px; line-height: 1.55; word-wrap: break-word; overflow-wrap: break-word; }
+.chat-bubble-body img { max-width: 100%; border-radius: 10px; }
+.chat-bubble .comment-actions { display: inline-flex; gap: 4px; margin-left: 2px; }
+.chat-bubble .comment-action-btn { background: none; border: none; color: var(--text-dim); cursor: pointer; font-size: 12px; padding: 2px 4px; border-radius: 6px; }
+.chat-bubble .comment-action-btn:hover { background: var(--bg-elev); color: var(--text); }
+.chat-bubble .comment-action-btn.danger:hover { color: var(--danger); }
+.chat-bubble .pin-badge { font-size: 10.5px; color: #f59e0b; }
 
 @media (max-width: 640px) {
   .chat-layout { max-width: 100%; }
@@ -393,9 +423,11 @@ select.input { appearance: none; -webkit-appearance: none; background-image: url
   padding: 8px 16px;
   max-width: 1240px; margin: 0 auto;
 }
-.chat-dock-preview .chat-item { padding: 7px 10px; font-size: 13px; }
-.chat-dock-preview .chat-item .comment-head { margin-bottom: 2px; }
-.chat-dock-preview .chat-item .comment-actions { display: none; }
+.chat-dock-preview .chat-bubble { padding: 6px 10px; font-size: 13px; max-width: 100%; }
+.chat-dock-preview .chat-bubble-head { margin-bottom: 2px; }
+.chat-dock-preview .chat-bubble .comment-actions,
+.chat-dock-preview .chat-bubble .pin-badge,
+.chat-dock-preview .chat-bubble .chat-anime-tag { display: none; }
 /* Body mở rộng */
 .chat-dock-body {
   max-height: min(66vh, 560px); overflow-y: auto;

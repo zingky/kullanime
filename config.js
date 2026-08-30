@@ -1,5 +1,5 @@
 /* ============================================================
-   config.js — Cấu hình App (Supabase, Cloudinary, Jikan, GitHub)
+   config.js — Cấu hình App (Supabase, Cloudinary, AniList, GitHub)
    ------------------------------------------------------------
    Đây là website tĩnh 100%, không có build-time. file `.env.local`
    ở thư mục gốc dùng để lưu các giá trị nhạy cảm (không commit).
@@ -31,8 +31,8 @@
     CLOUDINARY_CLOUD_NAME: 'datkull',
     CLOUDINARY_UPLOAD_PRESET: 'datkull_unsign',
 
-    // Jikan API (MyAnimeList) — miễn phí, không cần key
-    JIKAN_API_URL: 'https://api.jikan.moe/v4',
+    // AniList GraphQL API — miễn phí, không cần key, ổn định (thay cho Jikan/MAL hay bị quá tải)
+    ANILIST_API_URL: 'https://graphql.anilist.co',
 
     // GitHub repo phụ đề .ass (Kull-Vietsub)
     GITHUB_SUBS_OWNER: 'zingky',
@@ -114,7 +114,7 @@
     CONFIG.SUPABASE_ANON_KEY = envVars.SUPABASE_ANON_KEY;
     CONFIG.CLOUDINARY_CLOUD_NAME = envVars.CLOUDINARY_CLOUD_NAME;
     CONFIG.CLOUDINARY_UPLOAD_PRESET = envVars.CLOUDINARY_UPLOAD_PRESET;
-    CONFIG.JIKAN_API_URL = envVars.JIKAN_API_URL;
+    CONFIG.ANILIST_API_URL = envVars.ANILIST_API_URL;
     CONFIG.GITHUB_SUBS_OWNER = envVars.GITHUB_SUBS_OWNER;
     CONFIG.GITHUB_SUBS_REPO = envVars.GITHUB_SUBS_REPO;
     CONFIG.GITHUB_SUBS_BRANCH = envVars.GITHUB_SUBS_BRANCH;
