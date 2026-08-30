@@ -705,9 +705,18 @@
     }
   }
 
+  // Helper: metadata cho trạng thái xem cá nhân (của chủ web)
+  function myStatusMeta(s) {
+    s = String(s || '').trim();
+    if (/đã xem|xem r/i.test(s)) return { label: 'Đã xem', icon: '✅', cls: 'my-watched' };
+    if (/ý định|định xem|muốn xem|dự định/i.test(s)) return { label: 'Có ý định xem', icon: '⏳', cls: 'my-planned' };
+    return { label: 'Chưa xem', icon: '⬜', cls: 'my-unwatched' };
+  }
+
   function animeCardHTML(a) {
     const rating = Number(a.rating) || 0;
     const eps = (a.watched_episodes || 0) + ' / ' + (a.total_episodes || '?') + ' tập';
+    const mySt = myStatusMeta(a.my_status);
     const img = a.poster_url
       ? '<img src="' + esc(a.poster_url) + '" alt="' + esc(a.title) + '" loading="lazy" onerror="this.outerHTML=`' + posterFallback(a) + '`" />'
       : posterFallback(a);
@@ -715,6 +724,7 @@
       '<article class="anime-card" data-id="' + esc(a.id) + '" role="button" tabindex="0" aria-label="Xem chi tiết ' + esc(a.title) + '">' +
         '<div class="card-poster">' + img +
           '<span class="card-status ' + statusClass(a.status) + '">' + esc(a.status || '') + '</span>' +
+          '<span class="card-mystatus ' + mySt.cls + '">' + mySt.icon + ' ' + esc(mySt.label) + '</span>' +
         '</div>' +
         '<div class="card-body">' +
           '<h3 class="card-title">' + esc(a.title || '') + '</h3>' +
@@ -790,6 +800,11 @@
     const watched = a.watched_episodes || 0;
     const pct = total > 0 ? Math.min(100, Math.round((watched / total) * 100)) : 0;
 
+    // Trạng thái xem + điểm đánh giá của riêng chủ web
+    const mySt = myStatusMeta(a.my_status);
+    const myRating = Number(a.my_rating) || 0;
+    const myPanel = State.isAdmin ? myStatusEditorHTML(a) : '';
+
     const poster = a.poster_url
       ? '<img src="' + esc(a.poster_url) + '" alt="' + esc(a.title) + '" onerror="this.remove()" />'
       : '<div class="poster-fallback">🎞</div>';
@@ -805,12 +820,15 @@
             (genres.length ? genres.map((g) => '<span class="chip">' + esc(g) + '</span>').join('') : '') +
             '<span class="chip">★ ' + rating.toFixed(1) + '/10</span>' +
             '<span class="chip">' + esc(a.status || '') + '</span>' +
+            '<span class="chip my-status-chip ' + mySt.cls + '">' + mySt.icon + ' ' + esc(mySt.label) + '</span>' +
+            (myRating > 0 ? '<span class="chip">⭐ ' + myRating.toFixed(1) + '/10 (của tôi)</span>' : '') +
           '</div>' +
           '<div class="detail-progress">' +
             '<span>Tiến độ</span>' +
             '<div class="progress-bar"><div class="progress-fill" style="width:' + pct + '%"></div></div>' +
             '<span>' + watched + ' / ' + (total || '?') + ' tập (' + pct + '%)</span>' +
           '</div>' +
+          myPanel +
           (seiyuu.length
             ? '<h4 class="seiyuu-title">🎤 Dàn diễn viên lồng tiếng (Seiyuu)</h4>' +
               '<div class="seiyuu-grid">' +
@@ -829,6 +847,58 @@
             : '') +
         '</div>' +
       '</div>';
+  }
+
+  // Panel chỉnh trạng thái xem + điểm của tôi (chỉ hiện khi admin đăng nhập)
+  function myStatusEditorHTML(a) {
+    const cur = myStatusMeta(a.my_status);
+    const myRating = Number(a.my_rating) || 0;
+    const opts = [
+      { value: 'Đã xem', icon: '✅', cls: 'my-watched' },
+      { value: 'Chưa xem', icon: '⬜', cls: 'my-unwatched' },
+      { value: 'Có ý định xem', icon: '⏳', cls: 'my-planned' }
+    ];
+    const buttons = opts.map((o) =>
+      '<button type="button" class="my-state-btn ' + o.cls + (o.value === cur.label ? ' active' : '') + '" data-status="' + esc(o.value) + '">' + o.icon + ' ' + esc(o.value) + '</button>'
+    ).join('');
+    return (
+      '<div class="my-tracker" id="myTracker" data-anime="' + esc(a.id) + '">' +
+        '<div class="my-tracker-title">🎯 Trạng thái xem của tôi</div>' +
+        '<div class="my-tracker-btns">' + buttons + '</div>' +
+        '<div class="my-tracker-rating">' +
+          '<label for="myRatingInput">Điểm của tôi (0-10)</label>' +
+          '<input type="number" id="myRatingInput" class="input" min="0" max="10" step="0.1" value="' + myRating + '" />' +
+        '</div>' +
+        '<button type="button" class="btn btn-primary" id="saveMyStatusBtn">💾 Lưu trạng thái của tôi</button>' +
+        '<div class="my-tracker-hint">Thay đổi sẽ hiện cho mọi người xem trên card &amp; modal.</div>' +
+      '</div>'
+    );
+  }
+
+  // Lưu trạng thái xem + điểm “của tôi” vào cột my_status / my_rating
+  async function saveMyStatus(animeId) {
+    if (!State.isAdmin) { toast('Bạn không có quyền.', 'error'); return; }
+    const btns = $$('#myTracker .my-state-btn');
+    const activeBtn = btns.find((b) => b.classList.contains('active')) || btns[0];
+    const my_status = activeBtn ? activeBtn.dataset.status : 'Chưa xem';
+    const my_rating = Math.min(10, Math.max(0, parseFloat($('#myRatingInput').value) || 0));
+    const btn = $('#saveMyStatusBtn');
+    if (btn) btn.disabled = true;
+    const { error } = await State.supabase.from('animes').update({ my_status, my_rating }).eq('id', animeId);
+    if (btn) btn.disabled = false;
+    if (error) {
+      toast('Lưu thất bại: ' + error.message, 'error', 5000);
+      return;
+    }
+    const idx = State.animes.findIndex((x) => String(x.id) === String(animeId));
+    if (idx > -1) {
+      State.animes[idx].my_status = my_status;
+      State.animes[idx].my_rating = my_rating;
+      State.currentAnime = State.animes[idx];
+    }
+    renderAnimeGrid();
+    renderAnimeDetail(State.currentAnime);
+    toast('Đã lưu trạng thái của tôi ✅', 'success');
   }
 
   /* ──────────────────────────────────────────────────────
@@ -2050,6 +2120,20 @@
     $('#animeModal').addEventListener('click', (e) => {
       const btn = e.target.closest('[data-act]');
       if (btn) handleCommentAction(btn.dataset.act, btn.dataset.id);
+      // Chọn trạng thái xem cá nhân (ô "Trạng thái xem của tôi")
+      const stateBtn = e.target.closest('.my-state-btn');
+      if (stateBtn) {
+        $$('#myTracker .my-state-btn').forEach((b) => b.classList.remove('active'));
+        stateBtn.classList.add('active');
+        return;
+      }
+      // Lưu trạng thái xem + điểm của tôi
+      const saveBtn = e.target.closest('#saveMyStatusBtn');
+      if (saveBtn) {
+        const tracker = $('#myTracker');
+        if (tracker && tracker.dataset.anime) saveMyStatus(tracker.dataset.anime);
+        return;
+      }
     });
   }
 

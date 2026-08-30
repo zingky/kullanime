@@ -32,6 +32,9 @@ create table public.animes (
   year              integer,
   total_episodes    integer not null default 0,
   watched_episodes  integer not null default 0,
+  -- điểm đánh giá của riêng chủ web (0-10) & trạng thái xem cá nhân
+  my_rating         numeric(3,1) not null default 0,
+  my_status         text not null default 'Chưa xem',
   seiyuu            jsonb not null default '[]'::jsonb,
   created_at        timestamptz not null default now(),
   updated_at        timestamptz not null default now()
