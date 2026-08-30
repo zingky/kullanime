@@ -799,6 +799,12 @@ html[data-theme="light"] .modal { background: rgba(255, 255, 255, 0.72); }
 .chat-panel-body .chat-layout .composer { margin-bottom: 0; }
 .chat-panel-body .chat-messages .comment-list { padding-right: 4px; }
 
+/* Khung chat: mặc định chỉ hiện ô nhập 1 dòng gọn; khi bấm vào ô nhập mới hiện thanh công cụ (đậm/nghiêng/...) */
+.chat-layout .composer-toolbar { display: none; }
+.chat-layout .composer:focus-within .composer-toolbar { display: flex; }
+.chat-layout .composer-input { min-height: 40px; resize: none; max-height: 180px; }
+.chat-layout .composer:focus-within .composer-input { min-height: 78px; resize: vertical; }
+
 /* Mobile: bong bóng + panel gọn theo mép */
 @media (max-width: 480px) {
   .chat-fab { left: 14px; bottom: 14px; width: 56px; height: 56px; }
