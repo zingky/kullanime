@@ -32,7 +32,7 @@
   <!-- File cấu hình (đọc .env.local / fallback) -->
   <script src="./config.js"></script>
 
-  <link rel="stylesheet" href="./styles.css?v=16" />
+  <link rel="stylesheet" href="./styles.css?v=17" />
 </head>
 <body>
   <!-- Nền aurora động (liquid glass background) -->
@@ -149,25 +149,8 @@
           </div>
         </div>
 
-        <!-- Danh sách phát -->
-        <aside class="playlist-column" aria-label="Danh sách phát">
-          <div class="playlist-toolbar">
-            <h2 class="playlist-title">Danh sách phát</h2>
-            <span class="playlist-count" id="songCount">0 bài</span>
-          </div>
-          <div id="songList" class="song-list"></div>
-          <div class="load-more-wrap" id="songLoadMoreWrap">
-            <button type="button" class="btn btn-primary load-more-btn" id="songLoadMoreBtn" data-label="Xem thêm nhạc ▼">Xem thêm nhạc ▼</button>
-          </div>
-          <div class="load-state hidden" id="songLoading">
-            <div class="spinner" aria-hidden="true"></div>
-            <p>Đang tải nhạc...</p>
-          </div>
-          <div class="empty-state hidden" id="songEmpty">
-            <p class="empty-emoji">🎵</p>
-            <p class="empty-title">Chưa có bài hát nào</p>
-          </div>
-
+        <!-- Phụ đề .ass -->
+        <aside class="playlist-column" aria-label="Phụ đề .ass từ GitHub">
           <div class="ass-status-card">
             <p class="ass-status-title">📑 Phụ đề .ass từ GitHub</p>
             <p class="ass-status-text" id="assStatus">Đang kiểm tra kho phụ đề...</p>
@@ -529,7 +512,7 @@
   <div class="mini-pop hidden" id="epPop"></div>
   <div class="mini-pop hidden" id="heartPop"></div>
 
-  <script src="./app.js?v=18"></script>
+  <script src="./app.js?v=19"></script>
 </body>
 </html>
 

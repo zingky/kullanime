@@ -350,15 +350,16 @@
 
   async function loadSongs() {
     if (!State.supabase) return;
-    const list = $('#songList');
-    $('#songLoading').classList.remove('hidden');
-    $('#songEmpty').classList.add('hidden');
+    const loading = $('#songLoading');
+    if (loading) loading.classList.remove('hidden');
+    const empty = $('#songEmpty');
+    if (empty) empty.classList.add('hidden');
     const { data, error } = await State.supabase
       .from('songs')
       .select('*')
       .order('sort_order', { ascending: true })
       .order('created_at', { ascending: true });
-    $('#songLoading').classList.add('hidden');
+    if (loading) loading.classList.add('hidden');
     if (error) {
       console.error('Lỗi đọc songs:', error);
       toast('Không tải được danh sách nhạc: ' + error.message, 'error', 5000);
@@ -836,7 +837,9 @@
   function renderSongList() {
     const list = $('#songList');
     const empty = $('#songEmpty');
-    $('#songCount').textContent = State.songs.length + ' bài';
+    const count = $('#songCount');
+    if (!list || !empty || !count) return; // Danh sách phát đã bị gỡ khỏi giao diện
+    count.textContent = State.songs.length + ' bài';
     if (State.songs.length === 0) {
       list.innerHTML = '';
       empty.classList.remove('hidden');
@@ -865,12 +868,15 @@
   }
 
   // Event delegation: click bài hát
-  $('#songList').addEventListener('click', (e) => {
-    const item = e.target.closest('.song-item');
-    if (!item) return;
-    const song = State.songs.find((s) => s.id === item.dataset.id);
-    if (song) playSong(song);
-  });
+  const songListEl = $('#songList');
+  if (songListEl) {
+    songListEl.addEventListener('click', (e) => {
+      const item = e.target.closest('.song-item');
+      if (!item) return;
+      const song = State.songs.find((s) => s.id === item.dataset.id);
+      if (song) playSong(song);
+    });
+  }
 
 
   /* ──────────────────────────────────────────────────────
