@@ -315,9 +315,9 @@ html[data-theme="light"] .modal { background: rgba(255, 255, 255, 0.72); }
   .anime-modal { max-width: min(96vw, 1040px); }
 }
 @media (min-width: 1200px) {
-  /* Track cột poster CỐ ĐỊNH 260px — track fixed không bao giờ bị "growth limit"
-     đẩy phình theo min-content của ảnh poster, nhờ đó cột chữ luôn giữ đủ độ rộng. */
-  .anime-modal .anime-detail { grid-template-columns: 260px minmax(0, 1fr); }
+  /* Cột poster CỐ ĐỊNH 260px (flex: 0 0 + max-width cứng) — không bao giờ phình theo
+     min-content của ảnh poster nên cột chữ luôn giữ đủ độ rộng. */
+  .anime-modal .anime-detail .detail-side { flex-basis: 260px; width: 260px; max-width: 260px; }
   /* Poster lấp đầy cột to hơn — tránh khoảng trống lệch làm nhìn "không căn đều" */
   .anime-modal .anime-detail-poster { max-width: 100%; }
 }
@@ -326,8 +326,10 @@ html[data-theme="light"] .modal { background: rgba(255, 255, 255, 0.72); }
 .modal-title { margin: 0 0 6px; font-size: 20px; font-weight: 800; }
 .modal-subtitle { margin: 0 0 18px; color: var(--text-dim); font-size: 13.5px; }
 
-/* ── Grid chính: mặc định 1 cột (mobile); từ 641px thành 2 cột: poster trái + chữ phải ── */
-.anime-detail { display: grid; grid-template-columns: 1fr; gap: 20px; padding: 4px 4px 10px; min-width: 0; align-items: start; }
+/* ── Flex chính: mặc định 1 cột (mobile); từ 641px thành 2 cột: poster trái + chữ phải ──
+   Dùng flex (không dùng grid) để cột poster khóa cứng bằng flex-basis + max-width,
+   không có cơ chế "growth limit" của grid track làm cột chữ bị ép về 0. */
+.anime-detail { display: flex; flex-direction: column; gap: 20px; padding: 4px 4px 10px; min-width: 0; align-items: stretch; }
 
 /* ⚠️ LỚP NỀN XANH LÁ — marker để xác nhận code mới đã chạy.
    Toàn bộ phần thông tin anime nền xanh lá + glow viền xanh lá nổi bật (áp dụng mọi kích thước). */
@@ -373,10 +375,12 @@ html[data-theme="light"] .modal { background: rgba(255, 255, 255, 0.72); }
 .anime-modal .anime-detail .detail-side-label { white-space: normal; }
 
 @media (min-width: 641px) {
-  /* Track cột poster CỐ ĐỊNH 240px thay cho minmax(210px,240px) — dải minmax để
-     "growth limit" phình theo min-content (ảnh poster intrinsic lớn) làm cột chữ
-     bị ép thành từng ký tự một dòng. Track fixed thì không bao giờ bị như vậy. */
-  .anime-detail { grid-template-columns: 240px minmax(0, 1fr); gap: clamp(18px, 3vw, 34px); }
+  /* Chốt chặn quan trọng nhất: cột poster CỐ ĐỊNH 240px. Flex basis fixed + max-width cứng
+     không bao giờ bị phình theo min-content, còn cột chữ flex:1 1 0%; min-width:0 luôn
+     chiếm phần còn lại — không còn cơ chế ép cột chữ như dải minmax của grid. */
+  .anime-detail { flex-direction: row; align-items: flex-start; gap: clamp(18px, 3vw, 34px); width: 100%; }
+  .anime-detail .detail-side { flex: 0 0 240px; width: 240px; max-width: 240px; }
+  .anime-detail .detail-main { flex: 1 1 0%; width: auto; }
 }
 
 /* ── Cột trái: poster + thông tin nhanh ── */
@@ -656,7 +660,6 @@ html[data-theme="light"] .modal { background: rgba(255, 255, 255, 0.72); }
   .btn .btn-label { display: none; }
   .btn { padding: 9px 11px; }
   .modal { padding: 18px 14px; margin-top: 2vh; }
-  .anime-modal .anime-detail { grid-template-columns: 1fr; }
   .song-item { padding: 8px 10px; }
   .composer-footer { flex-direction: column; align-items: stretch; }
   .composer-footer .btn { width: 100%; }
@@ -673,7 +676,8 @@ html[data-theme="light"] .modal { background: rgba(255, 255, 255, 0.72); }
 
 /* 641–900px: modal anime 2 cột vẫn đủ rộng nhưng thu poster & khoảng cách gọn hơn */
 @media (min-width: 641px) and (max-width: 900px) {
-  .anime-detail { grid-template-columns: 200px minmax(0, 1fr); gap: 18px; }
+  .anime-detail { gap: 18px; }
+  .anime-detail .detail-side { flex-basis: 200px; width: 200px; max-width: 200px; }
   .modal { padding: 18px 16px; }
 }
 
