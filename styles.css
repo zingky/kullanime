@@ -124,6 +124,13 @@ select.input { appearance: none; -webkit-appearance: none; background-image: url
 .anime-card:hover .card-poster img { transform: scale(1.05); }
 .card-status { position: absolute; top: 10px; left: 10px; padding: 4px 9px; border-radius: 999px; font-size: 11px; font-weight: 700; background: rgba(11, 15, 25, 0.72); backdrop-filter: blur(4px); color: var(--accent); border: 1px solid rgba(6, 182, 212, 0.35); }
 .card-status.finish { color: var(--success); border-color: rgba(34, 197, 94, 0.4); }
+.card-mystatus { position: absolute; bottom: 8px; left: 10px; padding: 3px 8px; border-radius: 999px; font-size: 10.5px; font-weight: 700; background: rgba(11, 15, 25, 0.72); backdrop-filter: blur(4px); color: var(--text-dim); border: 1px solid rgba(148, 163, 184, 0.3); }
+.card-mystatus.my-watched { color: var(--success); border-color: rgba(34, 197, 94, 0.45); }
+.card-mystatus.my-planned { color: var(--warning); border-color: rgba(245, 158, 11, 0.45); }
+.card-mystatus.my-unwatched { color: var(--text-faint); border-color: rgba(148, 163, 184, 0.25); }
+.my-status-chip.my-watched { color: var(--success); border-color: rgba(34, 197, 94, 0.45); }
+.my-status-chip.my-planned { color: var(--warning); border-color: rgba(245, 158, 11, 0.45); }
+.my-status-chip.my-unwatched { color: var(--text-faint); }
 .card-status.upcoming { color: var(--warning); border-color: rgba(245, 158, 11, 0.4); }
 .card-body { padding: 11px 12px 13px; }
 .card-title { margin: 0 0 8px; font-size: 14px; font-weight: 700; line-height: 1.35; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; min-height: 2.7em; }
@@ -271,6 +278,21 @@ select.input { appearance: none; -webkit-appearance: none; background-image: url
 .seiyuu-info { min-width: 0; }
 .seiyuu-name { font-size: 12.5px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .seiyuu-char { font-size: 11.5px; color: var(--text-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* ============ "TRẠNG THÁI XEM CỦA TÔI" (my tracker) ============ */
+.my-tracker { margin: 0 0 20px; padding: 14px; background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-sm); }
+.my-tracker-title { font-size: 14.5px; font-weight: 700; margin-bottom: 12px; color: var(--text); }
+.my-tracker-btns { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+.my-state-btn { padding: 7px 14px; border-radius: 999px; border: 1px solid var(--border-strong); background: var(--bg-elev); color: var(--text-dim); font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.15s ease; }
+.my-state-btn:hover { border-color: var(--accent); color: var(--text); }
+.my-state-btn.active { background: var(--bg-elev); color: var(--text); }
+.my-state-btn.active.my-watched { border-color: rgba(34, 197, 94, 0.6); color: var(--success); }
+.my-state-btn.active.my-planned { border-color: rgba(245, 158, 11, 0.6); color: var(--warning); }
+.my-state-btn.active.my-unwatched { border-color: rgba(148, 163, 184, 0.5); color: var(--text-dim); }
+.my-tracker-rating { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; flex-wrap: wrap; }
+.my-tracker-rating label { font-size: 13px; color: var(--text-dim); }
+.my-tracker-rating .input { width: 110px; }
+.my-tracker-hint { margin-top: 10px; font-size: 12px; color: var(--text-faint); }
 
 
 /* ============ COMMENT SECTION ============ */

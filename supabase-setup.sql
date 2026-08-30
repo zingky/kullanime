@@ -32,6 +32,9 @@ create table if not exists public.animes (
   year            integer,
   total_episodes  integer not null default 0,
   watched_episodes integer not null default 0,
+  -- điểm đánh giá của riêng chủ web (0-10) & trạng thái xem cá nhân
+  my_rating       numeric(3,1) not null default 0,
+  my_status       text         not null default 'Chưa xem',
   -- danh sách seiyuu: [{"name":"...","character":"...","image":"..."}]
   seiyuu          jsonb not null default '[]'::jsonb,
   created_at      timestamptz not null default now(),
@@ -79,6 +82,11 @@ comment on table public.comments is 'Bình luận dạng forum, có thể ghim';
 --  trường hợp thường gặp: bảng được tạo tay trước khi chạy script này.)
 alter table public.comments add column if not exists is_pinned   boolean not null default false;
 alter table public.comments add column if not exists author_name text    not null default '';
+
+-- (Tự sửa schema nếu bảng animes thiếu cột trạng thái cá nhân —
+--  thêm "điểm đánh giá của tôi" & "trạng thái xem của tôi")
+alter table public.animes add column if not exists my_rating numeric(3,1) not null default 0;
+alter table public.animes add column if not exists my_status text         not null default 'Chưa xem';
 
 
 -- ============================================================

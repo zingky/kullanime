@@ -1,6 +1,6 @@
 # KullAnime 🎌
 
-Website quản lý, đánh giá và chia sẻ danh sách Anime cá nhân & cộng đồng — **site tĩnh 100% (Vanilla JS)**, không cần build, không cần server riêng. Dữ liệu + đăng nhập lưu trên **Supabase**, ảnh upload qua **Cloudinary**, auto-fill dữ liệu từ **Jikan API (MyAnimeList)**, phụ đề `.ass` tải tự động từ GitHub.
+Website quản lý, đánh giá và chia sẻ danh sách Anime cá nhân & cộng đồng — **site tĩnh 100% (Vanilla JS)**, không cần build, không cần server riêng. Dữ liệu + đăng nhập lưu trên **Supabase**, ảnh upload qua **Cloudinary**, auto-fill dữ liệu từ **AniList GraphQL API**, phụ đề `.ass` tải tự động từ GitHub.
 
 ## ✨ Tính năng
 
@@ -10,14 +10,15 @@ Website quản lý, đánh giá và chia sẻ danh sách Anime cá nhân & cộn
 - **Nhạc OST:** danh sách bài hát + player YouTube, tải phụ đề `.ass` từ GitHub + cập nhật Romaji/Vietsub theo thời gian phát
 - **Bình luận:** rich text (BBCode + Markdown, lọc qua DOMPurify chống XSS), upload ảnh qua Cloudinary, captcha + rate-limit 45s chống spam, admin ghim/xóa
 - **💬 Chat chung:** tab tổng hợp toàn bộ tin nhắn — cả tin chat tự do (không gắn phim) lẫn bình luận trong từng phim, click nhãn phim để mở chi tiết; tự làm mới mỗi 30s
-- **Admin Panel (đăng nhập):** CRUD anime & bài hát, quản lý bình luận, auto-fill form anime từ Jikan API, upload poster Cloudinary, export backup JSON
+- **Admin Panel (đăng nhập):** CRUD anime & bài hát, quản lý bình luận, auto-fill form anime từ AniList API, upload poster Cloudinary, export backup JSON
+- **Trạng thái xem của tôi:** mỗi anime có thể đặt trạng thái `Đã xem / Chưa xem / Có ý định xem` + điểm đánh giá riêng (0-10) ngay khi đăng nhập admin
 
 ## 🧱 Tech Stack
 
 - **Frontend:** Vanilla JS (ES6+), HTML5, CSS3 — không framework, không build step
 - **Database & Auth:** [Supabase](https://supabase.com) (PostgreSQL + RLS + Auth Email/Password)
 - **Media Storage:** Cloudinary (unsigned upload preset)
-- **External API:** Jikan API v4 (`https://api.jikan.moe/v4`)
+- **External API:** AniList GraphQL API (`https://graphql.anilist.co`)
 - **Subtitles:** GitHub API / raw.githubusercontent.com (thư mục `subs` của repo phụ đề)
 
 ## 📁 Cấu trúc dự án
@@ -26,7 +27,7 @@ Website quản lý, đánh giá và chia sẻ danh sách Anime cá nhân & cộn
 |---|---|
 | `index.html` | Toàn bộ giao diện (header, tab, modal anime/music, admin panel…) |
 | `styles.css` | Toàn bộ style |
-| `app.js` | Toàn bộ logic (Supabase, Cloudinary, Jikan, bình luận, admin…) |
+| `app.js` | Toàn bộ logic (Supabase, Cloudinary, AniList, bình luận, admin…) |
 | `config.js` | Đọc config (`__APP_ENV__` → `.env.local` → default), dựng URL tiện ích |
 | `supabase-setup.sql` | Schema bảng + RLS + hướng dẫn tạo admin |
 | `.env.local` | Config khi chạy local (**KHÔNG commit** — đã trong `.gitignore`) |
