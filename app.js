@@ -1074,13 +1074,17 @@
     const comments = State.chatAll || [];
     const map = State.chatMap || {};
 
-    // Preview: luôn hiển thị 3 tin mới nhất trong thanh thu gọn
-    const preview = $('#chatPreview');
-    if (preview) {
-      preview.innerHTML = comments.slice(0, 3).map((c) => chatHTML(c, map)).join('');
-      $('#chatDockStatus').textContent = comments.length > 0
-        ? Math.min(3, comments.length) + ' tin mới nhất' + (comments.length > 3 ? ' · ' + comments.length + ' tin' : '')
-        : 'Chưa có tin nhắn';
+    // Badge trên nút bong bóng: tổng số tin hiện có
+    const badge = $('#chatFabBadge');
+    const fab = $('#chatFab');
+    if (badge) {
+      badge.textContent = comments.length > 0 ? String(comments.length) : '';
+      badge.hidden = comments.length === 0;
+    }
+    if (fab) {
+      fab.setAttribute('aria-label', comments.length > 0
+        ? 'Mở chat chung (' + comments.length + ' tin)'
+        : 'Mở chat chung');
     }
 
     // List đầy đủ
@@ -2043,16 +2047,14 @@
       State.chatVisible += 20;
       renderGlobalChat();
     });
-    // Bật/tắt mở rộng sticky chat
-    const dockHeader = $('#chatDockHeader');
-    const toggleDock = () => {
+    // Bật/tắt panel chat từ nút bong bóng (FAB)
+    const chatFab = $('#chatFab');
+    const chatClose = $('#chatCloseBtn');
+    const toggleChatPanel = () => {
       State.chatExpanded = !State.chatExpanded;
-      const body = $('#chatDockBody');
-      const toggle = $('#chatDockToggle');
-      const header = $('#chatDockHeader');
-      if (header) header.setAttribute('aria-expanded', String(State.chatExpanded));
-      if (body) body.classList.toggle('hidden', !State.chatExpanded);
-      if (toggle) toggle.textContent = State.chatExpanded ? '▼' : '▲';
+      const panel = $('#chatDock');
+      if (panel) panel.classList.toggle('hidden', !State.chatExpanded);
+      if (chatFab) chatFab.setAttribute('aria-expanded', String(State.chatExpanded));
       if (State.chatExpanded) {
         renderGlobalChat();
         newChatCaptcha();
@@ -2060,12 +2062,18 @@
         if (box) box.focus();
       }
     };
-    if (dockHeader) {
-      dockHeader.addEventListener('click', toggleDock);
-      dockHeader.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleDock(); }
+    if (chatFab) {
+      chatFab.addEventListener('click', toggleChatPanel);
+      chatFab.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleChatPanel(); }
       });
     }
+    if (chatClose) chatClose.addEventListener('click', () => {
+      if (State.chatExpanded) toggleChatPanel();
+    });
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && State.chatExpanded) toggleChatPanel();
+    });
     $('#chatDock').addEventListener('click', (e) => {
       // Click nhãn anime trong chat (cả preview lẫn list) → mở modal chi tiết
       const tag = e.target.closest('[data-anime-id]');
