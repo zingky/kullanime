@@ -331,36 +331,6 @@ html[data-theme="light"] .modal { background: rgba(255, 255, 255, 0.72); }
    không có cơ chế "growth limit" của grid track làm cột chữ bị ép về 0. */
 .anime-detail { display: flex; flex-direction: column; gap: 20px; padding: 4px 4px 10px; min-width: 0; align-items: stretch; }
 
-/* ⚠️ LỚP NỀN XANH LÁ — marker để xác nhận code mới đã chạy.
-   Toàn bộ phần thông tin anime nền xanh lá + glow viền xanh lá nổi bật (áp dụng mọi kích thước). */
-.anime-modal .anime-detail {
-  background:
-    radial-gradient(circle at 20% 10%, rgba(34, 197, 94, 0.35), transparent 45%),
-    radial-gradient(circle at 90% 90%, rgba(20, 184, 166, 0.3), transparent 50%),
-    rgba(6, 78, 59, 0.9);
-  border: 1px solid rgba(74, 222, 128, 0.6);
-  border-radius: 18px;
-  padding: 18px;
-  box-shadow: 0 0 0 1px rgba(34, 197, 94, 0.25), 0 18px 50px rgba(6, 78, 59, 0.55);
-  color: #ecfdf5;
-}
-/* Làm phần tử con đọc được trên nền xanh lá */
-.anime-modal .anime-detail .detail-side-meta,
-.anime-modal .anime-detail .detail-section {
-  background: rgba(255, 255, 255, 0.08);
-  border-color: rgba(134, 239, 172, 0.35);
-}
-.anime-modal .anime-detail .detail-title { color: #ecfdf5; }
-.anime-modal .anime-detail .detail-subtitle { color: #a7f3d0; }
-.anime-modal .anime-detail .detail-section-title { color: #d1fae5; }
-.anime-modal .anime-detail .chip { background: rgba(255,255,255,0.1); color: #d1fae5; border-color: rgba(134,239,172,0.4); }
-.anime-modal .anime-detail .chip-mine { color: var(--warning); border-color: rgba(245, 158, 11, 0.5); }
-.anime-modal .anime-detail .progress-bar { background: rgba(255,255,255,0.16); }
-.anime-modal .anime-detail .detail-progress-text { color: #d1fae5; }
-.anime-modal .anime-detail .detail-side-label { color: #d1fae5; }
-.anime-modal .anime-detail .detail-synopsis { color: #eafff4; }
-.anime-modal .anime-detail .my-state-btn { background: rgba(255,255,255,0.1); color: #d1fae5; border-color: rgba(134,239,172,0.4); }
-
 /* Bảo vệ layout modal: chặn style ngoài (CDN inject / extension) làm chữ dựng đứng
    từng ký tự một dòng trong khối thông tin anime. */
 .anime-modal .anime-detail .detail-side,
