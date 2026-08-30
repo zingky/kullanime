@@ -103,9 +103,19 @@
 
   function posterFallback(anime) {
     const initial = (anime.title || '?').trim().charAt(0).toUpperCase();
-    // Dùng nháy đơn cho attribute để an toàn khi nhúng vào onerror="..." (không cắt cụt dấu " bao quanh)
-    return "<div class='poster-fallback' aria-label='Không có poster'>" + esc(initial || '🎞') + '</div>';
+    return '<div class="poster-fallback" aria-label="Không có poster">' + esc(initial || '🎞') + '</div>';
   }
+  // Fallback poster: thay <img> hỏng bằng khối poster-fallback — dùng hàm toàn cục
+  // thay vì nhúng HTML thô vào onerror="..." (tránh dấu " cắt cụt attribute gây ký tự " /> dư)
+  window.__posterFallback = function (img, title) {
+    if (!img || !img.parentNode) return;
+    const initial = String(title || '?').trim().charAt(0).toUpperCase() || '🎞';
+    const div = document.createElement('div');
+    div.className = 'poster-fallback';
+    div.setAttribute('aria-label', 'Không có poster');
+    div.textContent = initial;
+    img.replaceWith(div);
+  };
 
   function openModal(id) {
     const m = $('#' + id);
@@ -719,7 +729,7 @@
     const eps = (a.watched_episodes || 0) + ' / ' + (a.total_episodes || '?') + ' tập';
     const mySt = myStatusMeta(a.my_status);
     const img = a.poster_url
-      ? '<img src="' + esc(a.poster_url) + '" alt="' + esc(a.title) + '" loading="lazy" onerror="this.outerHTML=`' + posterFallback(a) + '`" />'
+      ? '<img src="' + esc(a.poster_url) + '" alt="' + esc(a.title) + '" loading="lazy" data-title="' + esc(a.title) + '" onerror="window.__posterFallback(this, this.dataset.title)" />'
       : posterFallback(a);
     return (
       '<article class="anime-card" data-id="' + esc(a.id) + '" role="button" tabindex="0" aria-label="Xem chi tiết ' + esc(a.title) + '">' +
@@ -807,7 +817,7 @@
     const myPanel = State.isAdmin ? myStatusEditorHTML(a) : '';
 
     const poster = a.poster_url
-      ? '<img src="' + esc(a.poster_url) + '" alt="' + esc(a.title) + '" loading="lazy" onerror="this.outerHTML=`' + posterFallback(a) + '`" />'
+      ? '<img src="' + esc(a.poster_url) + '" alt="' + esc(a.title) + '" loading="lazy" data-title="' + esc(a.title) + '" onerror="window.__posterFallback(this, this.dataset.title)" />'
       : '<div class="poster-fallback">🎞</div>';
 
     // Làm sạch synopsis: gộp dòng trống liên tiếp, cắt khoảng trắng 2 đầu để căn đều mượt hơn
