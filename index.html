@@ -32,7 +32,7 @@
   <!-- File cấu hình (đọc .env.local / fallback) -->
   <script src="./config.js"></script>
 
-  <link rel="stylesheet" href="./styles.css?v=11" />
+  <link rel="stylesheet" href="./styles.css?v=12" />
 </head>
 <body>
   <!-- Nền aurora động (liquid glass background) -->
@@ -187,20 +187,20 @@
     </div>
   </footer>
 
-  <!-- ======================= CHAT CHUNG (sticky bar dưới footer) ======================= -->
-  <aside class="chat-dock" id="chatDock" aria-label="Chat chung">
-    <!-- Thanh header luôn hiển thị: 3 tin mới nhất + nút mở rộng/thu gọn -->
-    <div class="chat-dock-header" id="chatDockHeader" role="button" tabindex="0" aria-expanded="false" title="Bấm để mở rộng / thu gọn chat chung">
-      <span class="chat-dock-title">💬 Chat chung</span>
-      <span class="chat-dock-status" id="chatDockStatus">3 tin mới nhất</span>
-      <span class="chat-dock-toggle" id="chatDockToggle">▲</span>
+  <!-- ======================= CHAT CHUNG (bong bóng nổi góc phải) ======================= -->
+  <button type="button" class="chat-fab" id="chatFab" aria-expanded="false" aria-label="Mở chat chung" title="Chat chung">
+    <span class="chat-fab-icon">💬</span>
+    <span class="chat-fab-badge" id="chatFabBadge" hidden>0</span>
+  </button>
+  <aside class="chat-panel hidden" id="chatDock" aria-label="Chat chung">
+    <!-- Tiêu đề panel + nút đóng -->
+    <div class="chat-panel-header">
+      <span class="chat-panel-title">💬 Chat chung</span>
+      <button type="button" class="chat-panel-close" id="chatCloseBtn" aria-label="Đóng chat chung" title="Đóng (Esc)">✕</button>
     </div>
 
-    <!-- 3 tin mới nhất (thu gọn) -->
-    <div class="chat-dock-preview" id="chatPreview"></div>
-
-    <!-- Panel đầy đủ (mở rộng) -->
-    <div class="chat-dock-body hidden" id="chatDockBody">
+    <!-- Panel đầy đủ: soạn thảo + danh sách -->
+    <div class="chat-panel-body" id="chatDockBody">
       <div class="chat-layout">
         <!-- Khung soạn thảo chung -->
         <div class="composer" id="chatComposer">
@@ -507,7 +507,7 @@
   <div id="toastContainer" class="toast-container" aria-live="polite"></div>
   <div id="globalBackdrop" class="global-backdrop hidden"></div>
 
-  <script src="./app.js?v=10"></script>
+  <script src="./app.js?v=11"></script>
 </body>
 </html>
 
