@@ -828,6 +828,37 @@
         .replace(/\n{3,}/g, '\n\n')
         .trim() || 'Chưa có mô tả.';
 
+    // ══ Phần trái: poster + thông tin nhanh ══
+    const sideRows = [];
+    if (a.status) {
+      sideRows.push(
+        '<div class="detail-side-row">' +
+          '<span class="detail-side-label">Trạng thái</span>' +
+          '<span class="detail-side-value">' + esc(a.status) + '</span>' +
+        '</div>'
+      );
+    }
+    sideRows.push(
+      '<div class="detail-side-row">' +
+        '<span class="detail-side-label">Điểm cộng đồng</span>' +
+        '<span class="detail-side-value detail-rating">★ ' + rating.toFixed(1) + '/10</span>' +
+      '</div>'
+    );
+    sideRows.push(
+      '<div class="detail-side-row detail-side-progress">' +
+        '<span class="detail-side-label">Tiến độ</span>' +
+        '<div class="progress-bar"><div class="progress-fill" style="width:' + pct + '%"></div></div>' +
+        '<span class="detail-progress-text">' + watched + ' / ' + (total || '?') + ' tập · ' + pct + '%</span>' +
+      '</div>'
+    );
+
+    // ══ Phần phải: tiêu đề + chips + synopsis + seiyuu ══
+    const chips = [];
+    genres.forEach((g) => chips.push('<span class="chip">' + esc(g) + '</span>'));
+    chips.push('<span class="chip">📺 ' + (total || '?') + ' tập</span>');
+    chips.push('<span class="chip my-status-chip ' + mySt.cls + '">' + mySt.icon + ' ' + esc(mySt.label) + '</span>');
+    if (myRating > 0) chips.push('<span class="chip chip-mine">⭐ ' + myRating.toFixed(1) + '/10</span>');
+
     const seiyuuSection = seiyuu.length
       ? '<section class="detail-section">' +
           '<h3 class="detail-section-title">🎤 Dàn diễn viên lồng tiếng (Seiyuu)</h3>' +
@@ -851,35 +882,14 @@
       '<div class="anime-detail">' +
         '<aside class="detail-side">' +
           '<figure class="anime-detail-poster">' + poster + '</figure>' +
-          '<div class="detail-side-meta">' +
-            (a.status
-              ? '<div class="detail-side-row">' +
-                  '<span class="detail-side-label">Trạng thái</span>' +
-                  '<span class="detail-side-value">' + esc(a.status) + '</span>' +
-                '</div>'
-              : '') +
-            '<div class="detail-side-row">' +
-              '<span class="detail-side-label">Điểm cộng đồng</span>' +
-              '<span class="detail-side-value detail-rating">★ ' + rating.toFixed(1) + '/10</span>' +
-            '</div>' +
-            '<div class="detail-side-row detail-side-progress">' +
-              '<span class="detail-side-label">Tiến độ</span>' +
-              '<div class="progress-bar"><div class="progress-fill" style="width:' + pct + '%"></div></div>' +
-              '<span class="detail-progress-text">' + watched + ' / ' + (total || '?') + ' tập · ' + pct + '%</span>' +
-            '</div>' +
-          '</div>' +
+          '<div class="detail-side-meta">' + sideRows.join('') + '</div>' +
         '</aside>' +
         '<div class="detail-main">' +
           '<header class="detail-header">' +
             '<h2 class="detail-title">' + esc(a.title || '') + '</h2>' +
             '<p class="detail-subtitle">' + esc([a.studio, a.year].filter(Boolean).join(' · ') || '—') + '</p>' +
           '</header>' +
-          '<div class="detail-chips">' +
-            (genres.length ? genres.map((g) => '<span class="chip">' + esc(g) + '</span>').join('') : '') +
-            '<span class="chip">📺 ' + (total || '?') + ' tập</span>' +
-            '<span class="chip my-status-chip ' + mySt.cls + '">' + mySt.icon + ' ' + esc(mySt.label) + '</span>' +
-            (myRating > 0 ? '<span class="chip chip-mine">⭐ ' + myRating.toFixed(1) + '/10</span>' : '') +
-          '</div>' +
+          '<div class="detail-chips">' + chips.join('') + '</div>' +
           '<section class="detail-section">' +
             '<h3 class="detail-section-title">📖 Tóm tắt (Synopsis)</h3>' +
             '<p class="detail-synopsis">' + esc(synopsis) + '</p>' +
