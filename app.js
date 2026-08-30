@@ -39,7 +39,6 @@
     // Rate limit comment
     lastCommentAt: 0,
     lastChatAt: 0,
-    chatTimer: null,
     // Captcha hiện tại
     captcha: { a: 0, b: 0, result: 0 },
     chatCaptcha: { a: 0, b: 0, result: 0 },
@@ -54,8 +53,6 @@
     chatVisible: 3,        // số tin chat hiển thị (thu gọn = 3)
     chatExpanded: false    // trạng thái mở rộng sticky chat
   };
-
-  const REFRESH_MS = 60000; // tự làm mới dữ liệu công khai mỗi phút
 
   /* ──────────────────────────────────────────────────────
      2. TIỆN ÍCH (helpers)
@@ -905,9 +902,10 @@
       ? '<img src="' + esc(a.poster_url) + '" alt="' + esc(a.title) + '" loading="lazy" data-title="' + esc(a.title) + '" onerror="window.__posterFallback(this, this.dataset.title)" />'
       : '<div class="poster-fallback">🎞</div>';
 
-    // Làm sạch synopsis: gộp dòng trống liên tiếp, cắt khoảng trắng 2 đầu để căn đều mượt hơn
+    // Làm sạch synopsis: chuyển <br> thành xuống dòng, gộp dòng trống liên tiếp, cắt khoảng trắng 2 đầu để căn đều mượt hơn
     const synopsis =
       String(a.synopsis || '')
+        .replace(/<br\s*\/?>/gi, '\n')
         .replace(/\r\n/g, '\n')
         .replace(/[ \t]+\n/g, '\n')
         .replace(/\n{3,}/g, '\n\n')
@@ -2696,15 +2694,11 @@
   }
 
   /* ──────────────────────────────────────────────────────
-     20. SWITCH TAB (Anime / Music / Chat chung)
+     20. SWITCH TAB (Anime / Music / Chat All)
      ────────────────────────────────────────────────────── */
-  // Tự làm mới chat chung mỗi 30s (chat luôn trực quan trong sticky bar)
+  // Tải chat 1 lần khi mở web — không tự làm mới định kỳ (chỉ làm mới khi tải lại trang)
   function refreshChat() {
     loadGlobalChat();
-    if (State.chatTimer) clearInterval(State.chatTimer);
-    State.chatTimer = setInterval(() => {
-      loadGlobalChat();
-    }, 30000);
   }
 
   // Upload ảnh trong chat chung
@@ -2770,8 +2764,8 @@
     // Khởi động chat chung (sticky bar) + captcha chat
     newChatCaptcha();
     refreshChat();
-    // Tự làm mới dữ liệu công khai mỗi phút
-    setInterval(() => { loadAnimes(); loadSongs(); }, REFRESH_MS);
+    // Dữ liệu công khai chỉ tải 1 lần khi mở web — không tự làm mới định kỳ
+    // (tránh "chớp" lại giao diện khi trang mở lâu). Làm mới khi tải lại trang.
   }
 
   // Bắt đầu khi DOM sẵn sàng
