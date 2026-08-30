@@ -25,6 +25,7 @@
     animes: [],
     songs: [],
     subsFiles: [],         // danh sách file .ass từ GitHub
+    assQuery: '',          // từ khoá tìm kiếm file .ass
     currentAnime: null,    // anime đang xem trong modal
     currentSong: null,     // bài hát đang phát
     subtitles: [],         // [ {start,end,romaji,vietsub} ] parse từ .ass
@@ -411,15 +412,75 @@
       if (list) list.innerHTML = '';
       return;
     }
-    statusEl.textContent = 'Tìm thấy ' + State.subsFiles.length + ' file .ass sẵn sàng.';
+    // Lọc theo từ khoá tìm kiếm
+    const q = (State.assQuery || '').trim().toLowerCase();
+    const filtered = q
+      ? State.subsFiles.filter((f) => f.name.toLowerCase().includes(q))
+      : State.subsFiles;
+    statusEl.textContent = q
+      ? 'Tìm thấy ' + filtered.length + '/' + State.subsFiles.length + ' file .ass.'
+      : 'Tìm thấy ' + State.subsFiles.length + ' file .ass — bấm để phát.';
     if (list) {
-      list.innerHTML = State.subsFiles.slice(0, 6).map((f) =>
-        '<div class="ass-file-item"><span class="dot"></span>' + esc(f.name) + '</div>'
-      ).join('');
-      if (State.subsFiles.length > 6) {
-        list.innerHTML += '<div class="ass-file-item">… và ' + (State.subsFiles.length - 6) + ' file khác</div>';
+      if (filtered.length === 0) {
+        list.innerHTML = '<div class="ass-file-item"><span class="dot"></span>Không có file khớp.</div>';
+        return;
       }
+      list.innerHTML = filtered.map((f) => {
+        const yid = parseAssYoutubeId(f.name);
+        const title = stripAssTitle(f.name);
+        const isActive = State.currentSong && State.currentSong.id === 'ass:' + f.name;
+        const cls = 'ass-file-item' + (yid ? ' clickable' : '') + (isActive ? ' active' : '');
+        const badge = yid
+          ? '<span class="ass-file-play-btn">▶</span>'
+          : '<span class="ass-file-bad" title="File này không có YouTube ID hợp lệ">ID sai</span>';
+        return (
+          '<div class="' + cls
+          + '" data-ass="' + esc(f.name) + '" tabindex="0" role="button" aria-label="Mở video ' + esc(title) + '">'
+          + '<span class="dot"></span>'
+          + '<span class="ass-file-name">' + esc(title) + '</span>'
+          + badge
+          + '</div>'
+        );
+      }).join('');
     }
+  }
+
+  // Lấy YouTube ID từ tên file .ass theo định dạng "youtubeID_tiêu đề.ass"
+  function parseAssYoutubeId(name) {
+    const base = String(name || '').replace(/\.ass$/i, '').trim();
+    // YouTube ID thường là 11 ký tự [A-Za-z0-9_-], nằm đầu tên file, theo sau bởi "_" hoặc " "
+    const m = base.match(/^([A-Za-z0-9_-]{11})(?=(\s|_)|$)/);
+    return m ? m[1] : '';
+  }
+
+  // Bỏ tiền tố YouTube ID khỏi tên file để hiển thị tiêu đề video
+  function stripAssTitle(name) {
+    return String(name || '')
+      .replace(/\.ass$/i, '')
+      .replace(/^[A-Za-z0-9_-]{11}[\s_]+/, '')
+      .trim() || String(name || '').replace(/\.ass$/i, '').trim();
+  }
+
+  // Mở video YouTube theo file .ass (click vào kết quả tìm kiếm)
+  async function playAssSub(file) {
+    if (!file) return;
+    const yid = parseAssYoutubeId(file.name);
+    if (!yid) {
+      toast('ID sai — file "' + file.name + '" không có YouTube ID hợp lệ.', 'error', 4000);
+      return;
+    }
+    const title = stripAssTitle(file.name);
+    const song = {
+      id: 'ass:' + file.name,
+      youtube_id: yid,
+      ass_file: file.name,
+      title: title,
+      artist: '',
+      anime: 'Phụ đề .ass',
+      song_type: 'ASS'
+    };
+    await playSong(song);
+    renderAssStatus();
   }
 
   // Khớp file .ass cho 1 bài hát: theo ass_file, hoặc theo youtube_id trong tên file
@@ -2385,6 +2446,30 @@
       State.songVisible += 15;
       renderSongList();
     });
+
+    // Danh sách file .ass: tìm kiếm + click để phát theo YouTube ID
+    const assSearch = $('#assSearch');
+    if (assSearch) assSearch.addEventListener('input', (e) => {
+      State.assQuery = e.target.value;
+      renderAssStatus();
+    });
+    const assList = $('#assFileList');
+    if (assList) {
+      assList.addEventListener('click', (e) => {
+        const item = e.target.closest('.ass-file-item[data-ass]');
+        if (!item) return;
+        const file = State.subsFiles.find((f) => f.name === item.dataset.ass);
+        if (file) playAssSub(file);
+      });
+      assList.addEventListener('keydown', (e) => {
+        if (e.key !== 'Enter' && e.key !== ' ') return;
+        const item = e.target.closest('.ass-file-item[data-ass]');
+        if (!item) return;
+        e.preventDefault();
+        const file = State.subsFiles.find((f) => f.name === item.dataset.ass);
+        if (file) playAssSub(file);
+      });
+    }
 
     // Bình luận: gửi & captcha & toolbar (bold/italic/.../) + paste tự xử lý link/ảnh
     $('#submitCommentBtn').addEventListener('click', submitComment);
