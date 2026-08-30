@@ -32,7 +32,7 @@
   <!-- File cấu hình (đọc .env.local / fallback) -->
   <script src="./config.js"></script>
 
-  <link rel="stylesheet" href="./styles.css?v=17" />
+  <link rel="stylesheet" href="./styles.css?v=18" />
 </head>
 <body>
   <!-- Nền aurora động (liquid glass background) -->
@@ -154,6 +154,7 @@
           <div class="ass-status-card">
             <p class="ass-status-title">📑 Phụ đề .ass từ GitHub</p>
             <p class="ass-status-text" id="assStatus">Đang kiểm tra kho phụ đề...</p>
+            <input type="search" id="assSearch" class="ass-search" placeholder="🔍 Tìm file .ass theo tên..." autocomplete="off" />
             <div class="ass-files" id="assFileList"></div>
           </div>
         </aside>
@@ -512,7 +513,7 @@
   <div class="mini-pop hidden" id="epPop"></div>
   <div class="mini-pop hidden" id="heartPop"></div>
 
-  <script src="./app.js?v=19"></script>
+  <script src="./app.js?v=20"></script>
 </body>
 </html>
 
