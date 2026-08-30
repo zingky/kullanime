@@ -103,7 +103,8 @@
 
   function posterFallback(anime) {
     const initial = (anime.title || '?').trim().charAt(0).toUpperCase();
-    return '<div class="poster-fallback" aria-label="Không có poster">' + esc(initial || '🎞') + '</div>';
+    // Dùng nháy đơn cho attribute để an toàn khi nhúng vào onerror="..." (không cắt cụt dấu " bao quanh)
+    return "<div class='poster-fallback' aria-label='Không có poster'>" + esc(initial || '🎞') + '</div>';
   }
 
   function openModal(id) {
