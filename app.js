@@ -748,7 +748,8 @@
   function myStatusMeta(s) {
     s = String(s || '').trim();
     if (/đã xem|xem r/i.test(s)) return { label: 'Đã xem', icon: '✅', cls: 'my-watched' };
-    if (/ý định|định xem|muốn xem|dự định/i.test(s)) return { label: 'Có ý định xem', icon: '⏳', cls: 'my-planned' };
+    if (/đang xem|đang/i.test(s)) return { label: 'Đang xem', icon: '⏳', cls: 'my-watching' };
+    if (/ý định|định xem|muốn xem|dự định/i.test(s)) return { label: 'Có ý định xem', icon: '➕', cls: 'my-planned' };
     return { label: 'Chưa xem', icon: '⬜', cls: 'my-unwatched' };
   }
 
@@ -756,20 +757,44 @@
     const rating = Number(a.rating) || 0;
     const eps = (a.watched_episodes || 0) + ' / ' + (a.total_episodes || '?') + ' tập';
     const mySt = myStatusMeta(a.my_status);
+    const myRating = Math.round(Number(a.my_rating) || 0);
+    const isAdmin = State.isAdmin;
     const img = a.poster_url
       ? '<img src="' + esc(a.poster_url) + '" alt="' + esc(a.title) + '" loading="lazy" data-title="' + esc(a.title) + '" onerror="window.__posterFallback(this, this.dataset.title)" />'
       : posterFallback(a);
+
+    // Admin: nút nhanh trên ảnh — ➕ (có ý định xem) góc trên-phải, tick trạng thái góc dưới-phải
+    let quick = '';
+    let myBadge = '';
+    if (isAdmin) {
+      const tickIcon = mySt.cls === 'my-watched' ? '✅' : mySt.cls === 'my-watching' ? '⏳' : '⬜';
+      const tickLabel = mySt.cls === 'my-watched' ? 'Đã xem' : mySt.cls === 'my-watching' ? 'Đang xem' : 'Chưa xem';
+      quick =
+        '<button type="button" class="card-q-btn card-plan' + (mySt.cls === 'my-planned' ? ' on' : '') + '" data-quick="plan" title="' + (mySt.cls === 'my-planned' ? 'Bỏ ý định xem' : 'Đánh dấu có ý định xem') + '">➕</button>' +
+        '<button type="button" class="card-q-btn card-tick ' + (mySt.cls === 'my-watched' ? 'on' : mySt.cls === 'my-watching' ? 'watch' : '') + '" data-quick="tick" title="' + tickLabel + ' — bấm để đổi">' + tickIcon + '</button>';
+    } else {
+      myBadge = '<span class="card-mystatus ' + mySt.cls + '">' + mySt.icon + ' ' + esc(mySt.label) + '</span>';
+    }
+
+    // Admin: ★ cộng đồng + ♥ của tôi (bấm chấm nhanh) + số tập gọn
+    const metaRight = isAdmin
+      ? '<span class="card-meta-right">' +
+          '<button type="button" class="card-heart" data-quick="heart" title="Điểm của tôi — bấm để chấm ♥">♥ ' + (myRating || '–') + '</button>' +
+          '<span class="card-progress">' + (a.watched_episodes || 0) + '/' + (a.total_episodes || '?') + '</span>' +
+        '</span>'
+      : '<span class="card-progress">' + eps + '</span>';
+
     return (
       '<article class="anime-card" data-id="' + esc(a.id) + '" role="button" tabindex="0" aria-label="Xem chi tiết ' + esc(a.title) + '">' +
         '<div class="card-poster">' + img +
           '<span class="card-status ' + statusClass(a.status) + '">' + esc(a.status || '') + '</span>' +
-          '<span class="card-mystatus ' + mySt.cls + '">' + mySt.icon + ' ' + esc(mySt.label) + '</span>' +
+          myBadge + quick +
         '</div>' +
         '<div class="card-body">' +
           '<h3 class="card-title">' + esc(a.title || '') + '</h3>' +
           '<div class="card-meta">' +
             '<span class="card-rating">★ ' + rating.toFixed(1) + '</span>' +
-            '<span class="card-progress">' + eps + '</span>' +
+            metaRight +
           '</div>' +
         '</div>' +
       '</article>'
@@ -880,12 +905,19 @@
       '</div>'
     );
 
-    // ══ Phần phải: tiêu đề + chips + synopsis + seiyuu ══
+    // ══ Phần phải: thể loại (5 cái + nút mở rộng) + chips + synopsis + seiyuu ══
     const chips = [];
-    genres.forEach((g) => chips.push('<button type="button" class="chip chip-btn" data-search="' + esc(g) + '" title="Tìm anime theo thể loại">' + esc(g) + '</button>'));
+    const maxGenres = 5;
+    const genreBtns = genres.map((g) =>
+      '<button type="button" class="chip chip-btn" data-search="' + esc(g) + '" title="Tìm anime theo thể loại">' + esc(g) + '</button>'
+    ).join('');
+    const genreMore = genres.length > maxGenres
+      ? '<button type="button" class="chip chip-more" data-genre-more title="Xem toàn bộ thể loại"><span data-more-caret>▾</span> <span data-more-label>' + (genres.length - maxGenres) + ' thể loại</span></button>'
+      : '';
+    chips.push('<div class="genre-chips' + (genres.length > maxGenres ? ' has-more' : '') + '">' + genreBtns + genreMore + '</div>');
     chips.push('<span class="chip">📺 ' + (total || '?') + ' tập</span>');
     chips.push('<span class="chip my-status-chip ' + mySt.cls + '">' + mySt.icon + ' ' + esc(mySt.label) + '</span>');
-    if (myRating > 0) chips.push('<span class="chip chip-mine">⭐ ' + myRating.toFixed(1) + '/10</span>');
+    if (myRating > 0) chips.push('<span class="chip chip-mine">♥ ' + myRating + '/10</span>');
 
     const seiyuuSection = seiyuu.length
       ? '<details class="detail-section detail-collapse">' +
@@ -894,17 +926,24 @@
             '<span class="detail-collapse-caret">▾</span>' +
           '</summary>' +
           '<div class="seiyuu-grid">' +
-            seiyuu.map((s) =>
-              '<div class="seiyuu-card">' +
-                (s.image
-                  ? '<div class="seiyuu-avatar"><img src="' + esc(s.image) + '" alt="" loading="lazy" onerror="this.remove()" /></div>'
-                  : '<div class="seiyuu-avatar">🎙</div>') +
-                '<div class="seiyuu-info">' +
-                  '<button type="button" class="seiyuu-name seiyuu-link" data-search="' + esc(s.name || '') + '" title="Tìm anime theo diễn viên">' + esc(s.name || '') + '</button>' +
-                  '<div class="seiyuu-char">' + esc(s.character || '') + '</div>' +
-                '</div>' +
-              '</div>'
-            ).join('') +
+            seiyuu.map((s) => {
+              // Ảnh chính = ảnh nhân vật (character art), ảnh nhỏ = seiyuu
+              const vaImg = s.image ? '<img src="' + esc(s.image) + '" alt="" loading="lazy" onerror="this.style.display=\'none\'" />' : '';
+              const charImg = s.charImage
+                ? '<img class="seiyuu-char-img" src="' + esc(s.charImage) + '" alt="" loading="lazy" onerror="this.style.display=\'none\'" />'
+                : '';
+              const main = charImg || vaImg || '<span>🎙</span>';
+              const badge = s.charImage && vaImg ? '<span class="seiyuu-va-badge">' + vaImg + '</span>' : '';
+              return (
+                '<div class="seiyuu-card">' +
+                  '<div class="seiyuu-avatar">' + main + badge + '</div>' +
+                  '<div class="seiyuu-info">' +
+                    '<button type="button" class="seiyuu-name seiyuu-link" data-search="' + esc(s.name || '') + '" title="Tìm anime theo diễn viên">' + esc(s.name || '') + '</button>' +
+                    '<div class="seiyuu-char">' + esc(s.character || '') + '</div>' +
+                  '</div>' +
+                '</div>'
+              );
+            }).join('') +
           '</div>' +
         '</details>'
       : '';
@@ -930,14 +969,15 @@
       '</div>';
   }
 
-  // Panel chỉnh trạng thái xem + điểm của tôi (chỉ hiện khi admin đăng nhập)
+  // Panel chỉnh trạng thái xem + điểm của tôi (chỉ admin) — bấm là lưu liền
   function myStatusEditorHTML(a) {
     const cur = myStatusMeta(a.my_status);
-    const myRating = Number(a.my_rating) || 0;
+    const myRating = Math.round(Number(a.my_rating) || 0);
     const opts = [
       { value: 'Đã xem', icon: '✅', cls: 'my-watched' },
-      { value: 'Chưa xem', icon: '⬜', cls: 'my-unwatched' },
-      { value: 'Có ý định xem', icon: '⏳', cls: 'my-planned' }
+      { value: 'Đang xem', icon: '⏳', cls: 'my-watching' },
+      { value: 'Có ý định xem', icon: '➕', cls: 'my-planned' },
+      { value: 'Chưa xem', icon: '⬜', cls: 'my-unwatched' }
     ];
     const buttons = opts.map((o) =>
       '<button type="button" class="my-state-btn ' + o.cls + (o.value === cur.label ? ' active' : '') + '" data-status="' + esc(o.value) + '">' + o.icon + ' ' + esc(o.value) + '</button>'
@@ -947,39 +987,125 @@
         '<div class="my-tracker-title">🎯 Trạng thái xem của tôi</div>' +
         '<div class="my-tracker-btns">' + buttons + '</div>' +
         '<div class="my-tracker-rating">' +
-          '<label for="myRatingInput">Điểm của tôi (0-10)</label>' +
-          '<input type="number" id="myRatingInput" class="input" min="0" max="10" step="0.1" value="' + myRating + '" />' +
+          '<label for="myRatingBtn">Điểm tôi chấm</label>' +
+          '<button type="button" class="my-rating-btn" id="myRatingBtn" title="Bấm để chấm điểm nhanh">♥ ' + myRating + '/10 ▾</button>' +
         '</div>' +
-        '<button type="button" class="btn btn-primary" id="saveMyStatusBtn">💾 Lưu trạng thái của tôi</button>' +
-        '<div class="my-tracker-hint">Thay đổi sẽ hiện cho mọi người xem trên card &amp; modal.</div>' +
+        '<div class="my-tracker-hint">Bấm là tự lưu liền — không cần nút Lưu. Bấm ⏳ để chọn tập đã xem.</div>' +
       '</div>'
     );
   }
 
-  // Lưu trạng thái xem + điểm “của tôi” vào cột my_status / my_rating
-  async function saveMyStatus(animeId) {
-    if (!State.isAdmin) { toast('Bạn không có quyền.', 'error'); return; }
-    const btns = $$('#myTracker .my-state-btn');
-    const activeBtn = btns.find((b) => b.classList.contains('active')) || btns[0];
-    const my_status = activeBtn ? activeBtn.dataset.status : 'Chưa xem';
-    const my_rating = Math.min(10, Math.max(0, parseFloat($('#myRatingInput').value) || 0));
-    const btn = $('#saveMyStatusBtn');
-    if (btn) btn.disabled = true;
-    const { error } = await State.supabase.from('animes').update({ my_status, my_rating }).eq('id', animeId);
-    if (btn) btn.disabled = false;
-    if (error) {
-      toast('Lưu thất bại: ' + error.message, 'error', 5000);
-      return;
-    }
+  // Lưu nhanh một/nhiều trường “của tôi” (my_status / my_rating / watched_episodes)
+  async function saveMyTracker(animeId, patch) {
+    if (!State.isAdmin) { toast('Bạn không có quyền.', 'error'); return false; }
+    const { error } = await State.supabase.from('animes').update(patch).eq('id', animeId);
+    if (error) { toast('Lưu thất bại: ' + error.message, 'error', 5000); return false; }
     const idx = State.animes.findIndex((x) => String(x.id) === String(animeId));
     if (idx > -1) {
-      State.animes[idx].my_status = my_status;
-      State.animes[idx].my_rating = my_rating;
-      State.currentAnime = State.animes[idx];
+      Object.assign(State.animes[idx], patch);
+      if (State.currentAnime && String(State.currentAnime.id) === String(animeId)) {
+        State.currentAnime = State.animes[idx];
+      }
     }
     renderAnimeGrid();
-    renderAnimeDetail(State.currentAnime);
-    toast('Đã lưu trạng thái của tôi ✅', 'success');
+    if (State.currentAnime && String(State.currentAnime.id) === String(animeId)) {
+      renderAnimeDetail(State.currentAnime);
+    }
+    return true;
+  }
+
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+  // ── Popup mini: chọn tập đã xem / chấm điểm ♥ ──
+  function closeMiniPop() {
+    const a = $('#epPop'); if (a) a.classList.add('hidden');
+    const b = $('#heartPop'); if (b) b.classList.add('hidden');
+  }
+  function openMiniPop(pop, anchor) {
+    closeMiniPop();
+    pop.classList.remove('hidden');
+    const r = anchor.getBoundingClientRect();
+    const pw = pop.offsetWidth;
+    const ph = pop.offsetHeight;
+    let left = Math.max(8, Math.min(r.left, window.innerWidth - pw - 8));
+    let top = r.bottom + 6;
+    if (top + ph > window.innerHeight - 8) top = Math.max(8, r.top - ph - 6);
+    pop.style.left = left + 'px';
+    pop.style.top = top + 'px';
+  }
+
+  // Popup chọn tập đã xem (1 → tổng tập), lưu watched_episodes + trạng thái
+  function openEpisodePop(anchor, id) {
+    const a = State.animes.find((x) => String(x.id) === String(id));
+    if (!a) return;
+    const total = Number(a.total_episodes) || 0;
+    const cur = Number(a.watched_episodes) || 0;
+    const max = total > 0 ? total : Math.max(cur * 2, 12);
+    let opts = '';
+    for (let i = 1; i <= max; i++) {
+      opts += '<button type="button" class="ep-opt' + (i === cur ? ' cur' : '') + '" data-ep="' + i + '">' + i + '</button>';
+    }
+    const pop = $('#epPop');
+    if (!pop) return;
+    pop.dataset.anime = String(a.id);
+    pop.style.minWidth = '190px';
+    pop.innerHTML = '<div class="mini-pop-title">🎬 Đã xem đến tập...</div><div class="mini-pop-grid">' + opts + '</div>';
+    openMiniPop(pop, anchor);
+  }
+
+  // Popup chấm điểm ♥ (10 ♥ + nút xoá)
+  function openHeartPop(anchor, id) {
+    const a = State.animes.find((x) => String(x.id) === String(id));
+    if (!a) return;
+    const cur = Math.max(0, Math.min(10, Math.round(Number(a.my_rating) || 0)));
+    let hearts = '<button type="button" class="heart-opt heart-clear" data-val="0" title="Xoá điểm">✕</button>';
+    for (let i = 1; i <= 10; i++) {
+      hearts += '<button type="button" class="heart-opt' + (i <= cur ? ' on' : '') + '" data-val="' + i + '" title="' + i + '/10">' + (i <= cur ? '♥' : '♡') + '</button>';
+    }
+    const pop = $('#heartPop');
+    if (!pop) return;
+    pop.dataset.anime = String(a.id);
+    pop.style.minWidth = '';
+    pop.innerHTML = '<div class="mini-pop-title">♥ Chấm điểm (0–10) — bấm 1 cái là lưu</div><div class="mini-pop-hearts">' + hearts + '</div>';
+    openMiniPop(pop, anchor);
+  }
+
+  async function pickEpisode(id, ep) {
+    const a = State.animes.find((x) => String(x.id) === String(id));
+    if (!a) return;
+    const total = Number(a.total_episodes) || 0;
+    const val = Math.max(1, Math.min(Number(ep) || 1, total > 0 ? total : Infinity));
+    closeMiniPop();
+    const my_status = total > 0 && val >= total ? 'Đã xem' : 'Đang xem';
+    await saveMyTracker(id, { my_status, watched_episodes: val });
+    toast('Đã cập nhật: xem đến tập ' + val + '/' + (total || '?') + (my_status === 'Đã xem' ? ' ✅' : ''), 'success');
+  }
+
+  async function pickHeart(id, val) {
+    closeMiniPop();
+    const v = Math.max(0, Math.min(10, Number(val) || 0));
+    await saveMyTracker(id, { my_rating: v });
+    toast(v > 0 ? 'Đã chấm ' + v + '/10 ♥' : 'Đã xoá điểm ♥', 'success');
+  }
+
+  // Nút nhanh trên card anime: tick trạng thái / ➕ ý định xem / ♥ chấm điểm
+  async function handleCardQuick(ev, kind, id, btn) {
+    const a = State.animes.find((x) => String(x.id) === String(id));
+    if (!a) return;
+    const mySt = myStatusMeta(a.my_status);
+    if (kind === 'tick') {
+      if (mySt.cls === 'my-watching') {
+        ev.__popOpened = true;
+        openEpisodePop(btn, id);
+      } else {
+        await saveMyTracker(id, { my_status: mySt.cls === 'my-watched' ? 'Chưa xem' : 'Đã xem' });
+      }
+    } else if (kind === 'plan') {
+      await saveMyTracker(id, { my_status: mySt.cls === 'my-planned' ? 'Chưa xem' : 'Có ý định xem' });
+    } else if (kind === 'heart') {
+      ev.__popOpened = true;
+      openHeartPop(btn, id);
+    }
   }
 
   /* ──────────────────────────────────────────────────────
@@ -1634,14 +1760,15 @@
   function renderSeiyuuEditors(seiyuu) {
     const wrap = $('#afSeiyuuList');
     wrap.innerHTML = '';
-    const arr = Array.isArray(seiyuu) && seiyuu.length ? seiyuu : [{ name: '', character: '', image: '' }];
+    const arr = Array.isArray(seiyuu) && seiyuu.length ? seiyuu : [{ name: '', character: '', image: '', charImage: '' }];
     arr.forEach((s) => {
       const row = document.createElement('div');
       row.className = 'seiyuu-editor-row';
       row.innerHTML =
         '<input type="text" class="input" data-seiyuu="name" value="' + esc(s.name || '') + '" placeholder="Tên Seiyuu" />' +
         '<input type="text" class="input" data-seiyuu="character" value="' + esc(s.character || '') + '" placeholder="Nhân vật" />' +
-        '<input type="text" class="input" data-seiyuu="image" value="' + esc(s.image || '') + '" placeholder="Ảnh avatar URL" />' +
+        '<input type="text" class="input" data-seiyuu="image" value="' + esc(s.image || '') + '" placeholder="Ảnh Seiyuu URL" />' +
+        '<input type="text" class="input" data-seiyuu="charImage" value="' + esc(s.charImage || '') + '" placeholder="Ảnh nhân vật URL" />' +
         '<button type="button" class="seiyuu-remove" title="Xóa" aria-label="Xóa seiyuu">✕</button>';
       row.querySelector('.seiyuu-remove').addEventListener('click', () => row.remove());
       wrap.appendChild(row);
@@ -1654,7 +1781,8 @@
       const name = row.querySelector('[data-seiyuu="name"]').value.trim();
       const character = row.querySelector('[data-seiyuu="character"]').value.trim();
       const image = row.querySelector('[data-seiyuu="image"]').value.trim();
-      if (name) out.push({ name, character, image });
+      const charImage = row.querySelector('[data-seiyuu="charImage"]').value.trim();
+      if (name) out.push({ name, character, image, charImage });
     });
     return out;
   }
@@ -1917,7 +2045,86 @@
     }
   }
 
-  // Điền dữ liệu AniList vào form + fetch seiyuu/characters
+  // Gọi AniList GraphQL đơn giản (không retry)
+  async function anilistGraphQL(query, variables) {
+    const res = await fetch(State.config.ANILIST_API_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+      body: JSON.stringify({ query, variables })
+    });
+    return res.ok ? await res.json() : null;
+  }
+
+  // Fetch dàn diễn viên lồng tiếng + ẢNH NHÂN VẬT theo id AniList
+  async function anilistFetchCast(id) {
+    const gql = 'query ($id: Int) { Media(id: $id) { characters(sort: ROLE, perPage: 25) { edges { node { name { full } image { large } } voiceActors(language: JAPANESE) { name { full } image { large } } } } } }';
+    const data = await anilistGraphQL(gql, { id });
+    const edges = (data && data.data && data.data.Media && data.data.Media.characters && data.data.Media.characters.edges) || [];
+    const voices = [];
+    for (const edge of edges) {
+      const va = edge.voiceActors && edge.voiceActors[0];
+      if (va) {
+        voices.push({
+          name: (va.name && va.name.full) || '',
+          character: (edge.node && edge.node.name && edge.node.name.full) || '',
+          image: (va.image && va.image.large) || '',
+          charImage: (edge.node && edge.node.image && edge.node.image.large) || ''
+        });
+      }
+    }
+    return voices;
+  }
+
+  // Tìm id AniList theo tên anime (dùng cho backfill ảnh nhân vật)
+  async function anilistFindIdByTitle(title) {
+    const gql = 'query ($search: String) { Page(page: 1, perPage: 1) { media(search: $search, type: ANIME, isAdult: false) { id title { romaji english } } } }';
+    const data = await anilistGraphQL(gql, { search: title });
+    const m = data && data.data && data.data.Page && data.data.Page.media;
+    return (m && m[0] && m[0].id) || null;
+  }
+
+  // Nút "Lấy ảnh nhân vật": bổ sung ảnh nhân vật (character art) cho anime cũ theo tên từ AniList
+  async function backfillCharacterImages() {
+    if (!State.isAdmin) { toast('Bạn không có quyền.', 'error'); return; }
+    const btn = $('#backfillCharsBtn');
+    if (!btn || btn.disabled) return;
+    btn.disabled = true;
+    const list = State.animes.slice();
+    let updated = 0;
+    let skipped = 0;
+    for (let i = 0; i < list.length; i++) {
+      const a = list[i];
+      const seiyuu = Array.isArray(a.seiyuu) ? a.seiyuu : [];
+      if (!seiyuu.some((s) => !s.charImage && s.character)) { skipped++; continue; }
+      toast('Lấy ảnh nhân vật: ' + (i + 1) + '/' + list.length + ' — ' + (a.title || ''), 'info');
+      try {
+        const id = await anilistFindIdByTitle(a.title);
+        if (!id) { await sleep(350); continue; }
+        const cast = await anilistFetchCast(id);
+        const keyed = new Map();
+        cast.forEach((c) => { if (c.character) keyed.set(c.character.trim().toLowerCase(), c); });
+        let changed = false;
+        const next = seiyuu.map((s) => {
+          if (s.charImage || !s.character) return s;
+          const c = keyed.get(String(s.character).trim().toLowerCase());
+          if (c && c.charImage) { changed = true; return { ...s, charImage: c.charImage }; }
+          return s;
+        });
+        if (changed) {
+          const { error } = await State.supabase.from('animes').update({ seiyuu: next }).eq('id', a.id);
+          if (!error) { a.seiyuu = next; updated++; }
+        }
+      } catch (err) {
+        console.warn('Lỗi backfill ảnh nhân vật cho', a.title, err);
+      }
+      await sleep(600);
+    }
+    btn.disabled = false;
+    renderAnimeGrid();
+    toast('Xong! Đã bổ sung ảnh nhân vật cho ' + updated + ' anime' + (skipped ? ' (bỏ qua ' + skipped + ' đã có/không có nhân vật)' : '') + '.', 'success', 6000);
+  }
+
+  // Điền dữ liệu AniList vào form + fetch seiyuu + ảnh nhân vật
   async function applyAnilistToForm(it) {
     if (!it) return;
     $('#af_title').value = (it.title && (it.title.english || it.title.romaji)) || '';
@@ -1932,31 +2139,11 @@
 
     updatePosterPreview();
 
-    // Fetch seiyuu từ AniList characters
-    toast('Đang tải dàn Seiyuu...', 'info', 1500);
+    // Fetch seiyuu + ảnh nhân vật từ AniList characters
+    toast('Đang tải dàn Seiyuu + ảnh nhân vật...', 'info', 1200);
     try {
-      const gql = 'query ($id: Int) { Media(id: $id) { characters(sort: ROLE, perPage: 15) { edges { node { name { full } } voiceActors(language: JAPANESE) { name { full } image { large } } } } } }';
-      const res = await fetch(State.config.ANILIST_API_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-        body: JSON.stringify({ query: gql, variables: { id: it.id } })
-      });
-      if (res.ok) {
-        const data = await res.json();
-        const edges = (data && data.data && data.data.Media && data.data.Media.characters && data.data.Media.characters.edges) || [];
-        const voices = [];
-        for (const edge of edges) {
-          const va = edge.voiceActors && edge.voiceActors[0];
-          if (va) {
-            voices.push({
-              name: (va.name && va.name.full) || '',
-              character: (edge.node && edge.node.name && edge.node.name.full) || '',
-              image: (va.image && va.image.large) || ''
-            });
-          }
-        }
-        renderSeiyuuEditors(voices.slice(0, 12));
-      }
+      const voices = await anilistFetchCast(it.id);
+      if (voices.length) renderSeiyuuEditors(voices);
     } catch (_e) { /* bỏ qua lỗi seiyuu */ }
   }
 
@@ -2032,13 +2219,17 @@
       if (btn) switchTab(btn.dataset.tab);
     });
 
-    // Mở modal anime khi click card
+    // Mở modal anime khi click card + nút trạng thái nhanh (admin)
     $('#animeGrid').addEventListener('click', (e) => {
       const card = e.target.closest('.anime-card');
-      if (card && card.dataset.id) {
-        const a = State.animes.find((x) => String(x.id) === String(card.dataset.id));
-        if (a) openAnimeDetail(a);
+      if (!card || !card.dataset.id) return;
+      const q = e.target.closest('[data-quick]');
+      if (q) {
+        handleCardQuick(e, q.dataset.quick, card.dataset.id, q);
+        return;
       }
+      const a = State.animes.find((x) => String(x.id) === String(card.dataset.id));
+      if (a) openAnimeDetail(a);
     });
 
     // Click thể loại / diễn viên trong modal anime → tìm anime theo từ đó
@@ -2214,7 +2405,8 @@
       row.innerHTML =
         '<input type="text" class="input" data-seiyuu="name" placeholder="Tên Seiyuu" />' +
         '<input type="text" class="input" data-seiyuu="character" placeholder="Nhân vật" />' +
-        '<input type="text" class="input" data-seiyuu="image" placeholder="Ảnh avatar URL" />' +
+        '<input type="text" class="input" data-seiyuu="image" placeholder="Ảnh Seiyuu URL" />' +
+        '<input type="text" class="input" data-seiyuu="charImage" placeholder="Ảnh nhân vật URL" />' +
         '<button type="button" class="seiyuu-remove" title="Xóa">✕</button>';
       row.querySelector('.seiyuu-remove').addEventListener('click', () => row.remove());
       wrap.appendChild(row);
@@ -2266,24 +2458,70 @@
     // Export backup
     $('#exportBackupBtn').addEventListener('click', exportBackup);
 
+    // Lấy ảnh nhân vật cho toàn bộ anime cũ (admin)
+    $('#backfillCharsBtn').addEventListener('click', () => backfillCharacterImages());
+
     // Comment actions trong modal anime (delegate)
     $('#animeModal').addEventListener('click', (e) => {
       const btn = e.target.closest('[data-act]');
       if (btn) handleCommentAction(btn.dataset.act, btn.dataset.id);
-      // Chọn trạng thái xem cá nhân (ô "Trạng thái xem của tôi")
+      // Thể loại: nút ">" mở/đóng toàn bộ
+      const gmore = e.target.closest('[data-genre-more]');
+      if (gmore) {
+        const wrap = gmore.closest('.genre-chips');
+        if (wrap) {
+          const open = wrap.classList.toggle('open');
+          const caret = wrap.querySelector('[data-more-caret]');
+          const label = wrap.querySelector('[data-more-label]');
+          if (caret) caret.textContent = open ? '▴' : '▾';
+          if (label) {
+            label.textContent = open ? 'Thu gọn' : (wrap.querySelectorAll('.chip-btn').length - 5) + ' thể loại';
+          }
+        }
+        return;
+      }
+      // Trạng thái xem của tôi — bấm là lưu liền (⏳ lưu "Đang xem" + mở popup chọn tập)
       const stateBtn = e.target.closest('.my-state-btn');
       if (stateBtn) {
-        $$('#myTracker .my-state-btn').forEach((b) => b.classList.remove('active'));
-        stateBtn.classList.add('active');
-        return;
-      }
-      // Lưu trạng thái xem + điểm của tôi
-      const saveBtn = e.target.closest('#saveMyStatusBtn');
-      if (saveBtn) {
         const tracker = $('#myTracker');
-        if (tracker && tracker.dataset.anime) saveMyStatus(tracker.dataset.anime);
+        if (tracker && tracker.dataset.anime) {
+          if (stateBtn.dataset.status === 'Đang xem') {
+            e.__popOpened = true;
+            openEpisodePop(stateBtn, tracker.dataset.anime);
+            saveMyTracker(tracker.dataset.anime, { my_status: 'Đang xem' });
+          } else {
+            saveMyTracker(tracker.dataset.anime, { my_status: stateBtn.dataset.status });
+          }
+        }
         return;
       }
+      // Nút ♥ trong tracker mở popup chấm điểm
+      const rateBtn = e.target.closest('#myRatingBtn');
+      if (rateBtn) {
+        const tracker = $('#myTracker');
+        if (tracker && tracker.dataset.anime) {
+          e.__popOpened = true;
+          openHeartPop(rateBtn, tracker.dataset.anime);
+        }
+        return;
+      }
+    });
+
+    // Popup mini (chọn tập / chấm ♥): xử lý chọn + đóng khi bấm bên ngoài
+    document.addEventListener('click', (e) => {
+      const ep = e.target.closest('#epPop .ep-opt');
+      if (ep) {
+        const pop = $('#epPop');
+        if (pop && pop.dataset.anime) pickEpisode(pop.dataset.anime, ep.dataset.ep);
+        return;
+      }
+      const ht = e.target.closest('#heartPop .heart-opt');
+      if (ht) {
+        const pop = $('#heartPop');
+        if (pop && pop.dataset.anime) pickHeart(pop.dataset.anime, ht.dataset.val);
+        return;
+      }
+      if (!e.target.closest('#heartPop, #epPop') && !e.__popOpened) closeMiniPop();
     });
   }
 

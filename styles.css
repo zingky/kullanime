@@ -180,9 +180,11 @@ select.input { appearance: none; -webkit-appearance: none; background-image: url
 .card-status.finish { color: var(--success); border-color: rgba(34, 197, 94, 0.4); }
 .card-mystatus { position: absolute; bottom: 8px; left: 10px; padding: 3px 8px; border-radius: 999px; font-size: 10.5px; font-weight: 700; background: rgba(11, 15, 25, 0.55); backdrop-filter: blur(8px); color: var(--text-dim); border: 1px solid rgba(148, 163, 184, 0.3); }
 .card-mystatus.my-watched { color: var(--success); border-color: rgba(34, 197, 94, 0.45); }
+.card-mystatus.my-watching { color: var(--accent); border-color: rgba(168, 85, 247, 0.45); }
 .card-mystatus.my-planned { color: var(--warning); border-color: rgba(245, 158, 11, 0.45); }
 .card-mystatus.my-unwatched { color: var(--text-faint); border-color: rgba(148, 163, 184, 0.25); }
 .my-status-chip.my-watched { color: var(--success); border-color: rgba(34, 197, 94, 0.45); }
+.my-status-chip.my-watching { color: var(--accent); }
 .my-status-chip.my-planned { color: var(--warning); border-color: rgba(245, 158, 11, 0.45); }
 .my-status-chip.my-unwatched { color: var(--text-faint); }
 .card-status.upcoming { color: var(--warning); border-color: rgba(245, 158, 11, 0.4); }
@@ -192,6 +194,40 @@ select.input { appearance: none; -webkit-appearance: none; background-image: url
 .card-rating { display: inline-flex; align-items: center; gap: 4px; color: var(--warning); font-weight: 700; font-size: 13px; }
 .card-progress { font-size: 12px; color: var(--text-faint); }
 .poster-fallback { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; font-size: 44px; color: var(--text-faint); }
+
+/* ── Nút trạng thái nhanh trên card anime (chỉ admin) ── */
+.card-q-btn {
+  position: absolute;
+  z-index: 3;
+  width: 27px; height: 27px;
+  padding: 0;
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 13px; line-height: 1;
+  background: rgba(11, 15, 25, 0.62);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  color: var(--text-faint);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.card-q-btn:hover { border-color: var(--accent); color: var(--text); transform: scale(1.08); }
+.card-plan { top: 8px; right: 8px; }
+.card-plan.on { color: var(--warning); border-color: rgba(245, 158, 11, 0.55); background: rgba(245, 158, 11, 0.16); box-shadow: 0 0 10px rgba(245, 158, 11, 0.35); }
+.card-tick { bottom: 6px; right: 8px; }
+.card-tick.on { color: var(--success); border-color: rgba(34, 197, 94, 0.55); background: rgba(34, 197, 94, 0.16); box-shadow: 0 0 10px rgba(34, 197, 94, 0.35); }
+.card-tick.watch { color: var(--accent); border-color: rgba(168, 85, 247, 0.55); background: rgba(168, 85, 247, 0.16); }
+.card-heart {
+  display: inline-flex; align-items: center; gap: 2px;
+  background: none; border: none; padding: 0;
+  color: var(--danger);
+  font-size: 13px; font-weight: 800;
+  cursor: pointer;
+  transition: transform 0.15s ease, filter 0.15s ease;
+}
+.card-heart:hover { filter: brightness(1.3); transform: scale(1.08); }
+.card-meta-right { display: inline-flex; align-items: center; gap: 6px; margin-left: auto; }
 
 /* ============ EMPTY / LOAD STATES ============ */
 .empty-state, .load-state { text-align: center; padding: 48px 20px; color: var(--text-dim); }
@@ -409,7 +445,7 @@ html[data-theme="light"] .modal { background: rgba(255, 255, 255, 0.72); }
   backdrop-filter: blur(6px);
   -webkit-backdrop-filter: blur(6px);
 }
-.chip-mine { color: var(--warning); border-color: rgba(245, 158, 11, 0.45); }
+.chip-mine { color: var(--danger); border-color: rgba(239, 68, 68, 0.45); }
 
 .detail-section {
   border: var(--glass-border);
@@ -434,8 +470,10 @@ html[data-theme="light"] .modal { background: rgba(255, 255, 255, 0.72); }
 /* ── Seiyuu ── */
 .seiyuu-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 10px; }
 .seiyuu-card { display: flex; align-items: center; gap: 10px; padding: 9px 10px; background: var(--bg-elev); border: 1px solid var(--border); border-radius: var(--radius-sm); }
-.seiyuu-avatar { width: 44px; height: 44px; border-radius: 50%; overflow: hidden; background: var(--bg-soft); flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 18px; }
+.seiyuu-avatar { width: 44px; height: 44px; border-radius: 50%; overflow: hidden; background: var(--bg-soft); flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 18px; position: relative; }
 .seiyuu-avatar img { width: 100%; height: 100%; object-fit: cover; }
+.seiyuu-avatar .seiyuu-va-badge { position: absolute; bottom: -3px; right: -3px; width: 22px; height: 22px; border-radius: 50%; overflow: hidden; border: 2px solid var(--bg-card); background: var(--bg-soft); }
+.seiyuu-avatar .seiyuu-va-badge img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .seiyuu-info { min-width: 0; }
 .seiyuu-name { font-size: 12.5px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .seiyuu-char { font-size: 11.5px; color: var(--text-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -455,6 +493,14 @@ html[data-theme="light"] .modal { background: rgba(255, 255, 255, 0.72); }
   color: var(--text);
   background: rgba(99,102,241,0.18);
 }
+
+/* ── Thể loại: hiện 5 cái + nút ">" mở/đóng toàn bộ ── */
+.genre-chips { display: flex; flex-wrap: wrap; gap: 8px; flex-basis: 100%; }
+.genre-chips .chip { display: inline-flex; align-items: center; }
+.genre-chips.has-more:not(.open) .chip-btn:nth-child(n+6) { display: none; }
+.genre-chips.open .chip-btn { display: inline-flex; }
+.chip-more { cursor: pointer; color: var(--accent); border-style: dashed; }
+.chip-more:hover { border-color: var(--accent); background: rgba(168, 85, 247, 0.14); color: var(--text); }
 
 /* ── Khối Dàn diễn viên: bấm tiêu đề mới sổ ra (details/summary) ── */
 .detail-collapse summary.detail-collapse-head {
@@ -489,8 +535,20 @@ html[data-theme="light"] .modal { background: rgba(255, 255, 255, 0.72); }
 .my-state-btn:hover { border-color: var(--accent); color: var(--text); }
 .my-state-btn.active { background: var(--bg-elev); color: var(--text); }
 .my-state-btn.active.my-watched { border-color: rgba(34, 197, 94, 0.6); color: var(--success); }
+.my-state-btn.active.my-watching { border-color: rgba(168, 85, 247, 0.6); color: var(--accent); }
 .my-state-btn.active.my-planned { border-color: rgba(245, 158, 11, 0.6); color: var(--warning); }
 .my-state-btn.active.my-unwatched { border-color: rgba(148, 163, 184, 0.5); color: var(--text-dim); }
+.my-rating-btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 7px 14px; border-radius: 999px;
+  border: var(--glass-border);
+  background: var(--bg-elev);
+  color: var(--danger);
+  font-size: 13.5px; font-weight: 800;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.my-rating-btn:hover { border-color: var(--danger); transform: scale(1.04); }
 .my-tracker-rating { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; flex-wrap: wrap; }
 .my-tracker-rating label { font-size: 13px; color: var(--text-dim); }
 .my-tracker-rating .input { width: 110px; }
@@ -640,7 +698,7 @@ html[data-theme="light"] .modal { background: rgba(255, 255, 255, 0.72); }
 /* ============ CHAT CHUNG — NÚT BONG BÓNG + PANEL NỔI ============ */
 /* Nút bong bóng chat (FAB) góc dưới-phải */
 .chat-fab {
-  position: fixed; right: 20px; bottom: 20px; z-index: 85;
+  position: fixed; left: 20px; bottom: 20px; z-index: 85;
   width: 60px; height: 60px; border-radius: 50%;
   background: var(--grad); color: #fff;
   border: none; cursor: pointer;
@@ -665,7 +723,7 @@ html[data-theme="light"] .modal { background: rgba(255, 255, 255, 0.72); }
 
 /* Panel chat nổi (mở khi nhấn bong bóng) */
 .chat-panel {
-  position: fixed; right: 20px; bottom: 92px; z-index: 84;
+  position: fixed; left: 20px; bottom: 92px; z-index: 84;
   width: min(390px, calc(100vw - 24px));
   max-height: min(68vh, 600px);
   display: flex; flex-direction: column;
@@ -700,8 +758,8 @@ html[data-theme="light"] .modal { background: rgba(255, 255, 255, 0.72); }
 
 /* Mobile: bong bóng + panel gọn theo mép */
 @media (max-width: 480px) {
-  .chat-fab { right: 14px; bottom: 14px; width: 56px; height: 56px; }
-  .chat-panel { right: 12px; bottom: 80px; width: calc(100vw - 24px); }
+  .chat-fab { left: 14px; bottom: 14px; width: 56px; height: 56px; }
+  .chat-panel { left: 12px; bottom: 80px; width: calc(100vw - 24px); }
 }
 
 /* ============ RESPONSIVE TUNING ============ */
@@ -777,4 +835,54 @@ select.input option { background: #141a2d; color: var(--text); }
   transform: translateX(-120%); transition: transform 0.6s ease;
 }
 .btn-primary:hover::after, .btn-accent:hover::after { transform: translateX(120%); }
+
+/* ============ POPUP MINI: CHỌN TẬP ĐÃ XEM / CHẤM ĐIỂM ♥ ============ */
+.mini-pop {
+  position: fixed;
+  z-index: 300;
+  background: rgba(14, 18, 34, 0.97);
+  border: var(--glass-border);
+  border-radius: 14px;
+  box-shadow: var(--shadow);
+  backdrop-filter: blur(18px) saturate(160%);
+  -webkit-backdrop-filter: blur(18px) saturate(160%);
+  padding: 12px;
+  max-width: min(340px, calc(100vw - 24px));
+  animation: miniPopIn 0.16s ease;
+}
+@keyframes miniPopIn {
+  from { transform: translateY(6px); opacity: 0; }
+  to { transform: none; opacity: 1; }
+}
+.mini-pop-title { font-size: 12px; font-weight: 700; color: var(--text-dim); margin-bottom: 9px; }
+.mini-pop-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(36px, 1fr)); gap: 6px; max-height: 190px; overflow-y: auto; padding-right: 2px; }
+.ep-opt {
+  height: 34px; border-radius: 9px;
+  border: var(--glass-border);
+  background: var(--bg-elev);
+  color: var(--text-dim);
+  font-size: 13px; font-weight: 600;
+  cursor: pointer;
+  transition: all 0.12s ease;
+}
+.ep-opt:hover { border-color: var(--accent); color: var(--text); background: rgba(99, 102, 241, 0.16); }
+.ep-opt.cur { border-color: var(--accent); color: var(--accent); background: rgba(99, 102, 241, 0.2); }
+.mini-pop-hearts { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
+.heart-opt {
+  width: 34px; height: 34px; padding: 0;
+  border-radius: 50%;
+  border: var(--glass-border);
+  background: var(--bg-elev);
+  color: var(--text-faint);
+  font-size: 16px; line-height: 1;
+  cursor: pointer;
+  transition: all 0.12s ease;
+}
+.heart-opt:hover { transform: scale(1.12); border-color: var(--danger); }
+.heart-opt.on { color: var(--danger); border-color: rgba(239, 68, 68, 0.55); background: rgba(239, 68, 68, 0.14); box-shadow: 0 0 8px rgba(239, 68, 68, 0.4); }
+.heart-clear { font-size: 12px; color: var(--text-faint); }
+.heart-clear:hover { color: var(--danger); border-color: var(--danger); }
+
+/* Nút trong toolbar quản trị anime */
+.admin-pane-actions { display: flex; gap: 8px; flex-wrap: wrap; }
 
