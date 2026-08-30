@@ -5,10 +5,10 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <meta name="description" content="KullAnime — Website cá nhân trưng bày anime đã xem & trình phát nhạc OST kèm phụ đề .ass" />
   <meta name="theme-color" content="#0b0f19" />
-  <title>KullAnime 🎌 — Anime & OST Player</title>
+  <title>KullAnime 🌸 — Anime & OST Player</title>
 
-  <!-- Favicon (emoji SVG, tối ưu di động) -->
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎌</text></svg>" />
+  <!-- Favicon: hoa anh đào (sakura, cánh hoa hồng) -->
+  <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
 
   <!-- DOMPurify — chống XSS (có fallback CDN jsdelivr nếu cloudflare lỗi) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/2.5.6/purify.min.js"></script>
@@ -32,7 +32,7 @@
   <!-- File cấu hình (đọc .env.local / fallback) -->
   <script src="./config.js"></script>
 
-  <link rel="stylesheet" href="./styles.css?v=14" />
+  <link rel="stylesheet" href="./styles.css?v=15" />
 </head>
 <body>
   <!-- Nền aurora động (liquid glass background) -->
@@ -48,7 +48,7 @@
   <header class="app-header">
     <div class="header-inner container">
       <button class="brand" id="brandBtn" aria-label="Về đầu trang">
-        <span class="brand-logo">🎌</span>
+        <span class="brand-logo">🌸</span>
         <span class="brand-name" id="brandName">Kull<em>Anime</em></span>
       </button>
 
@@ -82,7 +82,17 @@
       <div class="filter-bar">
         <input type="search" id="animeSearch" class="input filter-input"
                placeholder="🔍 Tìm theo tên, studio, thể loại..." autocomplete="off" />
-        <select id="statusFilter" class="input filter-select" aria-label="Lọc theo trạng thái">
+        <select id="genreFilter" class="input filter-select" aria-label="Lọc theo thể loại">
+          <option value="all">Tất cả thể loại</option>
+        </select>
+        <select id="myStatusFilter" class="input filter-select" aria-label="Lọc theo trạng thái xem của tôi">
+          <option value="all">Trạng thái xem của tôi</option>
+          <option value="Đã xem">✅ Đã xem</option>
+          <option value="Đang xem">⏳ Đang xem</option>
+          <option value="Muốn xem">➕ Muốn xem</option>
+          <option value="Chưa xem">⬜ Chưa xem</option>
+        </select>
+        <select id="statusFilter" class="input filter-select" aria-label="Lọc theo tình trạng phát hành">
           <option value="all">Tất cả trạng thái</option>
           <option value="Đang chiếu">Đang chiếu</option>
           <option value="Hoàn thành">Hoàn thành</option>
@@ -172,8 +182,13 @@
   <!-- ======================= FOOTER ======================= -->
   <footer class="app-footer">
     <div class="footer-inner container">
-      <p class="footer-brand">🎌 <strong>Kull<em>Anime</em></strong> — anime đã xem & OST Player (Kull-Vietsub)</p>
-      <p class="footer-meta">© 2026 Kull Vietsub · Website cá nhân · Trình phát nhạc kèm phụ đề .ass</p>
+      <p class="footer-brand">🌸 <strong>Kull<em>Anime</em></strong> — anime đã xem & OST Player (Kull-Vietsub)</p>
+      <p class="footer-meta">
+        © 2026 Kull · <a href="https://github.com/zingky/kullanime" target="_blank" rel="noopener">MyAniList</a> ·
+        <a href="https://github.com/zingky/Kull-Vietsub/tree/main/subs" target="_blank" rel="noopener">VietSub</a> ·
+        <a href="https://github.com/zingky/YouTube-Aegisub-Loader" target="_blank" rel="noopener">YouTube Aegisub Loader</a>
+      </p>
+      <p class="footer-meta">made with ♥️ kull@duck.com</p>
     </div>
   </footer>
 
@@ -512,7 +527,7 @@
   <div class="mini-pop hidden" id="epPop"></div>
   <div class="mini-pop hidden" id="heartPop"></div>
 
-  <script src="./app.js?v=13"></script>
+  <script src="./app.js?v=14"></script>
 </body>
 </html>
 

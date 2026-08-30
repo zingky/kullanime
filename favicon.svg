@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <defs>
+    <radialGradient id="sakuraBg" cx="50%" cy="38%" r="72%">
+      <stop offset="0%" stop-color="#ffd7e1"/>
+      <stop offset="100%" stop-color="#ff8fad"/>
+    </radialGradient>
+  </defs>
+  <rect x="2" y="2" width="96" height="96" rx="22" fill="url(#sakuraBg)"/>
+  <g fill="#fff6f8" stroke="#ff79a3" stroke-width="1.6">
+    <ellipse cx="50" cy="20" rx="9.5" ry="17"/>
+    <ellipse cx="50" cy="20" rx="9.5" ry="17" transform="rotate(72 50 50)"/>
+    <ellipse cx="50" cy="20" rx="9.5" ry="17" transform="rotate(144 50 50)"/>
+    <ellipse cx="50" cy="20" rx="9.5" ry="17" transform="rotate(216 50 50)"/>
+    <ellipse cx="50" cy="20" rx="9.5" ry="17" transform="rotate(288 50 50)"/>
+  </g>
+  <circle cx="50" cy="50" r="6.5" fill="#ffd166"/>
+  <circle cx="48.5" cy="47.5" r="2.2" fill="#fff"/>
+</svg>

@@ -195,29 +195,7 @@ select.input { appearance: none; -webkit-appearance: none; background-image: url
 .card-progress { font-size: 12px; color: var(--text-faint); }
 .poster-fallback { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; font-size: 44px; color: var(--text-faint); }
 
-/* ── Nút trạng thái nhanh trên card anime (chỉ admin) ── */
-.card-q-btn {
-  position: absolute;
-  z-index: 3;
-  width: 27px; height: 27px;
-  padding: 0;
-  border-radius: 50%;
-  display: flex; align-items: center; justify-content: center;
-  font-size: 13px; line-height: 1;
-  background: rgba(11, 15, 25, 0.62);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  border: 1px solid rgba(148, 163, 184, 0.35);
-  color: var(--text-faint);
-  cursor: pointer;
-  transition: all 0.15s ease;
-}
-.card-q-btn:hover { border-color: var(--accent); color: var(--text); transform: scale(1.08); }
-.card-plan { top: 8px; right: 8px; }
-.card-plan.on { color: var(--warning); border-color: rgba(245, 158, 11, 0.55); background: rgba(245, 158, 11, 0.16); box-shadow: 0 0 10px rgba(245, 158, 11, 0.35); }
-.card-tick { bottom: 6px; right: 8px; }
-.card-tick.on { color: var(--success); border-color: rgba(34, 197, 94, 0.55); background: rgba(34, 197, 94, 0.16); box-shadow: 0 0 10px rgba(34, 197, 94, 0.35); }
-.card-tick.watch { color: var(--accent); border-color: rgba(168, 85, 247, 0.55); background: rgba(168, 85, 247, 0.16); }
+/* ── Nút ♥ chấm điểm nhanh trên card (kế ★) ── */
 .card-heart {
   display: inline-flex; align-items: center; gap: 2px;
   background: none; border: none; padding: 0;
@@ -521,38 +499,43 @@ html[data-theme="light"] .modal { background: rgba(255, 255, 255, 0.72); }
 .seiyuu-link { cursor: pointer; color: var(--accent); padding: 0; background: none; border: none; text-align: left; }
 .seiyuu-link:hover { text-decoration: underline; }
 
-/* ── "Trạng thái xem của tôi" khi nằm trong cột phụ ── */
-.detail-side-meta .my-tracker { padding: 13px; border-radius: var(--radius-sm); box-shadow: none; }
-.detail-side-meta .my-tracker-btns { flex-direction: column; }
-.detail-side-meta .my-tracker-rating { flex-direction: column; align-items: flex-start; }
-.detail-side-meta .my-tracker-rating .input { width: 100%; }
-
-/* ============ "TRẠNG THÁI XEM CỦA TÔI" (my tracker) ============ */
-.my-tracker { margin: 0; padding: 16px; background: var(--bg-card); border: var(--glass-border); border-radius: var(--radius); backdrop-filter: blur(12px) saturate(150%); -webkit-backdrop-filter: blur(12px) saturate(150%); box-shadow: var(--shadow-soft); }
-.my-tracker-title { font-size: 14.5px; font-weight: 700; margin-bottom: 12px; color: var(--text); }
-.my-tracker-btns { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
-.my-state-btn { padding: 7px 14px; border-radius: 999px; border: var(--glass-border); background: var(--bg-elev); color: var(--text-dim); font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.15s ease; backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); }
-.my-state-btn:hover { border-color: var(--accent); color: var(--text); }
-.my-state-btn.active { background: var(--bg-elev); color: var(--text); }
-.my-state-btn.active.my-watched { border-color: rgba(34, 197, 94, 0.6); color: var(--success); }
-.my-state-btn.active.my-watching { border-color: rgba(168, 85, 247, 0.6); color: var(--accent); }
-.my-state-btn.active.my-planned { border-color: rgba(245, 158, 11, 0.6); color: var(--warning); }
-.my-state-btn.active.my-unwatched { border-color: rgba(148, 163, 184, 0.5); color: var(--text-dim); }
-.my-rating-btn {
-  display: inline-flex; align-items: center; gap: 6px;
-  padding: 7px 14px; border-radius: 999px;
-  border: var(--glass-border);
-  background: var(--bg-elev);
-  color: var(--danger);
-  font-size: 13.5px; font-weight: 800;
-  cursor: pointer;
+/* ============ ICON TRẠNG THÁI XEM (đồng bộ: card + ngay dưới ảnh bìa trong modal) ============ */
+.wico, .watch-ico {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 30px; height: 30px; padding: 0; border-radius: 50%;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  background: rgba(11, 15, 25, 0.6);
+  backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+  color: var(--text-dim); font-size: 15px; line-height: 1; cursor: pointer;
   transition: all 0.15s ease;
 }
-.my-rating-btn:hover { border-color: var(--danger); transform: scale(1.04); }
-.my-tracker-rating { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; flex-wrap: wrap; }
-.my-tracker-rating label { font-size: 13px; color: var(--text-dim); }
-.my-tracker-rating .input { width: 110px; }
-.my-tracker-hint { margin-top: 10px; font-size: 12px; color: var(--text-faint); line-height: 1.6; }
+.wico:hover, .watch-ico:hover { border-color: var(--accent); color: var(--text); transform: scale(1.12); }
+
+.wico.my-watched.on, .watch-ico.my-watched.on { color: var(--success); border-color: rgba(34,197,94,0.7); background: rgba(34,197,94,0.18); box-shadow: 0 0 10px rgba(34,197,94,0.35); }
+.wico.my-watching.on, .watch-ico.my-watching.on { color: var(--accent); border-color: rgba(168,85,247,0.7); background: rgba(168,85,247,0.18); box-shadow: 0 0 10px rgba(168,85,247,0.35); }
+.wico.my-planned.on, .watch-ico.my-planned.on { color: var(--warning); border-color: rgba(245,158,11,0.7); background: rgba(245,158,11,0.18); box-shadow: 0 0 10px rgba(245,158,11,0.35); }
+.wico.my-unwatched.on, .watch-ico.my-unwatched.on { color: var(--text-dim); border-color: rgba(148,163,184,0.55); background: rgba(148,163,184,0.16); }
+.wico.heart.on, .watch-ico.heart.on { color: var(--danger); border-color: rgba(244,63,94,0.7); background: rgba(244,63,94,0.18); box-shadow: 0 0 10px rgba(244,63,94,0.35); }
+.wico.heart b, .watch-ico.heart b { font-size: 10px; font-weight: 800; margin-left: 1px; }
+
+/* Trên poster card: dải icon nằm ở mép dưới ảnh */
+.card-watch-icons {
+  position: absolute; bottom: 8px; left: 8px; right: 8px;
+  display: flex; justify-content: center; gap: 5px;
+}
+.card-watch-icons .wico { width: 26px; height: 26px; font-size: 13px; }
+
+/* Dưới ảnh bìa trong modal anime */
+.detail-watch-icons {
+  display: flex; align-items: center; gap: 7px;
+  padding: 10px 12px; margin-top: 12px;
+  background: var(--bg-card); border: var(--glass-border);
+  border-radius: var(--radius-sm);
+  backdrop-filter: blur(12px) saturate(150%); -webkit-backdrop-filter: blur(12px) saturate(150%);
+  box-shadow: var(--shadow-soft);
+}
+.detail-watch-icons .watch-ico { width: 34px; height: 34px; font-size: 17px; }
+.watch-ico-sep { width: 1px; height: 22px; background: var(--border); margin: 0 3px; }
 
 
 /* ============ COMMENT SECTION ============ */
@@ -693,7 +676,9 @@ html[data-theme="light"] .modal { background: rgba(255, 255, 255, 0.72); }
 .footer-inner { text-align: center; }
 .footer-brand { margin: 0 0 4px; font-size: 15px; font-weight: 600; }
 .footer-brand em { font-style: normal; background: var(--grad); -webkit-background-clip: text; background-clip: text; color: transparent; }
-.footer-meta { margin: 0; font-size: 12.5px; color: var(--text-faint); }
+.footer-meta { margin: 0; font-size: 12.5px; color: var(--text-faint); line-height: 1.9; }
+.app-footer a { color: var(--accent); text-decoration: none; }
+.app-footer a:hover { text-decoration: underline; }
 
 /* ============ CHAT CHUNG — NÚT BONG BÓNG + PANEL NỔI ============ */
 /* Nút bong bóng chat (FAB) góc dưới-phải */

@@ -690,12 +690,26 @@
     const search = $('#animeSearch').value.trim().toLowerCase();
     const status = $('#statusFilter').value;
     const sort = $('#sortFilter').value;
+    syncGenreFilter();
 
     let list = State.animes.slice();
 
-    // Lọc trạng thái
+    // Lọc trạng thái (tình trạng phát hành của anime)
     if (status !== 'all') {
       list = list.filter((a) => String(a.status || '').toLowerCase() === String(status).toLowerCase());
+    }
+    // Lọc thể loại — danh sách tự liệt kê toàn bộ thể loại đã lưu
+    const genre = $('#genreFilter').value;
+    if (genre !== 'all') {
+      list = list.filter((a) => {
+        const gs = Array.isArray(a.genres) ? a.genres : String(a.genres || '').split(',').map((s) => s.trim()).filter(Boolean);
+        return gs.some((g) => String(g).toLowerCase() === String(genre).toLowerCase());
+      });
+    }
+    // Lọc theo trạng thái xem của tôi (Đã xem / Đang xem / Muốn xem / Chưa xem)
+    const myStatus = $('#myStatusFilter').value;
+    if (myStatus !== 'all') {
+      list = list.filter((a) => myStatusMeta(a.my_status).label === myStatus);
     }
     // Lọc theo từ khóa (tên, studio, thể loại)
     if (search) {
@@ -744,12 +758,33 @@
     }
   }
 
+  // Đổ danh sách thể loại vào select lọc — tự động liệt kê mọi thể loại đã lưu
+  function syncGenreFilter() {
+    const sel = $('#genreFilter');
+    if (!sel) return;
+    const set = new Set();
+    State.animes.forEach((a) => {
+      const gs = Array.isArray(a.genres) ? a.genres : String(a.genres || '').split(',').map((s) => s.trim()).filter(Boolean);
+      gs.forEach((g) => { const v = String(g || '').trim(); if (v) set.add(v); });
+    });
+    const genres = Array.from(set).sort((a, b) => a.localeCompare(b, 'vi'));
+    const sig = genres.join('|');
+    if (sel.dataset.sig === sig) return;
+    sel.dataset.sig = sig;
+    const cur = sel.value;
+    sel.innerHTML =
+      '<option value="all">Tất cả thể loại</option>' +
+      genres.map((g) => '<option value="' + esc(g) + '">' + esc(g) + '</option>').join('');
+    if (cur !== 'all' && genres.includes(cur)) sel.value = cur;
+    else sel.value = 'all';
+  }
+
   // Helper: metadata cho trạng thái xem cá nhân (của chủ web)
   function myStatusMeta(s) {
     s = String(s || '').trim();
     if (/đã xem|xem r/i.test(s)) return { label: 'Đã xem', icon: '✅', cls: 'my-watched' };
     if (/đang xem|đang/i.test(s)) return { label: 'Đang xem', icon: '⏳', cls: 'my-watching' };
-    if (/ý định|định xem|muốn xem|dự định/i.test(s)) return { label: 'Có ý định xem', icon: '➕', cls: 'my-planned' };
+    if (/ý định|định xem|muốn xem|dự định/i.test(s)) return { label: 'Muốn xem', icon: '➕', cls: 'my-planned' };
     return { label: 'Chưa xem', icon: '⬜', cls: 'my-unwatched' };
   }
 
@@ -763,15 +798,19 @@
       ? '<img src="' + esc(a.poster_url) + '" alt="' + esc(a.title) + '" loading="lazy" data-title="' + esc(a.title) + '" onerror="window.__posterFallback(this, this.dataset.title)" />'
       : posterFallback(a);
 
-    // Admin: nút nhanh trên ảnh — ➕ (có ý định xem) góc trên-phải, tick trạng thái góc dưới-phải
+    // Admin: dải icon trạng thái ở mép dưới poster — bấm là lưu liền, đồng bộ với modal
     let quick = '';
     let myBadge = '';
     if (isAdmin) {
-      const tickIcon = mySt.cls === 'my-watched' ? '✅' : mySt.cls === 'my-watching' ? '⏳' : '⬜';
-      const tickLabel = mySt.cls === 'my-watched' ? 'Đã xem' : mySt.cls === 'my-watching' ? 'Đang xem' : 'Chưa xem';
+      const wico = (cls, label, icon, title) =>
+        '<button type="button" class="wico ' + cls + (mySt.cls === cls ? ' on' : '') + '" data-quick="status" data-status="' + esc(label) + '" title="' + esc(title) + '">' + icon + '</button>';
       quick =
-        '<button type="button" class="card-q-btn card-plan' + (mySt.cls === 'my-planned' ? ' on' : '') + '" data-quick="plan" title="' + (mySt.cls === 'my-planned' ? 'Bỏ ý định xem' : 'Đánh dấu có ý định xem') + '">➕</button>' +
-        '<button type="button" class="card-q-btn card-tick ' + (mySt.cls === 'my-watched' ? 'on' : mySt.cls === 'my-watching' ? 'watch' : '') + '" data-quick="tick" title="' + tickLabel + ' — bấm để đổi">' + tickIcon + '</button>';
+        '<div class="card-watch-icons">' +
+          wico('my-watched', 'Đã xem', '✅', 'Đã xem') +
+          wico('my-watching', 'Đang xem', '⏳', 'Đang xem — bấm để chọn tập đã xem') +
+          wico('my-planned', 'Muốn xem', '➕', 'Muốn xem') +
+          wico('my-unwatched', 'Chưa xem', '⬜', 'Chưa xem') +
+        '</div>';
     } else {
       myBadge = '<span class="card-mystatus ' + mySt.cls + '">' + mySt.icon + ' ' + esc(mySt.label) + '</span>';
     }
@@ -867,7 +906,7 @@
     // Trạng thái xem + điểm đánh giá của riêng chủ web
     const mySt = myStatusMeta(a.my_status);
     const myRating = Number(a.my_rating) || 0;
-    const myPanel = State.isAdmin ? myStatusEditorHTML(a) : '';
+    const myIcons = State.isAdmin ? watchIconsHTML(a) : '';
 
     const poster = a.poster_url
       ? '<img src="' + esc(a.poster_url) + '" alt="' + esc(a.title) + '" loading="lazy" data-title="' + esc(a.title) + '" onerror="window.__posterFallback(this, this.dataset.title)" />'
@@ -952,7 +991,8 @@
       '<div class="anime-detail">' +
         '<aside class="detail-side">' +
           '<figure class="anime-detail-poster">' + poster + '</figure>' +
-          '<div class="detail-side-meta">' + sideRows.join('') + myPanel + '</div>' +
+          myIcons +
+          '<div class="detail-side-meta">' + sideRows.join('') + '</div>' +
         '</aside>' +
         '<div class="detail-main">' +
           '<header class="detail-header">' +
@@ -969,28 +1009,24 @@
       '</div>';
   }
 
-  // Panel chỉnh trạng thái xem + điểm của tôi (chỉ admin) — bấm là lưu liền
-  function myStatusEditorHTML(a) {
+  // Dãy icon trạng thái xem + điểm của tôi (chỉ admin) — đặt ngay dưới ảnh bìa, bấm là lưu liền
+  function watchIconsHTML(a) {
     const cur = myStatusMeta(a.my_status);
     const myRating = Math.round(Number(a.my_rating) || 0);
     const opts = [
       { value: 'Đã xem', icon: '✅', cls: 'my-watched' },
       { value: 'Đang xem', icon: '⏳', cls: 'my-watching' },
-      { value: 'Có ý định xem', icon: '➕', cls: 'my-planned' },
+      { value: 'Muốn xem', icon: '➕', cls: 'my-planned' },
       { value: 'Chưa xem', icon: '⬜', cls: 'my-unwatched' }
     ];
-    const buttons = opts.map((o) =>
-      '<button type="button" class="my-state-btn ' + o.cls + (o.value === cur.label ? ' active' : '') + '" data-status="' + esc(o.value) + '">' + o.icon + ' ' + esc(o.value) + '</button>'
-    ).join('');
+    const icoBtn = (o) =>
+      '<button type="button" class="watch-ico ' + o.cls + (o.value === cur.label ? ' on' : '') +
+      '" data-status="' + esc(o.value) + '" title="' + (o.value === 'Đang xem' ? 'Đang xem — bấm để chọn tập đã xem' : o.value) + '">' + o.icon + '</button>';
     return (
-      '<div class="my-tracker" id="myTracker" data-anime="' + esc(a.id) + '">' +
-        '<div class="my-tracker-title">🎯 Trạng thái xem của tôi</div>' +
-        '<div class="my-tracker-btns">' + buttons + '</div>' +
-        '<div class="my-tracker-rating">' +
-          '<label for="myRatingBtn">Điểm tôi chấm</label>' +
-          '<button type="button" class="my-rating-btn" id="myRatingBtn" title="Bấm để chấm điểm nhanh">♥ ' + myRating + '/10 ▾</button>' +
-        '</div>' +
-        '<div class="my-tracker-hint">Bấm là tự lưu liền — không cần nút Lưu. Bấm ⏳ để chọn tập đã xem.</div>' +
+      '<div class="detail-watch-icons" id="myTracker" data-anime="' + esc(a.id) + '">' +
+        icoBtn(opts[0]) + icoBtn(opts[1]) + icoBtn(opts[2]) + icoBtn(opts[3]) +
+        '<span class="watch-ico-sep" aria-hidden="true"></span>' +
+        '<button type="button" class="watch-ico heart' + (myRating > 0 ? ' on' : '') + '" id="myRatingBtn" title="Điểm của tôi ' + (myRating > 0 ? myRating + '/10' : '(chưa chấm)') + ' — bấm để chấm ♥">♥' + (myRating > 0 ? '<b>' + myRating + '</b>' : '') + '</button>' +
       '</div>'
     );
   }
@@ -1088,20 +1124,21 @@
     toast(v > 0 ? 'Đã chấm ' + v + '/10 ♥' : 'Đã xoá điểm ♥', 'success');
   }
 
-  // Nút nhanh trên card anime: tick trạng thái / ➕ ý định xem / ♥ chấm điểm
+  // Icon trạng thái nhanh trên card anime: ✅ ⏳ ➕ ⬜ (bấm lưu liền, đồng bộ modal) / ♥ chấm điểm
   async function handleCardQuick(ev, kind, id, btn) {
     const a = State.animes.find((x) => String(x.id) === String(id));
     if (!a) return;
     const mySt = myStatusMeta(a.my_status);
-    if (kind === 'tick') {
-      if (mySt.cls === 'my-watching') {
+    if (kind === 'status') {
+      const status = String(btn.dataset.status || '');
+      if (status === 'Đang xem') {
+        // Bấm ⏳: lưu "Đang xem" (nếu chưa) + mở popup chọn tập đã xem — giống trong modal
         ev.__popOpened = true;
         openEpisodePop(btn, id);
+        if (mySt.cls !== 'my-watching') await saveMyTracker(id, { my_status: 'Đang xem' });
       } else {
-        await saveMyTracker(id, { my_status: mySt.cls === 'my-watched' ? 'Chưa xem' : 'Đã xem' });
+        await saveMyTracker(id, { my_status: status });
       }
-    } else if (kind === 'plan') {
-      await saveMyTracker(id, { my_status: mySt.cls === 'my-planned' ? 'Chưa xem' : 'Có ý định xem' });
     } else if (kind === 'heart') {
       ev.__popOpened = true;
       openHeartPop(btn, id);
@@ -2261,6 +2298,10 @@
     if (stf) stf.addEventListener('change', renderAnimeGrid);
     const srt = $('#sortFilter');
     if (srt) srt.addEventListener('change', renderAnimeGrid);
+    const gFil = $('#genreFilter');
+    if (gFil) gFil.addEventListener('change', renderAnimeGrid);
+    const mSf = $('#myStatusFilter');
+    if (mSf) mSf.addEventListener('change', renderAnimeGrid);
     const animeLoadMore = $('#animeLoadMoreBtn');
     if (animeLoadMore) animeLoadMore.addEventListener('click', () => {
       State.animeVisible += 10;
@@ -2480,17 +2521,17 @@
         }
         return;
       }
-      // Trạng thái xem của tôi — bấm là lưu liền (⏳ lưu "Đang xem" + mở popup chọn tập)
-      const stateBtn = e.target.closest('.my-state-btn');
-      if (stateBtn) {
+      // Icon trạng thái xem của tôi — bấm là lưu liền (⏳ lưu "Đang xem" + mở popup chọn tập)
+      const watchIco = e.target.closest('.watch-ico');
+      if (watchIco && watchIco.dataset.status) {
         const tracker = $('#myTracker');
         if (tracker && tracker.dataset.anime) {
-          if (stateBtn.dataset.status === 'Đang xem') {
+          if (watchIco.dataset.status === 'Đang xem') {
             e.__popOpened = true;
-            openEpisodePop(stateBtn, tracker.dataset.anime);
+            openEpisodePop(watchIco, tracker.dataset.anime);
             saveMyTracker(tracker.dataset.anime, { my_status: 'Đang xem' });
           } else {
-            saveMyTracker(tracker.dataset.anime, { my_status: stateBtn.dataset.status });
+            saveMyTracker(tracker.dataset.anime, { my_status: watchIco.dataset.status });
           }
         }
         return;
