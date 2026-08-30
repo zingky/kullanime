@@ -809,20 +809,10 @@
       '<button type="button" class="card-sakura" data-quick="menu" title="Đặt trạng thái xem">🌸</button>' +
       '<span class="card-status-badge ' + mySt.cls + '">' + esc(badgeText) + '</span>';
 
-    // Hàng 10 trái tim ♥ chấm điểm (một hàng giữa card) — ẩn sẵn, bấm nút "7♥" ở meta để hiện & chấm điểm
-    const heartRow =
-      '<div class="card-heart-row hidden">' +
-        '<button type="button" class="card-heart-opt clear' + (myRating === 0 ? ' on' : '') + '" data-val="0" title="Xoá điểm ♥">✕</button>' +
-        Array.from({ length: 10 }, (_, i) => {
-          const v = i + 1;
-          return '<button type="button" class="card-heart-opt' + (v <= myRating ? ' on' : '') + '" data-val="' + v + '" title="Chấm ' + v + '/10 ♥">' + (v <= myRating ? '♥' : '♡') + '</button>';
-        }).join('') +
-      '</div>';
-
-    // Meta: ★ điểm cộng đồng (AniDB) | nút điểm của tôi (bấm để chấm lại) | tổng số tập đã phát hành
+    // Meta: ★ điểm cộng đồng (AniDB) | nút điểm của tôi (bấm để mở popup chấm ♥; hiển thị trái tim trước, số sau) | tổng số tập đã phát hành
     const metaRight =
       '<span class="card-meta-right">' +
-        '<button type="button" class="card-heart-btn" title="Điểm của tôi — bấm để chấm ♥">' + (myRating > 0 ? myRating + '♥' : '♥') + '</button>' +
+        '<button type="button" class="card-heart-btn" data-heart-menu="1" title="Điểm của tôi — bấm để chấm ♥">♥' + (myRating > 0 ? ' ' + myRating : '') + '</button>' +
         '<span class="card-progress">' + (totalEp ? totalEp + '/' + totalEp : '?/?') + '</span>' +
       '</span>';
 
@@ -834,7 +824,6 @@
         '</div>' +
         '<div class="card-body">' +
           '<h3 class="card-title">' + esc(a.title || '') + '</h3>' +
-          heartRow +
           '<div class="card-meta">' +
             '<span class="card-rating">★ ' + rating.toFixed(1) + '</span>' +
             metaRight +
@@ -1210,23 +1199,31 @@
 
   function commentHTML(c) {
     const isPinned = !!c.is_pinned;
-    let actions = '';
+    const author = c.author_name || 'Ẩn danh';
+    let actions =
+      '<div class="comment-actions">' +
+        '<button class="comment-action-btn" data-quote-src="' + esc(c.content) + '" data-quote-author="' + esc(author) + '" title="Trả lời bằng trích dẫn">❝ Trả lời</button>';
     if (State.isAdmin) {
-      actions =
-        '<div class="comment-actions">' +
+      actions +=
           '<button class="comment-action-btn" data-act="pin" data-id="' + esc(c.id) + '" title="' + (isPinned ? 'Bỏ ghim' : 'Ghim') + '">' + (isPinned ? '📌 Ghim' : '📍 Ghim') + '</button>' +
-          '<button class="comment-action-btn danger" data-act="del" data-id="' + esc(c.id) + '" title="Xóa">🗑</button>' +
-        '</div>';
+          '<button class="comment-action-btn danger" data-act="del" data-id="' + esc(c.id) + '" title="Xóa">🗑</button>';
     }
+    actions += '</div>';
+    // Nội dung dài > 400 ký tự → thu gọn + nút xem thêm / thu gọn lại
+    const bodyHtml = renderRichText(c.content);
+    const bodyInner = '<div class="comment-body long-text-body">' + bodyHtml + '</div>';
+    const body = String(c.content || '').length > 400
+      ? '<div class="long-text" data-expanded="false">' + bodyInner + '<button type="button" class="long-text-toggle">Xem thêm ▾</button></div>'
+      : bodyInner;
     return (
       '<div class="comment-item' + (isPinned ? ' pinned' : '') + '" data-id="' + esc(c.id) + '">' +
         '<div class="comment-head">' +
-          '<span class="comment-author">' + esc(c.author_name || 'Ẩn danh') + '</span>' +
+          '<span class="comment-author">' + esc(author) + '</span>' +
           (isPinned ? '<span class="pin-badge">📌 Đã ghim</span>' : '') +
           '<span class="comment-time">' + timeAgo(c.created_at) + '</span>' +
           actions +
         '</div>' +
-        '<div class="comment-body">' + renderRichText(c.content) + '</div>' +
+        body +
       '</div>'
     );
   }
@@ -1265,8 +1262,8 @@
     }
     if (fab) {
       fab.setAttribute('aria-label', comments.length > 0
-        ? 'Mở chat chung (' + comments.length + ' tin)'
-        : 'Mở chat chung');
+        ? 'Mở Chat All (' + comments.length + ' tin)'
+        : 'Mở Chat All');
     }
 
     // List đầy đủ
@@ -1282,9 +1279,48 @@
     const visible = comments.slice(0, State.chatVisible);
     if (list) {
       list.classList.remove('hidden');
-      list.innerHTML = visible.map((c) => chatHTML(c, map)).join('');
+      // Discord style: tin mới nhất ở dưới cùng, tin cũ hơn ở phía trên
+      list.innerHTML = visible.slice().reverse().map((c) => chatHTML(c, map)).join('');
     }
     updateLoadMore('#chatLoadMoreWrap', comments.length - State.chatVisible);
+  }
+
+  // Cuộn vùng tin chat xuống dưới cùng (hiển thị tin mới nhất)
+  function scrollChatToBottom() {
+    const wrap = $('#chatMessages') || $('#chatDockBody');
+    if (wrap) wrap.scrollTop = wrap.scrollHeight;
+  }
+
+  // Bỏ [quote]...[/quote] cũ trong nội dung (tránh quote lồng nhau hỏng cấu trúc)
+  function stripQuotes(src) {
+    return String(src || '').replace(/\[quote\][\s\S]*?\[\/quote\]/gi, '').trim();
+  }
+
+  // Nút "❝ Trả lời" trong Chat All: chèn trích dẫn vào đầu ô nhập chat
+  function quoteIntoChat(author, src) {
+    const box = $('#chatBox');
+    if (!box) return;
+    const quote = '[quote]' + (author ? author + ':\n' : '') + stripQuotes(src) + '[/quote]\n\n';
+    box.value = quote + box.value;
+    box.focus();
+  }
+
+  // Nút "❝ Trả lời" trong bình luận anime: chèn trích dẫn vào đầu ô nhập bình luận
+  function quoteIntoComment(author, src) {
+    const box = $('#commentBox');
+    if (!box) return;
+    const quote = '[quote]' + (author ? author + ':\n' : '') + stripQuotes(src) + '[/quote]\n\n';
+    box.value = quote + box.value;
+    box.focus();
+  }
+
+  // Bật/tắt "Xem thêm / Thu gọn" cho bình luận & tin nhắn dài
+  function toggleLongText(btn) {
+    const wrap = btn.closest('.long-text');
+    if (!wrap) return;
+    const expanded = wrap.getAttribute('data-expanded') === 'true';
+    wrap.setAttribute('data-expanded', expanded ? 'false' : 'true');
+    btn.textContent = expanded ? 'Xem thêm ▾' : 'Thu gọn ▴';
   }
 
   // Render 1 tin chat chung dạng bong bóng; nếu có anime_id → thêm nhãn phim
@@ -1295,17 +1331,24 @@
     // Bong bóng của mình (trùng tên đang nhập ở ô chat) sẽ căn phải
     const ownAuthor = ($('#chatAuthor') && $('#chatAuthor').value.trim().toLowerCase()) || '';
     const isOwn = !!ownAuthor && String(author).trim().toLowerCase() === ownAuthor;
-    let actions = '';
+    let actions =
+      '<div class="comment-actions">' +
+        '<button class="comment-action-btn" data-quote-src="' + esc(c.content) + '" data-quote-author="' + esc(author) + '" title="Trả lời bằng trích dẫn">❝ Trả lời</button>';
     if (State.isAdmin) {
-      actions =
-        '<div class="comment-actions">' +
+      actions +=
           '<button class="comment-action-btn" data-cact2="pin" data-id="' + esc(c.id) + '" title="' + (isPinned ? 'Bỏ ghim' : 'Ghim') + '">' + (isPinned ? '📌 Ghim' : '📍 Ghim') + '</button>' +
-          '<button class="comment-action-btn danger" data-cact2="del" data-id="' + esc(c.id) + '" title="Xóa">🗑</button>' +
-        '</div>';
+          '<button class="comment-action-btn danger" data-cact2="del" data-id="' + esc(c.id) + '" title="Xóa">🗑</button>';
     }
+    actions += '</div>';
     const tag = anime
       ? '<a href="#" class="chat-anime-tag" data-anime-id="' + esc(anime.id) + '" title="Mở chi tiết ' + esc(anime.title) + '">🎬 ' + esc(anime.title) + '</a>'
-      : '<span class="chat-anime-tag chat-general">💬 Chat chung</span>';
+      : '<span class="chat-anime-tag chat-general">💬 Chat All</span>';
+    // Nội dung dài > 400 ký tự → thu gọn + nút xem thêm / thu gọn lại
+    const bodyHtml = renderRichText(c.content);
+    const bodyInner = '<div class="comment-body chat-bubble-body long-text-body">' + bodyHtml + '</div>';
+    const body = String(c.content || '').length > 400
+      ? '<div class="long-text" data-expanded="false">' + bodyInner + '<button type="button" class="long-text-toggle">Xem thêm ▾</button></div>'
+      : bodyInner;
     return (
       '<div class="chat-bubble-row' + (isOwn ? ' own' : '') + '" data-id="' + esc(c.id) + '">' +
         '<div class="chat-bubble' + (isPinned ? ' pinned' : '') + '">' +
@@ -1316,7 +1359,7 @@
             '<span class="chat-bubble-time">' + timeAgo(c.created_at) + '</span>' +
             actions +
           '</div>' +
-          '<div class="comment-body chat-bubble-body">' + renderRichText(c.content) + '</div>' +
+          body +
         '</div>' +
       '</div>'
     );
@@ -1376,7 +1419,7 @@
     }
     const btn = $('#submitCommentBtn');
     btn.disabled = true;
-    const safeContent = filterBadWords(content).slice(0, 5000);
+    const safeContent = filterBadWords(content).slice(0, 3000);
     const { error } = await State.supabase
       .from('comments')
       .insert({ anime_id: anime.id, author_name: author.slice(0, 60), content: safeContent, is_pinned: false });
@@ -1428,7 +1471,7 @@
     }
     const btn = $('#chatSendBtn');
     btn.disabled = true;
-    const safeContent = filterBadWords(content).slice(0, 5000);
+    const safeContent = filterBadWords(content).slice(0, 3000);
     const { error } = await State.supabase
       .from('comments')
       .insert({ anime_id: null, author_name: author.slice(0, 60), content: safeContent, is_pinned: false });
@@ -1442,6 +1485,7 @@
     newChatCaptcha();
     toast('Đã gửi tin nhắn 💬', 'success');
     loadGlobalChat();
+    scrollChatToBottom();
   }
 
   // Xử lý pin/delete (admin)
@@ -2001,7 +2045,7 @@
     }
     list.innerHTML = data.map((c) => {
       const animeName = c.anime_id == null
-        ? '💬 Chat chung'
+        ? '💬 Chat All'
         : ((State.animes.find((a) => a.id === c.anime_id) || {}).title || '—');
       return (
         '<div class="admin-row" data-id="' + esc(c.id) + '">' +
@@ -2277,21 +2321,11 @@
       const card = e.target.closest('.anime-card');
       if (!card || !card.dataset.id) return;
 
-      // Nút điểm ♥ ở meta: bấm để hiện/ẩn hàng 10 trái tim chấm điểm (không mở modal)
+      // Nút điểm ♥ ở meta: bấm để mở popup chấm điểm ♥ (menu 10 tim, không mở modal)
       const hBtn = e.target.closest('.card-heart-btn');
       if (hBtn) {
-        const row = card.querySelector('.card-heart-row');
-        if (row) row.classList.toggle('hidden');
-        return;
-      }
-
-      // 10 trái tim ♥ trên card (hàng chấm điểm): bấm 1 cái là chấm điểm liền
-      const hOpt = e.target.closest('.card-heart-opt');
-      if (hOpt) {
-        const v = Number(hOpt.dataset.val) || 0;
-        saveMyTracker(card.dataset.id, { my_rating: v }).then((ok) => {
-          if (ok) toast(v > 0 ? 'Đã chấm ' + v + '/10 ♥' : 'Đã xoá điểm ♥', 'success');
-        });
+        e.__popOpened = true;
+        openHeartPop(hBtn, card.dataset.id);
         return;
       }
 
@@ -2389,8 +2423,8 @@
       if (State.chatExpanded) {
         renderGlobalChat();
         newChatCaptcha();
-        const box = $('#chatBox');
-        if (box) box.focus();
+        scrollChatToBottom();
+        // KHÔNG tự focus ô nhập → tránh bàn phím ảo tự bật trên điện thoại
       }
     };
     if (chatFab) {
@@ -2414,9 +2448,26 @@
         if (a) openAnimeDetail(a);
         return;
       }
+      // Nút trả lời bằng trích dẫn (ai cũng dùng được, kể cả chưa đăng nhập)
+      const q = e.target.closest('[data-quote-src]');
+      if (q) {
+        e.preventDefault();
+        quoteIntoChat(q.dataset.quoteAuthor, q.dataset.quoteSrc);
+        return;
+      }
+      // Nút xem thêm / thu gọn bình luận dài
+      const tg = e.target.closest('.long-text-toggle');
+      if (tg) { toggleLongText(tg); return; }
       // Admin actions trong chat
       const btn = e.target.closest('[data-cact2]');
       if (btn) handleChatAdminAction(btn.dataset.cact2, btn.dataset.id);
+    });
+
+    // Bấm bên ngoài khung chat → ẩn khung chat (nội dung đang nhập vẫn giữ lại)
+    document.addEventListener('click', (e) => {
+      if (!State.chatExpanded) return;
+      if (e.target.closest('#chatDock') || e.target.closest('#chatFab')) return;
+      if (State.chatExpanded) toggleChatPanel();
     });
 
     // Admin: mở panel
@@ -2539,6 +2590,16 @@
 
     // Comment actions trong modal anime (delegate)
     $('#animeModal').addEventListener('click', (e) => {
+      // Nút trả lời bằng trích dẫn (ai cũng dùng được, kể cả chưa đăng nhập)
+      const q = e.target.closest('[data-quote-src]');
+      if (q) {
+        e.preventDefault();
+        quoteIntoComment(q.dataset.quoteAuthor, q.dataset.quoteSrc);
+        return;
+      }
+      // Nút xem thêm / thu gọn bình luận dài
+      const tg = e.target.closest('.long-text-toggle');
+      if (tg) { toggleLongText(tg); return; }
       const btn = e.target.closest('[data-act]');
       if (btn) handleCommentAction(btn.dataset.act, btn.dataset.id);
       // Thể loại: nút ">" mở/đóng toàn bộ

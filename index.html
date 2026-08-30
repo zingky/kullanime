@@ -83,17 +83,17 @@
         <input type="search" id="animeSearch" class="input filter-input"
                placeholder="🔍 Tìm theo tên, studio, thể loại..." autocomplete="off" />
         <select id="genreFilter" class="input filter-select" aria-label="Lọc theo thể loại">
-          <option value="all">Tất cả thể loại</option>
+          <option value="all">All thể loại</option>
         </select>
         <select id="myStatusFilter" class="input filter-select" aria-label="Lọc theo trạng thái xem của tôi">
-          <option value="all">Trạng thái xem của tôi</option>
+          <option value="all">All My Status</option>
           <option value="Đã xem">✅ Đã xem</option>
           <option value="Đang xem">⏳ Đang xem</option>
           <option value="Muốn xem">➕ Muốn xem</option>
           <option value="Chưa xem">⬜ Chưa xem</option>
         </select>
         <select id="statusFilter" class="input filter-select" aria-label="Lọc theo tình trạng phát hành">
-          <option value="all">Tất cả trạng thái</option>
+          <option value="all">All tình trạng</option>
           <option value="Đang chiếu">Đang chiếu</option>
           <option value="Hoàn thành">Hoàn thành</option>
           <option value="Sắp chiếu">Sắp chiếu</option>
@@ -193,21 +193,32 @@
   </footer>
 
   <!-- ======================= CHAT CHUNG (bong bóng nổi góc phải) ======================= -->
-  <button type="button" class="chat-fab" id="chatFab" aria-expanded="false" aria-label="Mở chat chung" title="Chat chung">
+  <button type="button" class="chat-fab" id="chatFab" aria-expanded="false" aria-label="Mở Chat All" title="Chat All">
     <span class="chat-fab-icon">💬</span>
     <span class="chat-fab-badge" id="chatFabBadge" hidden>0</span>
   </button>
-  <aside class="chat-panel hidden" id="chatDock" aria-label="Chat chung">
+  <aside class="chat-panel hidden" id="chatDock" aria-label="Chat All">
     <!-- Tiêu đề panel + nút đóng -->
     <div class="chat-panel-header">
-      <span class="chat-panel-title">💬 Chat chung</span>
-      <button type="button" class="chat-panel-close" id="chatCloseBtn" aria-label="Đóng chat chung" title="Đóng (Esc)">✕</button>
+      <span class="chat-panel-title">💬 Chat All</span>
+      <button type="button" class="chat-panel-close" id="chatCloseBtn" aria-label="Đóng Chat All" title="Đóng (Esc)">✕</button>
     </div>
 
     <!-- Panel đầy đủ: soạn thảo + danh sách -->
     <div class="chat-panel-body" id="chatDockBody">
+      <div class="chat-messages" id="chatMessages">
+        <div class="load-more-wrap" id="chatLoadMoreWrap">
+          <button type="button" class="btn btn-primary load-more-btn" id="chatLoadMoreBtn" data-label="Xem thêm tin cũ ▲">Xem thêm tin cũ ▲</button>
+        </div>
+        <div id="chatList" class="comment-list"></div>
+        <div class="empty-state hidden" id="chatEmpty">
+          <p class="empty-emoji">💬</p>
+          <p class="empty-title">Chưa có tin nhắn nào</p>
+          <p class="empty-desc">Hãy là người đầu tiên chat All nhé!</p>
+        </div>
+      </div>
       <div class="chat-layout">
-        <!-- Khung soạn thảo chung -->
+        <!-- Khung soạn thảo chung (dưới cùng, phong cách Discord) -->
         <div class="composer" id="chatComposer">
           <div class="composer-toolbar" role="toolbar" aria-label="Thanh công cụ soạn thảo chat">
             <button type="button" class="tb-btn" data-fmt="bold" title="In đậm"><b>B</b></button>
@@ -218,9 +229,9 @@
             <button type="button" class="tb-btn" data-fmt="code" title="Code">&lt;/&gt;</button>
             <input type="file" id="chatUploadImgInput" accept="image/*" class="hidden" />
           </div>
-          <label class="visually-hidden" for="chatBox">Nội dung chat chung</label>
-          <textarea id="chatBox" class="composer-input" rows="3"
-                    placeholder="Gửi tin nhắn chat chung... ✓ Paste link/ảnh tự xử lý"></textarea>
+          <label class="visually-hidden" for="chatBox">Nội dung Chat All</label>
+          <textarea id="chatBox" class="composer-input" rows="3" maxlength="3000"
+                    placeholder="Gửi tin nhắn Chat All (tối đa 3000 ký tự)... ✓ Paste link/ảnh tự xử lý"></textarea>
           <div class="composer-footer">
             <span class="auth-name-line hidden" id="chatAuthName">
               👤 Đăng với tên <strong class="auth-name-val" id="chatAuthNameVal"></strong>
@@ -237,16 +248,6 @@
             <button class="btn btn-primary" id="chatSendBtn">Gửi 💬</button>
             <span class="rate-limit-hint" id="chatRateHint"></span>
           </div>
-        </div>
-
-        <div id="chatList" class="comment-list"></div>
-        <div class="load-more-wrap" id="chatLoadMoreWrap">
-          <button type="button" class="btn btn-primary load-more-btn" id="chatLoadMoreBtn" data-label="Xem thêm tin nhắn ▼">Xem thêm tin nhắn ▼</button>
-        </div>
-        <div class="empty-state hidden" id="chatEmpty">
-          <p class="empty-emoji">💬</p>
-          <p class="empty-title">Chưa có tin nhắn nào</p>
-          <p class="empty-desc">Hãy là người đầu tiên chat chung nhé!</p>
         </div>
       </div>
     </div>
@@ -275,8 +276,8 @@
             <input type="file" id="uploadImgInput" accept="image/*" class="hidden" />
           </div>
           <label class="visually-hidden" for="commentBox">Nội dung bình luận</label>
-          <textarea id="commentBox" class="composer-input" rows="3"
-                    placeholder="Viết bình luận... ✓ Paste link/ảnh tự xử lý"></textarea>
+          <textarea id="commentBox" class="composer-input" rows="3" maxlength="3000"
+                    placeholder="Viết bình luận (tối đa 3000 ký tự)... ✓ Paste link/ảnh tự xử lý"></textarea>
           <div class="composer-footer">
             <span class="auth-name-line hidden" id="commentAuthName">
               👤 Đăng với tên <strong class="auth-name-val" id="commentAuthNameVal"></strong>
@@ -528,7 +529,7 @@
   <div class="mini-pop hidden" id="epPop"></div>
   <div class="mini-pop hidden" id="heartPop"></div>
 
-  <script src="./app.js?v=16"></script>
+  <script src="./app.js?v=17"></script>
 </body>
 </html>
 
