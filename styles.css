@@ -630,6 +630,22 @@ html[data-theme="light"] .modal { background: rgba(255, 255, 255, 0.72); }
 .comment-body pre code { background: none; padding: 0; }
 .comment-body a { color: var(--accent); text-decoration: underline; word-break: break-all; }
 
+/* ============ BÌNH LUẬN / TIN NHẮN DÀI: thu gọn + xem thêm ============ */
+.long-text[data-expanded="false"] .long-text-body { max-height: 9.5em; overflow: hidden; }
+.long-text[data-expanded="false"] .long-text-body::after {
+  content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 2.2em;
+  background: linear-gradient(transparent, rgba(14,18,34,0.9));
+  pointer-events: none;
+}
+.long-text-body { position: relative; }
+.long-text-toggle {
+  margin-top: 6px; border: none; background: none; color: var(--accent);
+  font-size: 12.5px; font-weight: 700; cursor: pointer; padding: 2px 4px;
+  -webkit-tap-highlight-color: transparent;
+}
+.long-text-toggle:hover { text-decoration: underline; }
+
+
 
 /* ============ ADMIN ============ */
 .admin-tabs { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 16px; padding-bottom: 12px; border-bottom: 1px solid var(--border); }
@@ -777,8 +793,11 @@ html[data-theme="light"] .modal { background: rgba(255, 255, 255, 0.72); }
   transition: all 0.15s ease; flex-shrink: 0;
 }
 .chat-panel-close:hover { color: var(--danger); border-color: rgba(239, 68, 68, 0.45); }
-.chat-panel-body { padding: 12px 14px 16px; overflow-y: auto; }
-.chat-panel-body .chat-layout { max-width: none; }
+.chat-panel-body { padding: 12px 14px 16px; overflow: hidden; display: flex; flex-direction: column; gap: 10px; }
+.chat-panel-body .chat-messages { overflow-y: auto; min-height: 0; flex: 1 1 auto; }
+.chat-panel-body .chat-layout { max-width: none; flex-shrink: 0; }
+.chat-panel-body .chat-layout .composer { margin-bottom: 0; }
+.chat-panel-body .chat-messages .comment-list { padding-right: 4px; }
 
 /* Mobile: bong bóng + panel gọn theo mép */
 @media (max-width: 480px) {
