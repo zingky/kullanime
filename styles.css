@@ -315,6 +315,8 @@ html[data-theme="light"] .modal { background: rgba(255, 255, 255, 0.72); }
   .anime-modal { max-width: min(96vw, 1040px); }
 }
 @media (min-width: 1200px) {
+  /* Track cột poster CỐ ĐỊNH 260px — track fixed không bao giờ bị "growth limit"
+     đẩy phình theo min-content của ảnh poster, nhờ đó cột chữ luôn giữ đủ độ rộng. */
   .anime-modal .anime-detail { grid-template-columns: 260px minmax(0, 1fr); }
   /* Poster lấp đầy cột to hơn — tránh khoảng trống lệch làm nhìn "không căn đều" */
   .anime-modal .anime-detail-poster { max-width: 100%; }
@@ -357,15 +359,32 @@ html[data-theme="light"] .modal { background: rgba(255, 255, 255, 0.72); }
 .anime-modal .anime-detail .detail-synopsis { color: #eafff4; }
 .anime-modal .anime-detail .my-state-btn { background: rgba(255,255,255,0.1); color: #d1fae5; border-color: rgba(134,239,172,0.4); }
 
+/* Bảo vệ layout modal: chặn style ngoài (CDN inject / extension) làm chữ dựng đứng
+   từng ký tự một dòng trong khối thông tin anime. */
+.anime-modal .anime-detail .detail-side,
+.anime-modal .anime-detail .detail-main {
+  writing-mode: horizontal-tb;
+  text-orientation: mixed;
+  white-space: normal;
+}
+.anime-modal .anime-detail .detail-synopsis { white-space: pre-wrap; }
+.anime-modal .anime-detail .detail-title,
+.anime-modal .anime-detail .detail-subtitle,
+.anime-modal .anime-detail .detail-side-label { white-space: normal; }
+
 @media (min-width: 641px) {
-  .anime-detail { grid-template-columns: minmax(210px, 240px) minmax(0, 1fr); gap: clamp(18px, 3vw, 34px); }
+  /* Track cột poster CỐ ĐỊNH 240px thay cho minmax(210px,240px) — dải minmax để
+     "growth limit" phình theo min-content (ảnh poster intrinsic lớn) làm cột chữ
+     bị ép thành từng ký tự một dòng. Track fixed thì không bao giờ bị như vậy. */
+  .anime-detail { grid-template-columns: 240px minmax(0, 1fr); gap: clamp(18px, 3vw, 34px); }
 }
 
 /* ── Cột trái: poster + thông tin nhanh ── */
 .detail-side { min-width: 0; display: flex; flex-direction: column; gap: 14px; }
 .anime-detail-poster {
   width: 100%;
-  max-width: 220px;
+  max-width: 100%;
+  min-width: 0;
   margin: 0 auto;
   border-radius: 16px;
   overflow: hidden;
@@ -400,7 +419,7 @@ html[data-theme="light"] .modal { background: rgba(255, 255, 255, 0.72); }
 .detail-progress-text { font-size: 12px; color: var(--text-faint); }
 
 /* ── Cột phải: nội dung chính — chữ thoáng, căn đều ── */
-.detail-main { min-width: 0; display: flex; flex-direction: column; gap: 18px; }
+.detail-main { min-width: 0; width: 100%; display: flex; flex-direction: column; gap: 18px; }
 .detail-header { border-bottom: 1px solid var(--border); padding-bottom: 14px; }
 .detail-title { margin: 0 0 6px; font-size: clamp(20px, 3vw, 27px); font-weight: 800; line-height: 1.28; letter-spacing: -0.01em; }
 .detail-subtitle { margin: 0; font-size: 13.5px; color: var(--text-dim); }
@@ -654,7 +673,7 @@ html[data-theme="light"] .modal { background: rgba(255, 255, 255, 0.72); }
 
 /* 641–900px: modal anime 2 cột vẫn đủ rộng nhưng thu poster & khoảng cách gọn hơn */
 @media (min-width: 641px) and (max-width: 900px) {
-  .anime-detail { grid-template-columns: minmax(170px, 200px) minmax(0, 1fr); gap: 18px; }
+  .anime-detail { grid-template-columns: 200px minmax(0, 1fr); gap: 18px; }
   .modal { padding: 18px 16px; }
 }
 
