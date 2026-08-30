@@ -257,8 +257,8 @@ select.input { appearance: none; -webkit-appearance: none; background-image: url
 .modal-title { margin: 0 0 6px; font-size: 20px; font-weight: 800; }
 .modal-subtitle { margin: 0 0 18px; color: var(--text-dim); font-size: 13.5px; }
 
-.anime-detail { display: grid; grid-template-columns: 1fr; gap: 20px; padding: 6px 4px 10px; }
-@media (min-width: 640px) { .anime-detail { grid-template-columns: 220px 1fr; } }
+.anime-detail { display: grid; grid-template-columns: 1fr; gap: 20px; padding: 6px 4px 10px; min-width: 0; }
+@media (min-width: 640px) { .anime-detail { grid-template-columns: 220px minmax(0, 1fr); } }
 .anime-detail-poster { width: 100%; max-width: 220px; margin: 0 auto; border-radius: 14px; overflow: hidden; border: 1px solid var(--border-strong); aspect-ratio: 3 / 4.2; background: var(--bg-elev); }
 .anime-detail-poster img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .detail-info { min-width: 0; }
