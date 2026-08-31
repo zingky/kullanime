@@ -1593,21 +1593,7 @@
     const fab = $('#subsSettingsBtn');
     if (fab) fab.setAttribute('aria-expanded', 'true');
     if (fab) fab.classList.add('active');
-    // Đặt panel ngay dưới nút ⚙️ cài đặt sub (dạng menu xổ xuống / dropdown)
-    const panel = _subPopupEl || $('#subPanel');
-    if (panel && fab) {
-      const r = fab.getBoundingClientRect();
-      const pw = panel.offsetWidth || Math.min(420, window.innerWidth - 24);
-      let left = r.left + r.width / 2 - pw / 2;
-      let top = r.bottom + 8;
-      // không cho tràn ra ngoài màn hình
-      left = Math.max(10, Math.min(left, window.innerWidth - pw - 10));
-      if (top + (panel.offsetHeight || 300) > window.innerHeight - 10) {
-        top = Math.max(10, window.innerHeight - (panel.offsetHeight || 300) - 10);
-      }
-      panel.style.left = left + 'px';
-      panel.style.top = top + 'px';
-    }
+    // Panel nằm in-flow ngay dưới thanh now-playing — chỉ cần bỏ lớp .hidden để sổ xuống.
   }
   function hideSubPanel() {
     if (_subPopupEl) _subPopupEl.classList.add('is-closing');
