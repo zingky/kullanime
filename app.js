@@ -486,11 +486,13 @@
     }).join('');
   }
 
-  function renderAssCacheList() {
+  function renderAssCacheList(query) {
     const list = $('#assCacheList');
     if (!list) return;
     const cache = readAssCache();
-    const names = Object.keys(cache).sort((a, b) => (cache[a].addedAt || 0) - (cache[b].addedAt || 0));
+    const q = (query || '').trim().toLowerCase();
+    let names = Object.keys(cache).sort((a, b) => (cache[a].addedAt || 0) - (cache[b].addedAt || 0));
+    if (q) names = names.filter((n) => n.toLowerCase().includes(q));
     if (names.length === 0) {
       list.innerHTML = '<div class="ass-cache-empty">Chưa có file .ass nào trong cache. Hãy tải file lên ở trên.</div>';
       return;
@@ -531,13 +533,17 @@
     toast('Đã tải về: ' + name, 'success', 2400);
   }
 
-  // Lưu file .ass vừa chọn vào cache (đặt tên theo link YT + tiêu đề nhập)
+  // Lưu file .ass vừa chọn vào cache (đặt tên theo link YT + tiêu đề tự nhận)
   function addAssFileToCache(file) {
     if (!file) return;
     const reader = new FileReader();
     reader.onload = () => {
       const text = String(reader.result || '');
-      const name = buildAssCacheFileName($('#assCacheYt').value, $('#assCacheTitle').value);
+      const ytEl = $('#assCacheYt'), idEl = $('#assCacheId'), titleEl = $('#assCacheTitle');
+      const name = buildAssCacheFileName(
+        (ytEl && ytEl.value) || (idEl && idEl.value),
+        (titleEl && titleEl.value) || (ytEl && ytEl.value)
+      );
       const cache = readAssCache();
       cache[name] = { name: name, text: text, addedAt: Date.now() };
       writeAssCache(cache);
@@ -545,8 +551,9 @@
       renderAssCacheList();
       mergeAssCacheIntoSubs();
       renderAssStatus();
-      $('#assCacheYt').value = '';
-      $('#assCacheTitle').value = '';
+      if (ytEl) ytEl.value = '';
+      if (idEl) idEl.value = '';
+      if (titleEl) titleEl.value = '';
     };
     reader.onerror = () => toast('Không đọc được file.', 'error');
     reader.readAsText(file);
@@ -776,6 +783,26 @@
     const sec = parseInt(m[3], 10);
     const cs = parseInt(m[4].padEnd(3, '0').slice(0, 3), 10);
     return h * 3600 + min * 60 + sec + cs / 1000;
+  }
+  // seconds (float) -> "h:mm:ss.cc" (3 chữ số phần trăm giây, clamp không âm)
+  function formatAssTimestamp(sec) {
+    sec = Math.max(0, Number(sec) || 0);
+    const h = Math.floor(sec / 3600);
+    const min = Math.floor((sec % 3600) / 60);
+    const s = Math.floor(sec % 60);
+    const cs = Math.round((sec - Math.floor(sec)) * 1000);
+    return h + ':' + String(min).padStart(2, '0') + ':' + String(s).padStart(2, '0') + '.' + String(cs).padStart(3, '0');
+  }
+  // Shift toàn bộ timestamp trong text ASS bởi offsetMs (âm/không âm đều được).
+  // Chỉ tác động các cặp timestamp "h:mm:ss.cc,h:mm:ss.cc" trong dòng Dialogue.
+  function shiftAssTimestamps(text, offsetMs) {
+    if (!text || !offsetMs) return text;
+    const offsetSec = offsetMs / 1000;
+    return String(text).replace(/(\d+:\d{1,2}:\d{1,2}[.:]\d{1,3}),(\d+:\d{1,2}:\d{1,2}[.:]\d{1,3})/g, (m, a, b) => {
+      const ta = parseAssTime(a), tb = parseAssTime(b);
+      if (ta == null || tb == null) return m;
+      return formatAssTimestamp(ta + offsetSec) + ',' + formatAssTimestamp(tb + offsetSec);
+    });
   }
 
   // &HAABBGGRR (ASS) -> #RRGGBB (CSS)
@@ -1110,6 +1137,7 @@
     const useBox = !!gs.useBox;
     const boxColor = gs.boxColor || '#000000';
     const boxOpacity = (gs.boxOpacity != null ? gs.boxOpacity : 0.5);
+    const boxBlur = (gs.boxBlur != null ? Number(gs.boxBlur) : 0);
     const letterSpacing = gs.letterSpacing || 0;
 
     // ---- Font family (style font hoặc global) ----
@@ -1159,6 +1187,10 @@
         el.style.padding = '4px 10px';
         el.style.borderRadius = '6px';
         el.style.display = 'inline-block';
+        if (boxBlur > 0) {
+          el.style.backdropFilter = 'blur(' + boxBlur + 'px)';
+          el.style.webkitBackdropFilter = 'blur(' + boxBlur + 'px)';
+        }
       }
     };
 
@@ -1178,10 +1210,11 @@
       return d;
     };
 
-    const kTab = (key) => (gs[key] || { c1: '#ffffff', c3: '#000000', outl: 3, blur: 6, zoom: 1.0, zIn: 100, zOut: 100 });
+    const kTab = (key) => (gs[key] || { c1: '#ffffff', c3: '#000000', fs: 90, outl: 3, blur: 6, zoom: 1.0, zDur: 100 });
 
-    const applySylStyle = (span, useC1, useC3, useOutl, useBl, useZoom) => {
+    const applySylStyle = (span, useC1, useC3, useOutl, useBl, useZoom, useFs) => {
       span.style.color = useC1;
+      span.style.fontSize = useFs + 'px';
       span.style.transform = 'scale(' + useZoom + ')';
       span.style.textShadow = deepGlow
         ? buildDeepGlow(useOutl, useBl, useC3, useStroke)
@@ -1191,6 +1224,13 @@
         span.style.paintOrder = 'stroke fill';
       }
     };
+
+    // Cỡ chữ hiệu dụng CHUNG cho cả 3 tab karaoke (luôn dùng gs.fontSize)
+    const karaFs = (k, fallback) => {
+      const raw = fallback || gs.fontSize || 70;
+      return Math.max(6, raw * scaleH * customResize * textZoom * ((gs.fontScale != null ? gs.fontScale : 100) / 100));
+    };
+    const karaOutl = (k, fallback) => Math.max(0, ((k && k.outl != null) ? Number(k.outl) : fallback)) * scaleH;
 
     if (groups) {
       groups.forEach((g, li) => {
@@ -1203,30 +1243,31 @@
             span.style.whiteSpace = 'nowrap';
             span.style.display = 'inline-block';
             if (letterSpacing > 0) span.style.marginRight = letterSpacing + 'px';
-            let useC1, useC3, useOutl, useBl, useZoom = 1;
+            let useC1, useC3, useOutl, useBl, useFs = fs, useZoom = 1;
             const active = nowMs >= syl.start && nowMs < syl.start + syl.dur;
             if (active) {
               // Âm tiết đang hát -> tab kActive
               const k = kTab('kActive');
               useC1 = k.c1 || '#ffffff';
               useC3 = k.c3 || '#ff2d55';
-              useOutl = (Number(k.outl) != null ? Number(k.outl) : 3) * scaleH;
+              useOutl = karaOutl(k, 3);
               useBl = (Number(k.blur) != null ? Number(k.blur) : 6) * scaleH;
+              useFs = karaFs(k, baseFs);
               const sEl = nowMs - syl.start;
               const sRem = (syl.start + syl.dur) - nowMs;
-              const zIn = Number(k.zIn) || 100;
-              const zOut = Number(k.zOut) || 100;
+              const zDur = Number(k.zDur) || 100;
               const zoomMax = Number(k.zoom) || 1.1;
-              if (sEl < zIn) useZoom = 1 + (zoomMax - 1) * (sEl / zIn);
-              else if (sRem < zOut) useZoom = 1 + (zoomMax - 1) * (sRem / zOut);
+              if (sEl < zDur) useZoom = 1 + (zoomMax - 1) * (sEl / zDur);
+              else if (sRem < zDur) useZoom = 1 + (zoomMax - 1) * (sRem / zDur);
               else useZoom = zoomMax;
             } else if (nowMs >= syl.start + syl.dur) {
               // Đã hát xong -> tab kPost (mờ dần)
               const k = kTab('kPost');
               useC1 = isO ? (st.color1 || k.c1 || c1) : (k.c1 || '#ffffff');
               useC3 = isO ? (st.color3 || k.c3 || c3) : (k.c3 || '#000000');
-              useOutl = ow;
+              useOutl = karaOutl(k, ow);
               useBl = (Number(k.blur) != null ? Number(k.blur) : 6) * scaleH;
+              useFs = karaFs(k, baseFs);
               const zoomPost = Number(k.zoom) || 1.0;
               useZoom = zoomPost < 1 ? zoomPost : 0.92;
             } else {
@@ -1234,11 +1275,12 @@
               const k = kTab('kPre');
               useC1 = isO ? (st.color1 || k.c1 || c1) : (k.c1 || '#ffffff');
               useC3 = isO ? (st.color3 || k.c3 || c3) : (k.c3 || '#000000');
-              useOutl = ow;
+              useOutl = karaOutl(k, ow);
               useBl = (Number(k.blur) != null ? Number(k.blur) : 6) * scaleH;
+              useFs = karaFs(k, baseFs);
               useZoom = Number(k.zoom) || 1.0;
             }
-            applySylStyle(span, useC1, useC3, useOutl, useBl, useZoom);
+            applySylStyle(span, useC1, useC3, useOutl, useBl, useZoom, useFs);
             lineDiv.appendChild(span);
           });
         } else {
@@ -1414,6 +1456,7 @@
     if (!fsBtn) return;
     const fs = !!document.fullscreenElement;
     fsBtn.classList.toggle('active', fs);
+    fsBtn.classList.toggle('fs-hidden', fs); // ẩn nút khi đang fullscreen
     fsBtn.setAttribute('aria-label', fs ? 'Thoát toàn màn hình' : 'Phóng to video');
     fsBtn.setAttribute('title', fs ? 'Thoát toàn màn hình (Esc)' : 'Phóng to video');
     const enterSvg = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M21 8V5a2 2 0 0 0-2-2h-3"/><path d="M3 16v3a2 2 0 0 0 2 2h3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/></svg>';
@@ -1709,13 +1752,13 @@
   const SUB_SETTINGS_DEFAULTS = {
     fontSize: 90, outlineWidth: 3, blur: 6, color1: '#ffffff', color3: '#000000',
     spacing: 0, letterSpacing: 0, textZoom: 1.4, fontScale: 100,
-    useBox: false, deepGlow: false, boxColor: '#000000', boxOpacity: 0.5, fontFamily: 'VNF-Comic Sans',
+    useBox: false, deepGlow: false, boxColor: '#000000', boxOpacity: 0.5, boxBlur: 0, fontFamily: 'VNF-Comic Sans',
     fadIn: 200, fadOut: 200, popupOpacity: 0.95, popupZoom: 1.0,
     posX: 350, posY: 100, width: 820, height: 600,
     isBold: true, isItalic: false, isUnderline: false, isStrike: false,
-    kPre:    { c1: '#ffffff', c3: '#000000', outl: 3, blur: 6, zoom: 1.0 },
-    kActive: { c1: '#ffffff', c3: '#ff2d55', outl: 4, blur: 8, zoom: 1.1, zIn: 100, zOut: 100 },
-    kPost:   { c1: '#ffffff', c3: '#000000', outl: 3, blur: 6, zoom: 1.0 },
+    kPre:    { c1: '#ffffff', c3: '#000000', fs: 90, outl: 3, blur: 6, zoom: 1.0 },
+    kActive: { c1: '#ffffff', c3: '#ff2d55', fs: 90, outl: 4, blur: 8, zoom: 1.1, zDur: 100 },
+    kPost:   { c1: '#ffffff', c3: '#000000', fs: 90, outl: 3, blur: 6, zoom: 1.0 },
     closeOnClickOutside: true,
     useGlobalStyles: false,
     useTextStroke: false
@@ -1813,14 +1856,28 @@
     const gs = ensureSubSettings();
     const obj = gs[key] || {};
     const isAct = key === 'kActive';
-    return '<div class="g-row" style="background: rgba(255,255,255,0.05); padding: 3px 5px; border-radius: 4px;">' +
-      '<div style="display:flex; align-items:center; gap:4px; flex:1;">1c <input type="color" data-k="' + key + '" data-type="c1" value="' + (obj.c1 || '#ffffff') + '"></div>' +
-      '<div style="display:flex; align-items:center; gap:4px; flex:1; justify-content:flex-end;">3c <input type="color" data-k="' + key + '" data-type="c3" value="' + (obj.c3 || '#000000') + '"></div>' +
+    const outl = (obj.outl != null ? obj.outl : (gs.outlineWidth != null ? gs.outlineWidth : 3));
+    const blur = (obj.blur != null ? obj.blur : (gs.blur != null ? gs.blur : 6));
+    const zoomPct = (obj.zoom != null ? Math.round(obj.zoom * 100) : (isAct ? 110 : 100));
+    return '' +
+      '<div class="g-row"><label style="white-space:nowrap;">Viền</label>' +
+        '<input type="range" data-k="' + key + '" data-type="outl" min="0" max="30" step="0.1" value="' + outl + '">' +
+        '<input type="number" data-k="' + key + '" data-type="outl" value="' + outl + '" class="num-in" step="0.1">' +
       '</div>' +
-      '<div class="g-row"><label>Outline</label><input type="range" data-k="' + key + '" data-type="outl" min="0" max="20" step="0.1" value="' + (obj.outl || 0) + '"><input type="number" data-k="' + key + '" data-type="outl" value="' + (obj.outl || 0) + '" class="num-in" step="0.1"></div>' +
-      '<div class="g-row"><label>Blur</label><input type="range" data-k="' + key + '" data-type="blur" min="0" max="100" step="0.1" value="' + (obj.blur || 0) + '"><input type="number" data-k="' + key + '" data-type="blur" value="' + (obj.blur || 0) + '" class="num-in" step="0.1"></div>' +
-      '<div class="g-row"><label>Zoom</label><input type="range" data-k="' + key + '" data-type="zoom" min="0.5" max="2.0" step="0.05" value="' + (obj.zoom || 1.0) + '"><input type="number" data-k="' + key + '" data-type="zoom" value="' + (obj.zoom || 1.0) + '" class="num-in" step="0.05"></div>' +
-      (isAct ? '<div class="one-line" style="border-top:1px dashed #444; padding-top:5px; margin-top:5px;">Z-In:<input type="number" data-k="' + key + '" data-type="zIn" value="' + (obj.zIn || 100) + '" class="num-in" step="10"> Z-Out:<input type="number" data-k="' + key + '" data-type="zOut" value="' + (obj.zOut || 100) + '" class="num-in" step="10"></div>' : '');
+      '<div class="g-row"><label style="white-space:nowrap;">Blur</label>' +
+        '<input type="range" data-k="' + key + '" data-type="blur" min="0" max="100" step="0.1" value="' + blur + '">' +
+        '<input type="number" data-k="' + key + '" data-type="blur" value="' + blur + '" class="num-in" step="0.1">' +
+      '</div>' +
+      '<div class="g-row k-colorzoom-row">' +
+        '<span class="k-col"><i>1c</i><input type="color" data-k="' + key + '" data-type="c1" value="' + (obj.c1 || '#ffffff') + '"></span>' +
+        '<span class="k-col"><i>3c</i><input type="color" data-k="' + key + '" data-type="c3" value="' + (obj.c3 || '#000000') + '"></span>' +
+        '<label class="k-zoom-lab" style="white-space:nowrap;">Zoom</label>' +
+        '<input type="number" data-k="' + key + '" data-type="zoom" value="' + zoomPct + '" class="num-in" step="5" min="20" max="300"><span class="sub-pct">%</span>' +
+        (isAct ? '<span class="sub-foot-sep"></span>' +
+          '<span class="k-inout-lab" style="white-space:nowrap;">In/Out</span>' +
+          '<input type="number" data-k="' + key + '" data-type="zDur" value="' + (obj.zDur != null ? obj.zDur : 100) + '" class="num-in" step="10" min="0">' +
+          '<span class="sub-pct">ms</span>' : '') +
+      '</div>';
   }
   const PLAYER_PREFS_KEY = 'kullanime_player_prefs_v1';
   function loadPlayerPrefs() {
@@ -1878,6 +1935,7 @@
         '<span class="sub-ts-ms">ms</span>' +
         '<button type="button" id="sub-ts-inc" title="Tiến 100ms">+</button>' +
         '<button type="button" id="sub-ts-zero" title="Đặt lại về 0">⟳</button>' +
+        '<button type="button" id="sub-ts-dl" title="Tải file .ass đã shift time" style="color:#5eead4">💾</button>' +
       '</div>' +
       '<button type="button" class="sub-panel-close" id="subPanelClose" aria-label="Đóng cài đặt phụ đề" title="Đóng (Esc)">✕</button>';
     const body = document.createElement('div');
@@ -1940,43 +1998,30 @@
         '<button type="button" class="sub-mtab' + (useCommon ? '' : ' active') + '" data-m="styles" role="tab">🎨 Cài đặt từng style</button>' +
       '</div>' +
 
-      // ---------- Panel 1: Cài đặt chung ----------
+      // ---------- Panel 1: Cài đặt chung (chỉ 3 tab karaoke: Pre / Active / Post) ----------
       '<div class="sub-mtab-panel" data-m="common" role="tabpanel" style="display:' + (useCommon ? 'block' : 'none') + ';">' +
 
+        // ---- Cỡ chữ CHUNG: dùng cho cả 3 trạng thái karaoke + style không karaoke ----
+        // Nằm dưới hàng chọn "Cài đặt chung / Cài đặt từng style" và trên 3 tab karaoke (Pre/Active/Post).
+        '<div class="g-row k-fs-row"><label style="white-space:nowrap;">Cỡ chữ</label>' +
+          '<input type="range" data-k="fs" data-type="fs" min="20" max="300" step="1" value="' + (gs.fontSize != null ? gs.fontSize : 70) + '">' +
+          '<input type="number" data-k="fs" data-type="fs" value="' + (gs.fontSize != null ? gs.fontSize : 70) + '" class="num-in" step="1">' +
+        '</div>' +
+
         '<div class="pill-tabs">' +
-          '<div class="pill-tab active" data-pill="settings">Pre</div>' +
-          '<div class="pill-tab" data-pill="karaoke">Active</div>' +
-          '<div class="pill-tab" data-pill="advanced">Post</div>' +
+          '<div class="pill-tab active" data-pill="settings">🥽 Pre</div>' +
+          '<div class="pill-tab" data-pill="karaoke">🎵 Active</div>' +
+          '<div class="pill-tab" data-pill="advanced">📤 Post</div>' +
         '</div>' +
 
         '<div class="pill-panel open" data-pill="settings">' +
-          renderSubGlobalRow('Cỡ chữ', 'fontSize', 20, 300, 1) +
-          renderSubGlobalRow('Viền', 'outlineWidth', 0, 30, 0.1) +
-          renderSubGlobalRow('Blur', 'blur', 0, 100, 0.1) +
-          '<div class="g-row sub-color-row">' +
-            '<div>Chữ(1c) <input type="color" id="g-color1" value="' + (gs.color1 || '#ffffff') + '"></div>' +
-            '<div>Viền(3c) <input type="color" id="g-color3" value="' + (gs.color3 || '#000000') + '"></div>' +
-          '</div>' +
-          '<div class="g-row"><label>Fade</label><input type="number" id="g-fadIn" value="' + (gs.fadIn || 200) + '" class="num-in"><span class="sub-fade-arr">→</span><input type="number" id="g-fadOut" value="' + (gs.fadOut || 200) + '" class="num-in"></div>' +
-          '<div class="sub-box-row">' +
-            '<input type="checkbox" id="g-useBox" ' + (gs.useBox ? 'checked' : '') + '> <b>Hộp nền</b>' +
-            '<input type="color" id="g-boxColor" value="' + (gs.boxColor || '#000000') + '">' +
-            '<input type="range" id="g-boxOpacity" min="0" max="1" step="0.1" value="' + (gs.boxOpacity || 0.5) + '">' +
-          '</div>' +
+          renderSubKTab('kPre') +
         '</div>' +
-
         '<div class="pill-panel" data-pill="karaoke">' +
-          '<div class="k-section"><span class="k-section-label">🥽 Pre</span>' + renderSubKTab('kPre') + '</div>' +
-          '<div class="k-section"><span class="k-section-label">🎵 Active</span>' + renderSubKTab('kActive') + '</div>' +
-          '<div class="k-section"><span class="k-section-label">📤 Post</span>' + renderSubKTab('kPost') + '</div>' +
+          renderSubKTab('kActive') +
         '</div>' +
         '<div class="pill-panel" data-pill="advanced">' +
-          '<div class="g-row">' +
-            '<label style="white-space:nowrap;">Zoom chữ</label>' +
-            '<input type="number" id="g-textZoom" value="' + Math.round((gs.textZoom || 0.8) * 100) + '" class="num-in" step="5" min="10" max="300"><span class="sub-pct">%</span>' +
-            '<label style="white-space:nowrap; margin-left:4px;">Dãn chữ</label>' +
-            '<input type="number" id="g-letterSpacing" value="' + (gs.letterSpacing || 0) + '" class="num-in" step="0.5" min="0" max="30">' +
-          '</div>' +
+          renderSubKTab('kPost') +
         '</div>' +
       '</div>' +
 
@@ -1989,15 +2034,26 @@
         '<div id="sub-style-items"></div>' +
       '</div>' +
 
-      // ---------- Footer chung: luôn hiển thị ở cả 2 tab ----------
+      // ---------- Footer chung: gộp Fade + Hộp + Actions ----------
       '<div class="sub-panel-footer">' +
-        '<label class="sub-foot-lab"><input type="checkbox" id="sub-close-outside" ' + (gs.closeOnClickOutside ? 'checked' : '') + '> Đóng khi bấm ngoài</label>' +
+
+        // ---- Hàng 1: Fade In/Out + Box hộp gộp chung 1 dòng ----
+        '<div class="sub-foot-row">' +
+          '<label class="sub-fade-lab">Fade In:</label>' +
+          '<input type="number" id="g-fadIn" value="' + (gs.fadIn || 200) + '" class="num-in sub-fade-in" min="0" max="2000">' +
+          '<label class="sub-fade-out-lab">Out:</label>' +
+          '<input type="number" id="g-fadOut" value="' + (gs.fadOut || 200) + '" class="num-in sub-fade-out" min="0" max="2000">' +
+          '<span class="sub-foot-sep"></span>' +
+          '<label class="sub-box-lab"><input type="checkbox" id="g-useBox" ' + (gs.useBox ? 'checked' : '') + '> Hộp</label>' +
+          '<input type="color" id="g-boxColor" value="' + (gs.boxColor || '#000000') + '">' +
+          '<input type="range" id="g-boxBlur" min="0" max="50" step="1" value="' + (gs.boxBlur != null ? gs.boxBlur : 0) + '" class="sub-box-blur">' +
+        '</div>' +
+        // ---- Hàng 2: Actions ----
         '<div class="sub-foot-actions">' +
-          '<button type="button" id="sub-settings-reset" title="Khôi phục toàn bộ về cài đặt gốc">↺ Reset chung</button>' +
-          '<button type="button" id="sub-backup" title="Tải cài đặt phụ đề của máy này về máy (JSON)">💾 Backup</button>' +
-          '<button type="button" id="sub-restore" title="Khôi phục cài đặt phụ đề từ file JSON">📥 Restore</button>' +
-          '<button type="button" id="ass-cache-backup" title="Sao lưu toàn bộ Phụ đề Cache (file .ass) của máy này về file JSON">🖫 Cache</button>' +
-          '<button type="button" id="ass-cache-restore" title="Khôi phục Phụ đề Cache từ file backup JSON">📥 Cache</button>' +
+          '<label class="sub-foot-lab"><input type="checkbox" id="sub-close-outside" ' + (gs.closeOnClickOutside ? 'checked' : '') + '> Đóng khi click bên ngoài</label>' +
+          '<button type="button" id="sub-settings-reset" title="Reset cài đặt gốc">↺</button>' +
+          '<button type="button" id="sub-backup" title="Backup settings + cache">💾</button>' +
+          '<button type="button" id="sub-restore" title="Restore từ file JSON">📥</button>' +
         '</div>' +
       '</div>';
   }
@@ -2277,6 +2333,34 @@ function setupSubPopupEvents() {
       tsInput.addEventListener('change', () => {
         setTs(parseInt(tsInput.value, 10) || 0);
       });
+      // Tải file .ass đã shift time về máy với đúng tên "youtubeID_tiêu đề.ass"
+      const dlBtn = popup.querySelector('#sub-ts-dl');
+      if (dlBtn) dlBtn.onclick = () => {
+        const offset = parseInt(tsInput.value, 10) || 0;
+        if (!State.rawAssText) {
+          toast('Chưa có file .ass nào đang load. Hãy mở một video có phụ đề .ass trước.', 'error', 4000);
+          return;
+        }
+        const shifted = shiftAssTimestamps(State.rawAssText, offset);
+        let fname = 'subtitle.ass';
+        const s = State.currentSong;
+        // Lấy youtube_id + tiêu đề từ tên file .ass (nếu đang phát ass) hoặc từ currentSong
+        if (s && s.ass_file && parseAssYoutubeId(s.ass_file)) {
+          const yid = parseAssYoutubeId(s.ass_file);
+          const title = stripAssTitle(s.ass_file);
+          fname = yid + (title ? '_' + sanitizeAssTitle(title) : '') + '.ass';
+        } else if (s && s.youtube_id) {
+          fname = s.youtube_id + (s.title ? '_' + sanitizeAssTitle(String(s.title)) : '') + '.ass';
+        }
+        const blob = new Blob([shifted], { type: 'text/plain;charset=utf-8' });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = fname;
+        document.body.appendChild(a);
+        a.click();
+        setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 400);
+        toast('Đã tải về: ' + fname + (offset ? ' (shift ' + offset + 'ms)' : ''), 'success', 2600);
+      };
     }
 
     // Font select
@@ -2303,12 +2387,29 @@ function setupSubPopupEvents() {
       const id = t.id, style = t.getAttribute('data-style'), type = t.getAttribute('data-type'), kTab = t.getAttribute('data-k');
       const val = t.type === 'checkbox' ? t.checked : t.value;
       if (kTab) {
+        if (kTab === 'fs') {
+          // Cỡ chữ CHUNG: dùng cho cả 3 tab karaoke + style không karaoke
+          State.subSettings.fontSize = (t.type === 'number' || t.type === 'range') ? parseFloat(val) : val;
+          const row = t.closest('.g-row');
+          if (row) {
+            const pair = row.querySelector('input[data-k="fs"][data-type="fs"][type="' + (t.type === 'range' ? 'number' : 'range') + '"]');
+            if (pair) pair.value = val;
+          }
+        } else {
         if (!State.subSettings[kTab]) State.subSettings[kTab] = Object.assign({}, SUB_SETTINGS_DEFAULTS[kTab]);
-        State.subSettings[kTab][type] = (t.type === 'number' || t.type === 'range') ? parseFloat(val) : val;
+        let stored = val;
+        if (type === 'zoom') {
+          // Ô zoom hiển thị theo % nhưng engine lưu dạng tỷ lệ (1.0 / 1.1 ...)
+          stored = (parseFloat(val) || 0) / 100;
+        } else if (t.type === 'number' || t.type === 'range') {
+          stored = parseFloat(val);
+        }
+        State.subSettings[kTab][type] = stored;
         const row = t.closest('.g-row');
         if (row) {
           const pair = row.querySelector('input[data-k="' + kTab + '"][data-type="' + type + '"][type="' + (t.type === 'range' ? 'number' : 'range') + '"]');
           if (pair) pair.value = val;
+        }
         }
       } else if (style) {
         const s = State.styleSettings[style];
@@ -2346,25 +2447,32 @@ function setupSubPopupEvents() {
         saveSubSettings();
       });
     }
-    // Backup cài đặt phụ đề của máy này → tải về file JSON
+    // ── Backup GỘP: settings + cache → 1 file JSON ──
     const bkpBtn = popup.querySelector('#sub-backup');
     if (bkpBtn) {
       bkpBtn.addEventListener('click', () => {
         try {
           const store = readSubStore();
-          const data = JSON.stringify({ app: 'kullanime', type: 'sub-settings-backup', exported: new Date().toISOString(), store: store }, null, 2);
+          const cache = readAssCache();
+          const data = JSON.stringify({
+            app: 'kullanime',
+            type: 'full-backup',
+            exported: new Date().toISOString(),
+            store: store,
+            cache: cache
+          }, null, 2);
           const blob = new Blob([data], { type: 'application/json' });
           const a = document.createElement('a');
           a.href = URL.createObjectURL(blob);
-          a.download = 'kullanime-sub-settings-backup.json';
+          a.download = 'kullanime-backup.json';
           document.body.appendChild(a);
           a.click();
           setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 400);
-          toast('Đã xuất file backup cài đặt phụ đề (toàn bộ video/file .ass của máy).', 'success', 2600);
+          toast('Đã xuất backup (settings + ' + Object.keys(cache).length + ' cached ASS) ✅', 'success', 2600);
         } catch (_e) { toast('Không thể tạo file backup.', 'error'); }
       });
     }
-    // Restore cài đặt phụ đề từ file JSON (nạp lại toàn bộ store)
+    // ── Restore GỘP: settings + cache từ 1 file JSON ──
     const rstBtn = popup.querySelector('#sub-restore');
     if (rstBtn) {
       rstBtn.addEventListener('click', () => {
@@ -2377,67 +2485,36 @@ function setupSubPopupEvents() {
           try {
             const text = await file.text();
             const data = JSON.parse(text);
-            const newStore = (data && data.store && typeof data.store === 'object') ? data.store : {};
-            if (Object.keys(newStore).length === 0) throw new Error('File backup trống');
-            writeSubStore(newStore);
-            // Nạp lại cài đặt context hiện tại
-            State.subSettings = loadSubSettings();
-            activateSubContext();
-            rerenderSubPanel();
-            showSubPanel();
-            renderSubStyleItems();
-            updateSubsToggleUI();
-            if (State.subsEnabled) updateCurrentSubtitle();
-            toast('Đã khôi phục cài đặt phụ đề từ backup ✅', 'success', 2600);
+            const newStore = (data && data.store && typeof data.store === 'object') ? data.store : null;
+            const newCache = (data && data.cache && typeof data.cache === 'object') ? data.cache : null;
+            if (!newStore && !newCache) throw new Error('File backup trống');
+
+            let msg = 'Đã khôi phục ✅';
+            // Restore settings
+            if (newStore && Object.keys(newStore).length > 0) {
+              writeSubStore(newStore);
+              State.subSettings = loadSubSettings();
+              activateSubContext();
+              rerenderSubPanel();
+              showSubPanel();
+              renderSubStyleItems();
+              updateSubsToggleUI();
+              if (State.subsEnabled) updateCurrentSubtitle();
+              msg = 'Settings đã khôi phục';
+            }
+            // Restore cache (hợp nhất)
+            if (newCache && Object.keys(newCache).length > 0) {
+              const existing = readAssCache();
+              Object.assign(existing, newCache);
+              writeAssCache(existing);
+              mergeAssCacheIntoSubs();
+              renderAssCacheList();
+              renderAssStatus();
+              msg += ' + Cache: ' + Object.keys(existing).length + ' file';
+            }
+            toast(msg + ' ✅', 'success', 2600);
           } catch (err) {
             toast('File backup không hợp lệ: ' + (err.message || 'lỗi'), 'error', 4000);
-          }
-        };
-        input.click();
-      });
-    }
-    // ── Backup / Restore Phụ đề Cache (toàn bộ file .ass trên máy) ──
-    const cacheBkpBtn = popup.querySelector('#ass-cache-backup');
-    if (cacheBkpBtn) {
-      cacheBkpBtn.addEventListener('click', () => {
-        try {
-          const cache = readAssCache();
-          const data = JSON.stringify({ app: 'kullanime', type: 'ass-cache-backup', exported: new Date().toISOString(), cache: cache }, null, 2);
-          const blob = new Blob([data], { type: 'application/json' });
-          const a = document.createElement('a');
-          a.href = URL.createObjectURL(blob);
-          a.download = 'kullanime-ass-cache-backup.json';
-          document.body.appendChild(a);
-          a.click();
-          setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 400);
-          toast('Đã sao lưu toàn bộ Phụ đề Cache (' + Object.keys(cache).length + ' file) ✅', 'success', 2600);
-        } catch (_e) { toast('Không thể tạo file backup cache.', 'error'); }
-      });
-    }
-    const cacheRstBtn = popup.querySelector('#ass-cache-restore');
-    if (cacheRstBtn) {
-      cacheRstBtn.addEventListener('click', () => {
-        const input = document.createElement('input');
-        input.type = 'file';
-        input.accept = 'application/json,.json';
-        input.onchange = async () => {
-          const file = input.files && input.files[0];
-          if (!file) return;
-          try {
-            const text = await file.text();
-            const data = JSON.parse(text);
-            const newCache = (data && data.cache && typeof data.cache === 'object') ? data.cache : {};
-            if (Object.keys(newCache).length === 0) throw new Error('File backup cache trống');
-            // Hợp nhất: giữ cache cũ, thêm file mới từ backup (ghi đè nếu trùng tên)
-            const existing = readAssCache();
-            Object.assign(existing, newCache);
-            writeAssCache(existing);
-            mergeAssCacheIntoSubs();
-            renderAssCacheList();
-            renderAssStatus();
-            toast('Đã khôi phục Phụ đề Cache ✅ (' + Object.keys(existing).length + ' file total)', 'success', 2600);
-          } catch (err) {
-            toast('File backup cache không hợp lệ: ' + (err.message || 'lỗi'), 'error', 4000);
           }
         };
         input.click();
@@ -4419,6 +4496,128 @@ function setupSubPopupEvents() {
         e.target.value = ''; // reset để chọn lại cùng 1 file cũng được
       });
     }
+    // ── ASS Cache: autocomplete dropdown cho ô search file ──
+    const cacheSearchInput = $('#assCacheSearch');
+    const cacheDropdown = $('#assCacheDropdown');
+    let acActiveIdx = -1;
+    function getCacheAndRepoFiles() {
+      const cache = readAssCache();
+      const repoFiles = (State.subsFiles || []).map(f => f.name);
+      const all = Object.keys(cache);
+      // merge: cache first, then repo-only files
+      repoFiles.forEach(n => { if (!all.includes(n)) all.push(n); });
+      return { all, cache, repoFiles };
+    }
+    function renderDropdown(q) {
+      if (!cacheDropdown) return;
+      const { all, cache } = getCacheAndRepoFiles();
+      const ql = (q || '').trim().toLowerCase();
+      let items = ql ? all.filter(n => n.toLowerCase().includes(ql)) : all.slice(0, 30);
+      acActiveIdx = -1;
+      if (!items.length) { cacheDropdown.classList.add('hidden'); return; }
+      cacheDropdown.innerHTML = items.map((name, i) => {
+        const inCache = !!cache[name];
+        let label = esc(name);
+        if (ql) {
+          const re = new RegExp('(' + ql.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + ')', 'ig');
+          label = esc(name).replace(re, '<span class="ac-match">$1</span>');
+        }
+        const src = inCache ? '<span class="ac-label">💾cache</span>' : '<span class="ac-label">📂repo</span>';
+        return '<div class="ac-item" data-ac-name="' + esc(name) + '" title="' + esc(name) + '">' + label + src + '</div>';
+      }).join('');
+      cacheDropdown.classList.remove('hidden');
+    }
+    function selectAcItem(name) {
+      if (cacheSearchInput) cacheSearchInput.value = name;
+      if (cacheDropdown) cacheDropdown.classList.add('hidden');
+    }
+    function acNav(dir) {
+      if (!cacheDropdown) return;
+      const items = $$('.ac-item', cacheDropdown);
+      if (!items.length) return;
+      items.forEach(el => el.classList.remove('ac-active'));
+      acActiveIdx = Math.max(-1, Math.min(items.length - 1, acActiveIdx + dir));
+      if (acActiveIdx >= 0) {
+        items[acActiveIdx].classList.add('ac-active');
+        items[acActiveIdx].scrollIntoView({ block: 'nearest' });
+        selectAcItem(items[acActiveIdx].dataset.acName);
+      }
+    }
+    if (cacheSearchInput && cacheDropdown) {
+      cacheSearchInput.addEventListener('input', () => {
+        renderDropdown(cacheSearchInput.value);
+        renderAssCacheList(cacheSearchInput.value);
+      });
+      cacheSearchInput.addEventListener('focus', () => renderDropdown(cacheSearchInput.value));
+      cacheSearchInput.addEventListener('keydown', (e) => {
+        if (e.key === 'ArrowDown') { e.preventDefault(); acNav(1); }
+        else if (e.key === 'ArrowUp') { e.preventDefault(); acNav(-1); }
+        else if (e.key === 'Enter') { e.preventDefault(); acNav(1); }
+        else if (e.key === 'Escape') { cacheDropdown.classList.add('hidden'); }
+      });
+      cacheDropdown.addEventListener('click', (e) => {
+        const item = e.target.closest('.ac-item');
+        if (item) selectAcItem(item.dataset.acName);
+      });
+      // Đóng dropdown khi click ra ngoài
+      document.addEventListener('mousedown', (e) => {
+        if (!cacheSearchInput.contains(e.target) && !cacheDropdown.contains(e.target)) {
+          cacheDropdown.classList.add('hidden');
+        }
+      });
+    }
+    // ── ASS Cache: nút ▶ Apply → fetch metadata rồi phát video + load sub ──
+    const assCacheApplyBtn = $('#assCacheApply');
+    if (assCacheApplyBtn) {
+      assCacheApplyBtn.addEventListener('click', async () => {
+        const ytInput = $('#assCacheYt');
+        const searchInput = $('#assCacheSearch');
+        const ytRaw = (ytInput && ytInput.value) ? ytInput.value.trim() : '';
+        const searchRaw = (searchInput && searchInput.value) ? searchInput.value.trim() : '';
+        if (!ytRaw && !searchRaw) { toast('Paste link YouTube hoặc tìm file sub trước!', 'error', 2000); return; }
+        const idEl = $('#assCacheId');
+        const titleEl = $('#assCacheTitle');
+
+        // ── Nếu có link YouTube → fetch metadata + phát video ──
+        if (ytRaw) {
+          const yid = parseYoutubeId(ytRaw);
+          if (yid) {
+            if (idEl) idEl.value = yid;
+            assCacheApplyBtn.textContent = '⏳';
+            try {
+              const r = await fetch('https://noembed.com/embed?url=' + encodeURIComponent('https://www.youtube.com/watch?v=' + yid));
+              const d = await r.json();
+              if (d && d.title) {
+                if (titleEl) titleEl.value = d.title;
+              }
+            } catch (err) {
+              toast('Lỗi fetch metadata: ' + (err.message || ''), 'error', 3000);
+            }
+            // Phát video YouTube
+            if (State.ytPlayer && typeof State.ytPlayer.loadVideoById === 'function') {
+              State.ytPlayer.loadVideoById(yid);
+              toast('▶ Đang phát video: ' + yid, 'success', 2000);
+            }
+            assCacheApplyBtn.textContent = '▶';
+          }
+        }
+
+        // ── Load sub: ưu tiên file vừa chọn trong search, nếu không thì upload file ──
+        const subName = searchRaw;
+        if (subName) {
+          const cache = readAssCache();
+          const { repoFiles } = getCacheAndRepoFiles();
+          if (cache[subName]) {
+            playCachedAss(subName);
+          } else if (repoFiles.includes(subName)) {
+            const repoFile = (State.subsFiles || []).find(f => f.name === subName);
+            if (repoFile) playAssSub(repoFile);
+          } else {
+            toast('Không tìm thấy file "' + subName + '" trong cache/kho.', 'error', 2000);
+          }
+        }
+      });
+    }
     // ── ASS Cache: click danh sách (play / download / delete) ──
     const assCacheList = $('#assCacheList');
     if (assCacheList) {
@@ -4426,15 +4625,26 @@ function setupSubPopupEvents() {
         const row = e.target.closest('.ass-cache-row[data-cache-ass]');
         if (!row) return;
         const name = row.dataset.cacheAss;
+        // File có thể đến từ cache máy hoặc từ kho GitHub (kết quả search)
+        const isCached = !!readAssCache()[name];
         const actBtn = e.target.closest('[data-cact]');
         if (actBtn) {
           const act = actBtn.dataset.cact;
-          if (act === 'play') playCachedAss(name);
-          else if (act === 'del') deleteAssCache(name);
+          if (act === 'play') {
+            if (isCached) playCachedAss(name);
+            else {
+              const repoFile = (State.subsFiles || []).find((f) => f.name === name);
+              if (repoFile) playAssSub(repoFile);
+            }
+          } else if (act === 'del') deleteAssCache(name);
         } else if (e.target.closest('.cc-dl')) {
           downloadCachedAss(name);
         } else {
-          playCachedAss(name);
+          if (isCached) playCachedAss(name);
+          else {
+            const repoFile = (State.subsFiles || []).find((f) => f.name === name);
+            if (repoFile) playAssSub(repoFile);
+          }
         }
       });
     }

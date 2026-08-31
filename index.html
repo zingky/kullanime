@@ -32,7 +32,7 @@
   <!-- File cấu hình (đọc .env.local / fallback) -->
   <script src="./config.js"></script>
 
-  <link rel="stylesheet" href="./styles.css?v=32" />
+  <link rel="stylesheet" href="./styles.css?v=35" />
 </head>
 <body>
   <!-- Nền aurora động (liquid glass background) -->
@@ -180,6 +180,7 @@
                   <span class="sub-ts-ms">ms</span>
                   <button type="button" id="sub-ts-inc" title="Tiến 100ms">+</button>
                   <button type="button" id="sub-ts-zero" title="Đặt lại về 0">⟳</button>
+                  <button type="button" id="sub-ts-dl" title="Tải file .ass đã shift time">💾</button>
                 </div>
                 <button type="button" class="sub-panel-close" id="subPanelClose" aria-label="Đóng cài đặt phụ đề" title="Đóng (Esc)">✕</button>
               </div>
@@ -206,12 +207,22 @@
 
           <!-- Phụ đề Cache (lưu trên máy người dùng, không đồng bộ) -->
           <div class="ass-status-card ass-cache-card">
-            <p class="ass-status-title">💾 Phụ đề Cache <em class="ass-cache-tag">máy của bạn</em></p>
-            <p class="ass-status-text">Tải file .ass lên để lưu vào cache máy này và sử dụng. Khi muốn đưa lên kho phụ đề, bạn gửi mail file .ass cho admin.</p>
-            <input type="text" id="assCacheYt" class="ass-search" placeholder="🔗 Paste link YouTube (tuỳ chọn) để đặt tên đúng..." autocomplete="off" />
-            <input type="text" id="assCacheTitle" class="ass-search" placeholder="🏷 Tiêu đề video (tuỳ chọn, dùng cho tên file)..." autocomplete="off" />
-            <label class="ass-cache-upload" for="assCacheFile">📤 Chọn / load file .ass lên</label>
-            <input type="file" id="assCacheFile" class="hidden" accept=".ass,text/plain,application/octet-stream" />
+            <p class="ass-status-title">💾 Cache video <em class="ass-cache-tag">máy</em></p>
+            <p class="ass-status-text">Gửi file ass cho admin để up vào kho sub.</p>
+            <div class="ass-cache-row1">
+              <input type="text" id="assCacheYt" class="ass-cache-link" placeholder="🔗 Link YouTube..." autocomplete="off" />
+              <div class="ass-cache-search-wrap">
+                <input type="text" id="assCacheSearch" class="ass-cache-search-input" placeholder="🔍 Tên file .ass..." autocomplete="off" />
+                <div class="ass-cache-dropdown hidden" id="assCacheDropdown"></div>
+              </div>
+              <label class="ass-cache-upload icon-btn" for="assCacheFile" title="Upload file .ass">📤</label>
+              <button type="button" id="assCacheApply" class="ass-cache-apply icon-btn" title="Phát video + load sub">▶</button>
+              <input type="file" id="assCacheFile" class="hidden" accept=".ass,text/plain,application/octet-stream" />
+            </div>
+            <div class="ass-cache-row2">
+              <input type="text" id="assCacheId" class="ass-cache-id" placeholder="ID" readonly autocomplete="off" />
+              <input type="text" id="assCacheTitle" class="ass-cache-title" placeholder="Tiêu đề" readonly autocomplete="off" />
+            </div>
             <div class="ass-files" id="assCacheList"></div>
           </div>
         </aside>
@@ -596,7 +607,7 @@
   <div class="mini-pop hidden" id="epPop"></div>
   <div class="mini-pop hidden" id="heartPop"></div>
 
-  <script src="./app.js?v=32"></script>
+  <script src="./app.js?v=35"></script>
 </body>
 </html>
 
