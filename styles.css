@@ -448,11 +448,21 @@ select.input { appearance: none; -webkit-appearance: none; background-image: url
 .pc-btn:hover { background: rgba(255,255,255,0.14); }
 .pc-btn:active { transform: scale(0.93); }
 .pc-btn svg { display: block; }
+/* Nút lặp lại 1 (repeat-one) — icon quay vòng + chấm giữa */
+.pc-repeat-one { transform: scale(1); }
 .pc-btn.pc-play { min-width: 48px; height: 48px; border-radius: 50%; background: var(--primary); color: #fff; box-shadow: 0 6px 18px rgba(139,92,246,0.4); }
 .pc-btn.pc-play:hover { background: var(--primary); filter: brightness(1.1); }
 .pc-btn.pc-toggle.active { background: rgba(168,85,247,0.22); border-color: var(--primary); color: var(--primary); }
 .pc-toggle-label { white-space: nowrap; }
+/* Nhóm nút phụ đề trong thanh điều khiển — là context neo cho popup cài đặt sub */
+.pc-subs { position: relative; display: inline-flex; align-items: center; gap: 6px; flex-shrink: 0; z-index: 50; }
+.subs-toggle { min-width: 38px; padding: 0; font-size: 15px; height: 36px; }
 .pc-divider { width: 1px; height: 24px; background: var(--border); margin: 0 4px; flex-shrink: 0; }
+/* Ẩn văn bản nhưng vẫn dành cho trình đọc màn hình */
+.sr-only {
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; clip-path: inset(50%);
+}
 @media (max-width: 480px) {
   .player-controls { justify-content: center; gap: 6px; padding: 8px 10px; }
   .pc-btn { min-width: 34px; height: 34px; padding: 0 8px; }
@@ -1003,19 +1013,20 @@ html[data-theme="light"] .modal { background: rgba(255, 255, 255, 0.72); }
 }
 
 
-/* ============ PANEL SUB SETTINGS (menu sổ xuống ngay dưới thanh now-playing) ============ */
-/* Nằm trong dòng (in-flow) dưới thanh now-playing (tên bài hát + phụ đề bật/tắt),
-   ẩn/hiện bằng nút ⚙️ — không còn là popup nổi. */
+/* ============ PANEL SUB SETTINGS (popup sổ xuống che phía dưới, neo dưới nút ⚙️ trong thanh điều khiển) ============ */
+/* Nằm absolute bên trong .pc-subs (relative): sổ xuống đè lên phần nội dung phía dưới
+   (now-playing, playlist...) thay vì đẩy in-flow. Kích cỡ vừa phải, không che hết màn hình. */
 .sub-panel {
-  position: relative; z-index: 50;
-  width: 100%; margin-top: 2px;
+  position: absolute; z-index: 70;
+  top: calc(100% + 8px); right: 0;
+  width: min(430px, calc(100vw - 32px));
   display: flex; flex-direction: column;
-  background: rgba(13, 17, 30, 0.96);
+  background: rgba(13, 17, 30, 0.97);
   backdrop-filter: blur(20px) saturate(160%);
   -webkit-backdrop-filter: blur(20px) saturate(160%);
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.14);
   border-radius: 14px;
-  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.55);
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.6);
   overflow: hidden;
   animation: chatPanelIn 0.2s ease;
 }
@@ -1049,7 +1060,7 @@ html[data-theme="light"] .modal { background: rgba(255, 255, 255, 0.72); }
 .sub-panel-close:hover { color: var(--danger); border-color: rgba(239, 68, 68, 0.45); }
 .sub-panel-body {
   flex: 0 1 auto; min-height: 0;
-  max-height: min(62vh, 560px);
+  max-height: min(56vh, 460px);
   overflow-y: auto; padding: 12px 14px 16px;
   display: flex; flex-direction: column; gap: 12px;
 }
@@ -1073,10 +1084,9 @@ html[data-theme="light"] .modal { background: rgba(255, 255, 255, 0.72); }
   .sub-panel-body { max-height: 58vh; }
 }
 
-/* ============ NÚT CÀI ĐẶT SUB ⚙️ (cạnh nút phụ đề trong thanh now-playing) ============ */
-.np-subs { display: inline-flex; align-items: center; gap: 6px; flex-shrink: 0; }
+/* ============ NÚT CÀI ĐẶT SUB ⚙️ (trong nhóm .pc-subs của thanh điều khiển player) ============ */
 .subs-settings-icon {
-  width: 34px; height: 34px; border-radius: 10px; flex-shrink: 0;
+  width: 36px; height: 36px; border-radius: 10px; flex-shrink: 0;
   background: rgba(62, 166, 255, 0.12); border: 1px solid rgba(62, 166, 255, 0.4);
   color: #3ea6ff; font-size: 16px; line-height: 1;
   display: inline-flex; align-items: center; justify-content: center;
@@ -1086,7 +1096,7 @@ html[data-theme="light"] .modal { background: rgba(255, 255, 255, 0.72); }
 .subs-settings-icon:active { transform: scale(0.94); }
 .subs-settings-icon.active { background: rgba(62, 166, 255, 0.35); border-color: #3ea6ff; }
 @media (max-width: 480px) {
-  .subs-settings-icon { width: 32px; height: 32px; font-size: 15px; }
+  .subs-settings-icon { width: 34px; height: 34px; font-size: 15px; }
 }
 
 /* ============ RESPONSIVE TUNING ============ */
