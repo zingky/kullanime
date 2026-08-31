@@ -1229,3 +1229,104 @@ select.input option { background: #141a2d; color: var(--text); }
 /* Nút trong toolbar quản trị anime */
 .admin-pane-actions { display: flex; gap: 8px; flex-wrap: wrap; }
 
+/* ============ SUB SETTINGS UI HIỆN ĐẠI (timeshift chung + 2 tab lớn) ============ */
+.sub-ts-bar {
+  display: flex; align-items: center; gap: 5px;
+  padding: 7px 10px; margin-bottom: 10px;
+  background: linear-gradient(135deg, rgba(62,166,255,0.16), rgba(168,85,247,0.16));
+  border: 1px solid rgba(62,166,255,0.35);
+  border-radius: 12px;
+}
+.sub-ts-bar .sub-ts-lab { font-size: 10px; font-weight: 800; color: #3ea6ff; letter-spacing: .3px; white-space: nowrap; margin-right: 2px; }
+.sub-ts-bar .sub-ts-ms { font-size: 9px; color: #8ab4cc; white-space: nowrap; }
+.sub-ts-bar #sub-ts-input {
+  background: rgba(0,0,0,0.35); border: 1px solid rgba(62,166,255,0.5); color: #ffd54a;
+  font-size: 11px; font-weight: 700; width: 66px; min-width: 66px; text-align: center; border-radius: 7px; padding: 3px 4px;
+}
+.sub-ts-bar button {
+  background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.18); color: #ddd;
+  cursor: pointer; border-radius: 7px; padding: 3px 8px; font-size: 10px; font-weight: 700;
+  transition: background .15s ease, transform .1s ease;
+}
+.sub-ts-bar button:hover { background: rgba(62,166,255,0.28); color: #fff; }
+.sub-ts-bar button:active { transform: scale(.94); }
+.sub-ts-bar #sub-ts-zero { border-color: rgba(255,107,107,.4); color: #ff8e8e; }
+
+.sub-mtabs {
+  display: flex; gap: 4px; padding: 4px; margin-bottom: 10px;
+  background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 14px;
+}
+.sub-mtab {
+  flex: 1; padding: 8px 4px; border-radius: 11px; border: none; cursor: pointer;
+  background: transparent; color: #9aa3b8; font-size: 11px; font-weight: 700;
+  text-align: center; transition: all .18s ease; user-select: none;
+}
+.sub-mtab:hover { color: #fff; background: rgba(255,255,255,0.07); }
+.sub-mtab.active {
+  background: linear-gradient(135deg, #3ea6ff, #6366f1); color: #fff;
+  box-shadow: 0 4px 14px rgba(62,166,255,0.35);
+}
+.sub-mtab-panel { animation: subFadeIn .2s ease; }
+
+/* Style headbar + empty state */
+.sub-style-headbar {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  padding-bottom: 8px; margin-bottom: 8px; border-bottom: 1px dashed rgba(255,255,255,0.12);
+}
+.sub-style-headbar .sub-styles-title { color: #ffaa00; font-weight: 800; font-size: 11px; display: flex; align-items: center; gap: 6px; }
+.sub-style-headbar #sub-reset-all-styles { cursor: pointer; font-size: 11px; color: #ffaa00; font-weight: 700; opacity: .85; transition: opacity .15s; white-space: nowrap; }
+.sub-style-headbar #sub-reset-all-styles:hover { opacity: 1; text-decoration: underline; }
+.sub-no-style {
+  padding: 22px 14px; text-align: center; color: #8892a6; font-size: 11.5px;
+  border: 1px dashed rgba(255,255,255,0.15); border-radius: 12px; background: rgba(255,255,255,0.03);
+}
+.style-hidden-tag { font-size: 9px; color: #ff8e8e; padding: 2px 12px 0; font-weight: 600; }
+
+/* Style item hiện đại */
+.sub-panel .style-item { border: 1px solid rgba(255,255,255,0.12); border-radius: 12px; margin-bottom: 8px; background: rgba(255,255,255,0.035); overflow: hidden; transition: border-color .15s ease; }
+.sub-panel .style-item:hover { border-color: rgba(62,166,255,0.4); }
+.sub-panel .style-head {
+  padding: 8px 12px; cursor: pointer; display: flex; justify-content: space-between; align-items: center;
+  background: linear-gradient(90deg, rgba(62,166,255,0.12), rgba(255,255,255,0.04));
+  font-size: 11.5px; font-weight: 700; color: #eef2ff; gap: 8px;
+}
+.sub-panel .style-head .style-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sub-panel .style-tools { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+.sub-panel .sub-reset-style { cursor: pointer; font-size: 11px; color: #ffaa00; }
+.sub-panel .sub-eye { cursor: pointer; font-size: 12px; }
+.sub-panel .style-chev { font-size: 8px; color: #9aa3b8; transition: transform .18s ease; }
+.sub-panel .style-chev.open { transform: rotate(180deg); }
+.sub-panel .style-body { padding: 10px 12px; border-top: 1px dashed rgba(255,255,255,0.1); }
+
+/* Hàng vị trí / kích thước: nhãn + slider + ô số */
+.sub-panel .pos-row { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+.sub-panel .pos-row .pos-lab {
+  width: 16px; height: 20px; flex-shrink: 0; text-align: center; line-height: 20px;
+  font-size: 10px; font-weight: 800; color: #3ea6ff;
+  background: rgba(62,166,255,0.15); border-radius: 5px;
+}
+.sub-panel .adv-grid { display: flex; gap: 8px; margin-bottom: 6px; }
+.sub-panel .adv-grid .adv-cell { display: flex; align-items: center; gap: 4px; flex: 1; }
+.sub-panel .adv-lab { font-size: 9px; font-weight: 700; color: #9aa3b8; width: 14px; }
+/* Slider mảnh → to & bắt mắt hơn */
+.sub-panel input[type="range"] {
+  -webkit-appearance: none; appearance: none; height: 6px;
+  background: rgba(255,255,255,0.16); border-radius: 999px; outline: none; cursor: pointer;
+}
+.sub-panel input[type="range"]::-webkit-slider-runnable-track { height: 6px; background: transparent; border-radius: 999px; }
+.sub-panel input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none; appearance: none; width: 16px; height: 16px; margin-top: -5px;
+  border-radius: 50%; border: none;
+  background: radial-gradient(circle at 35% 35%, #fff, #3ea6ff 75%);
+  box-shadow: 0 0 0 3px rgba(62,166,255,0.28), 0 2px 8px rgba(0,0,0,0.5);
+  cursor: grab; transition: transform .12s ease;
+}
+.sub-panel input[type="range"]::-webkit-slider-thumb:hover { transform: scale(1.18); box-shadow: 0 0 0 5px rgba(62,166,255,0.35), 0 2px 8px rgba(0,0,0,0.5); }
+.sub-panel input[type="range"]::-moz-range-track { height: 6px; background: rgba(255,255,255,0.16); border-radius: 999px; }
+.sub-panel input[type="range"]::-moz-range-thumb { width: 16px; height: 16px; border: none; border-radius: 50%; background: radial-gradient(circle at 35% 35%, #fff, #3ea6ff 75%); box-shadow: 0 0 0 3px rgba(62,166,255,0.28); cursor: grab; }
+.sub-panel .g-row input[type="range"], .sub-panel .pos-row input[type="range"] { height: 6px; margin: 0 6px; }
+
+/* Format row: B I U S trải đều */
+.sub-panel .sub-fmt-row { gap: 4px; }
+.sub-panel .sub-fmt-row .format-btn { flex: 1; padding: 5px 0; font-size: 11px; border-radius: 8px; }

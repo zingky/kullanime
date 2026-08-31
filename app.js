@@ -1289,31 +1289,7 @@
       return;
     }
 
-    // Tải & nạp phụ đề .ass
-    const subFile = matchSubtitleFor(song);
-    if (subFile) {
-      try {
-        const res = await fetch(subFile.download_url);
-        if (res.ok) {
-          const text = await res.text();
-          State.rawAssText = text;
-          const parsed = parseAssEngine(text);
-          State.subtitles = parsed.subtitles;
-          State.styleSettings = parsed.styleSettings;
-          State.playResX = parsed.playResX;
-          State.playResY = parsed.playResY;
-          State.subsEnabled = parsed.subtitles.length > 0; // tự bật phụ đề khi có file .ass
-        }
-      } catch (e) {
-        console.warn('Lỗi tải .ass:', e);
-        State.subtitles = [];
-      }
-    }
-    // Áp cài đặt phụ đề đã lưu riêng cho video / file .ass này (màu, karaoke, per-style override, bật/tắt)
-    activateSubContext();
-    updateSubsToggleUI();
-
-    // Phát video
+    // Phát video NGAY (không chờ tải phụ đề) — nút tiến/lùi phản hồi tức thì
     try {
       State.ytPlayer.loadVideoById({ videoId: song.youtube_id, suggestedQuality: 'default' });
       $('#playerPlaceholder').classList.add('hidden');
@@ -1321,10 +1297,44 @@
     } catch (e) {
       console.error('Lỗi phát video:', e);
       toast('Không thể phát video ' + (song.title || ''), 'error');
+      return;
+    }
+
+    // Tải & nạp phụ đề .ass ở nền (song song với việc phát video)
+    const subFile = matchSubtitleFor(song);
+    if (subFile) {
+      fetch(subFile.download_url)
+        .then((res) => (res.ok ? res.text() : Promise.reject(new Error('HTTP ' + res.status))))
+        .then((text) => {
+          if (State.currentSong && State.currentSong.id !== song.id) return; // đã chuyển bài khác
+          State.rawAssText = text;
+          try {
+            const parsed = parseAssEngine(text);
+            State.subtitles = parsed.subtitles;
+            State.styleSettings = parsed.styleSettings;
+            State.playResX = parsed.playResX;
+            State.playResY = parsed.playResY;
+            State.subsEnabled = parsed.subtitles.length > 0; // tự bật phụ đề khi có file .ass
+          } catch (_e) { State.subtitles = []; }
+          applySubContextChanges(song);
+        })
+        .catch((e) => {
+          console.warn('Lỗi tải .ass:', e);
+          State.subtitles = [];
+          applySubContextChanges(song);
+        });
+    } else {
+      applySubContextChanges(song);
     }
   }
-
-  /* ---- Phụ đề ticker (đồng bộ theo thời gian phát) ---- */
+  // Áp cài đặt phụ đề đã lưu riêng cho video / file .ass này (chỉ khi vẫn đang phát đúng bài đó)
+  function applySubContextChanges(song) {
+    if (!song) return;
+    if (State.currentSong && State.currentSong.id !== song.id) return;
+    activateSubContext();
+    updateSubsToggleUI();
+    if (State.subsEnabled) updateCurrentSubtitle();
+  }
   function startSubtitleTicker() {
     if (State.subsTick) clearInterval(State.subsTick);
     State.subsTick = setInterval(updateCurrentSubtitle, 100);
@@ -1577,26 +1587,38 @@
     setupSubPopupEvents();
   }
 
-  // Tạo HTML nội dung panel — 2 khối dọc cuộn liên tục: Cài đặt chung + Cài đặt từng style.
+  // Tạo HTML nội dung panel: thanh Timeshift chung + 2 tab lớn (Cài đặt chung / Cài đặt riêng).
   function buildSubPopupHTML(gs) {
+    const useCommon = !!(gs.useGlobalStyles);
     return '' +
-      // ---------- Khối 1: Cài đặt chung ----------
-      '<div class="sub-section">' +
-        '<div class="sub-section-title">⚙️ Cài đặt chung</div>' +
+      // ---------- Thanh Timeshift: luôn hiển thị chung cho cả 2 tab ----------
+      '<div class="sub-ts-bar">' +
+        '<span class="sub-ts-lab">⏱ Timeshift</span>' +
+        '<button type="button" id="sub-ts-dec" title="Lùi 100ms">−100</button>' +
+        '<input type="text" id="sub-ts-input" value="' + (State.timeShiftMs || 0) + '" inputmode="numeric" aria-label="Timeshift (ms)">' +
+        '<button type="button" id="sub-ts-inc" title="Tiến 100ms">+100</button>' +
+        '<button type="button" id="sub-ts-zero" title="Đặt lại về 0">0</button>' +
+        '<span class="sub-ts-ms">ms</span>' +
+      '</div>' +
+
+      // ---------- 2 tab lớn: Cài đặt chung / Cài đặt từng style ----------
+      '<div class="sub-mtabs" role="tablist">' +
+        '<button type="button" class="sub-mtab' + (useCommon ? ' active' : '') + '" data-m="common" role="tab">🌍 Cài đặt chung</button>' +
+        '<button type="button" class="sub-mtab' + (useCommon ? '' : ' active') + '" data-m="styles" role="tab">🎨 Cài đặt từng style</button>' +
+      '</div>' +
+
+      // ---------- Panel 1: Cài đặt chung ----------
+      '<div class="sub-mtab-panel" data-m="common" role="tabpanel" style="display:' + (useCommon ? 'block' : 'none') + ';">' +
 
         '<div class="sub-tool-row">' +
           '<b>Font:</b>' + getSubFontOptionsHTML() +
         '</div>' +
-        '<div class="sub-tool-row">' +
-          '<button class="format-btn ' + (gs.isBold ? 'active' : '') + '" id="sub-btn-isBold">B</button>' +
-          '<button class="format-btn ' + (gs.isItalic ? 'active' : '') + '" id="sub-btn-isItalic">I</button>' +
-          '<button class="format-btn ' + (gs.isUnderline ? 'active' : '') + '" id="sub-btn-isUnderline">U</button>' +
-          '<button class="format-btn ' + (gs.isStrike ? 'active' : '') + '" id="sub-btn-isStrike">S</button>' +
-          '<span class="sub-hd-spacer"></span>' +
-          '<b class="sub-ts-lab">⏱ms</b>' +
-          '<button id="sub-ts-dec">-100</button>' +
-          '<input type="text" id="sub-ts-input" value="' + (State.timeShiftMs || 0) + '">' +
-          '<button id="sub-ts-inc">+100</button>' +
+
+        '<div class="sub-tool-row sub-fmt-row">' +
+          '<button type="button" class="format-btn ' + (gs.isBold ? 'active' : '') + '" id="sub-btn-isBold">B</button>' +
+          '<button type="button" class="format-btn ' + (gs.isItalic ? 'active' : '') + '" id="sub-btn-isItalic">I</button>' +
+          '<button type="button" class="format-btn ' + (gs.isUnderline ? 'active' : '') + '" id="sub-btn-isUnderline">U</button>' +
+          '<button type="button" class="format-btn ' + (gs.isStrike ? 'active' : '') + '" id="sub-btn-isStrike">S</button>' +
         '</div>' +
 
         '<div class="pill-tabs">' +
@@ -1621,12 +1643,11 @@
           '</div>' +
         '</div>' +
 
-
         '<div class="pill-panel" data-pill="karaoke">' +
           '<div class="k-tabs">' +
-            '<button class="k-tab-btn active" data-tab="pre">Pre</button>' +
-            '<button class="k-tab-btn" data-tab="active">Active</button>' +
-            '<button class="k-tab-btn" data-tab="post">Post</button>' +
+            '<button type="button" class="k-tab-btn active" data-tab="pre">Pre</button>' +
+            '<button type="button" class="k-tab-btn" data-tab="active">Active</button>' +
+            '<button type="button" class="k-tab-btn" data-tab="post">Post</button>' +
           '</div>' +
           '<div class="k-tab-panels">' +
             '<div id="sub-k-pre-panel" class="k-tab-content" style="display:block;">' + renderSubKTab('kPre') + '</div>' +
@@ -1634,8 +1655,7 @@
             '<div id="sub-k-post-panel" class="k-tab-content" style="display:none;">' + renderSubKTab('kPost') + '</div>' +
           '</div>' +
         '</div>' +
-
-        '<div class="pill-panel" data-pill="advanced">' +
+'<div class="pill-panel" data-pill="advanced">' +
           '<div class="g-row">' +
             '<label style="white-space:nowrap;">Zoom chữ</label>' +
             '<input type="number" id="g-textZoom" value="' + Math.round((gs.textZoom || 0.8) * 100) + '" class="num-in" step="5" min="10" max="300"><span class="sub-pct">%</span>' +
@@ -1650,14 +1670,11 @@
         '</div>' +
       '</div>' +
 
-      // ---------- Khối 2: Cài đặt từng style ----------
-      '<div class="sub-section sub-section-styles">' +
-        '<div class="sub-section-title sub-styles-head">' +
+      // ---------- Panel 2: Cài đặt từng style ----------
+      '<div class="sub-mtab-panel" data-m="styles" role="tabpanel" style="display:' + (useCommon ? 'none' : 'block') + ';">' +
+        '<div class="sub-style-headbar">' +
           '<span class="sub-styles-title">🎨 Cài đặt từng style <em class="sub-filter-hint">(tự lọc style không có dòng)</em></span>' +
-          '<div class="sub-style-tools">' +
-            '<span id="sub-reset-all-styles" title="Reset tất cả style">↺ ALL</span>' +
-            '<label class="sub-global-lab"><input type="checkbox" id="sub-use-global-settings" ' + (gs.useGlobalStyles ? 'checked' : '') + '> Global</label>' +
-          '</div>' +
+          '<span id="sub-reset-all-styles" title="Reset tất cả style về vị trí/màu gốc">↺ ALL</span>' +
         '</div>' +
         '<div id="sub-style-items"></div>' +
         '<div class="sub-style-actions">' +
@@ -1670,7 +1687,6 @@
         '</div>' +
       '</div>';
   }
-
   // Render danh sách style + nút điều chỉnh từng style (port engine-css.js renderStyles)
   function renderSubStyleItems() {
     const container = $('#sub-style-items');
@@ -1687,14 +1703,16 @@
       const s = State.styleSettings[sName];
       const item = document.createElement('div');
       item.className = 'style-item';
-      item.innerHTML = '<div class="style-head"><span title="Font: ' + (s.fontName || 'default') + '">' + sName + '</span>' +
-        '<div style="display:flex; align-items:center; gap:6px;">' +
-          '<span class="sub-reset-style" data-style="' + sName + '" style="cursor:pointer;font-size:10px;color:#ffaa00;">⟳</span>' +
-          '<span class="sub-eye" data-style="' + sName + '" style="cursor:pointer;opacity:' + (s.visible ? 1 : 0.3) + '">' + (s.visible ? '👁️' : '🚫') + '</span>' +
-          '<label style="display:flex; align-items:center;height:16px;"><input type="checkbox" data-style="' + sName + '" data-type="override" ' + (s.override ? 'checked' : '') + ' style="margin:0;height:12px;"> <span style="font-size:12px;display:flex;align-items:center;">⚙️</span></label>' +
-          '<span>▼</span>' +
-        '</div></div>' +
-        '<div class="sub-style-meta" style="display:flex; flex-wrap:wrap; gap:3px 8px; padding:4px 10px; font-size:9px; color:#9aa; border-top:1px dashed rgba(255,255,255,0.07);">' +
+      item.innerHTML = '<div class="style-head">' +
+          '<span class="style-name" title="Font: ' + (s.fontName || 'default') + '">' + sName + '</span>' +
+          '<div class="style-tools">' +
+            '<span class="sub-reset-style" data-style="' + sName + '" title="Reset style này về gốc">⟳</span>' +
+            '<span class="sub-eye" data-style="' + sName + '" title="Ẩn / hiện style này">' + (s.visible ? '👁️' : '🚫') + '</span>' +
+            '<span class="style-chev">▼</span>' +
+          '</div>' +
+        '</div>' +
+        (s.visible ? '' : '<div class="style-hidden-tag">Đang ẩn</div>') +
+        '<div class="sub-style-meta">' +
           '<span>XY:' + (s.posX || 0) + ',' + (s.posY || 0) + '</span>' +
           '<span>1c ' + (s.color1 || '') + '</span>' +
           '<span>3c ' + (s.color3 || '') + '</span>' +
@@ -1703,14 +1721,26 @@
           '<span>Blur:' + (s.blur != null ? s.blur : 2) + '</span>' +
         '</div>' +
         '<div class="style-body" style="display:none;">' +
-          '<div class="g-row" style="margin-bottom:2px;">X <input type="range" data-style="' + sName + '" data-type="posX" min="0" max="' + (State.playResX * 2) + '" value="' + s.posX + '"> <input type="number" value="' + s.posX + '" class="num-in" data-style="' + sName + '" data-type="posX"></div>' +
-          '<div class="g-row" style="margin-bottom:2px;">Y <input type="range" data-style="' + sName + '" data-type="posY" min="0" max="' + (State.playResY * 2) + '" value="' + s.posY + '"> <input type="number" value="' + s.posY + '" class="num-in" data-style="' + sName + '" data-type="posY"></div>' +
-          '<div class="sub-adv-style" style="display:' + (s.override ? 'block' : 'none') + ';">' +
-            '<div class="g-row" style="margin-bottom:0px;">' +
-              '<span style="width:18px;color:#aaa;font-weight:bold;font-size:.75em;">1c</span><input type="color" data-style="' + sName + '" data-type="color1" value="' + (s.color1 || '#ffffff') + '" style="width:27px;height:23px;">' +
-              '<span style="width:18px;color:#aaa;font-weight:bold;font-size:.75em;text-align:center;">3c</span><input type="color" data-style="' + sName + '" data-type="color3" value="' + (s.color3 || '#000000') + '" style="width:27px;height:23px;">' +
-              '<span style="width:10px;color:#aaa;font-weight:bold;font-size:.75em;text-align:center;">S</span><input type="number" data-style="' + sName + '" data-type="fontSize" value="' + (s.fontSize || 25) + '" class="num-in" style="width:35px;max-width:35px;" step="1">' +
-              '<span style="width:10px;color:#aaa;font-weight:bold;font-size:.75em;text-align:center;">O</span><input type="number" data-style="' + sName + '" data-type="outlineWidth" value="' + (s.outlineWidth || 2) + '" class="num-in" style="width:35px;max-width:35px;" step="0.1">' +
+          '<div class="pos-row"><span class="pos-lab">X</span>' +
+            '<input type="range" data-style="' + sName + '" data-type="posX" min="0" max="' + (State.playResX * 2) + '" value="' + (s.posX || 0) + '">' +
+            '<input type="number" value="' + (s.posX || 0) + '" class="num-in" data-style="' + sName + '" data-type="posX">' +
+          '</div>' +
+          '<div class="pos-row"><span class="pos-lab">Y</span>' +
+            '<input type="range" data-style="' + sName + '" data-type="posY" min="0" max="' + (State.playResY * 2) + '" value="' + (s.posY || 0) + '">' +
+            '<input type="number" value="' + (s.posY || 0) + '" class="num-in" data-style="' + sName + '" data-type="posY">' +
+          '</div>' +
+          '<div class="sub-adv-style">' +
+            '<div class="adv-grid">' +
+              '<div class="adv-cell"><span class="adv-lab">1c</span><input type="color" data-style="' + sName + '" data-type="color1" value="' + (s.color1 || '#ffffff') + '"></div>' +
+              '<div class="adv-cell"><span class="adv-lab">3c</span><input type="color" data-style="' + sName + '" data-type="color3" value="' + (s.color3 || '#000000') + '"></div>' +
+            '</div>' +
+            '<div class="pos-row"><span class="pos-lab">S</span>' +
+              '<input type="range" data-style="' + sName + '" data-type="fontSize" min="10" max="100" step="1" value="' + (s.fontSize || 25) + '">' +
+              '<input type="number" value="' + (s.fontSize || 25) + '" class="num-in" data-style="' + sName + '" data-type="fontSize">' +
+            '</div>' +
+            '<div class="pos-row"><span class="pos-lab">O</span>' +
+              '<input type="range" data-style="' + sName + '" data-type="outlineWidth" min="0" max="30" step="0.1" value="' + (s.outlineWidth || 2) + '">' +
+              '<input type="number" value="' + (s.outlineWidth || 2) + '" class="num-in" data-style="' + sName + '" data-type="outlineWidth">' +
             '</div>' +
           '</div>' +
         '</div>';
@@ -1740,22 +1770,29 @@
         e.target.innerText = s.visible ? '👁️' : '🚫';
         e.target.style.opacity = s.visible ? 1 : 0.3;
         saveSubSettings();
+        renderSubStyleItems();
         if (State.subsEnabled) updateCurrentSubtitle();
       };
       item.querySelector('.style-head').onclick = (e) => {
-        if (e.target.tagName !== 'INPUT' && !e.target.classList.contains('sub-eye') && !e.target.closest('label')) {
-          const b = item.querySelector('.style-body');
-          b.style.display = b.style.display === 'none' ? 'block' : 'none';
-        }
+        if (e.target.classList.contains('sub-eye') || e.target.classList.contains('sub-reset-style')) return;
+        const b = item.querySelector('.style-body');
+        const chev = item.querySelector('.style-chev');
+        const open = b.style.display !== 'block';
+        b.style.display = open ? 'block' : 'none';
+        if (chev) chev.classList.toggle('open', open);
       };
       container.appendChild(item);
     });
+    // Không có style nào khả dụng → hướng dẫn người dùng
+    if (!container.children.length) {
+      container.innerHTML = '<div class="sub-no-style">Chưa có phụ đề / style nào để điều chỉnh. Hãy phát một bài có file .ass trước.</div>';
+    }
   }
 function setupSubPopupEvents() {
     const popup = _subPopupEl;
     if (!popup) return;
 
-    // Panel co dinh kieu chat: khong keo, khong keo-chia cot. Dong bang X / Esc / bam ngoai.
+    // Panel co dinh kieu chat: khong keo. Dong bang X / Esc / bam ngoai.
 
     // Dong panel khi bam ben ngoai (dang ky 1 lan de tranh trung lap khi setupSubPopupEvents goi lai)
     if (!window.__subCloseOutBound) {
@@ -1776,6 +1813,27 @@ function setupSubPopupEvents() {
         if (e.key === 'Escape' && isSubPanelOpen()) hideSubPanel();
       });
     }
+
+    // ===== 2 tab lớn: Cài đặt chung ⇄ Cài đặt từng style =====
+    // Chọn tab nào thì áp dụng chế độ đó: common → mọi style dùng cài chung,
+    // styles → mỗi style dùng cài riêng của nó.
+    popup.querySelectorAll('.sub-mtab').forEach((tab) => {
+      tab.onclick = () => {
+        const m = tab.dataset.m;
+        const useCommon = (m === 'common');
+        State.subSettings.useGlobalStyles = useCommon;
+        Object.keys(State.styleSettings || {}).forEach((name) => {
+          State.styleSettings[name].override = !useCommon;
+        });
+        popup.querySelectorAll('.sub-mtab').forEach((x) => x.classList.toggle('active', x === tab));
+        popup.querySelectorAll('.sub-mtab-panel').forEach((p) => {
+          p.style.display = (p.dataset.m === m) ? 'block' : 'none';
+        });
+        if (m === 'styles') renderSubStyleItems();
+        saveSubSettings();
+        if (State.subsEnabled) updateCurrentSubtitle();
+      };
+    });
 
     // Pill tabs (Settings / Karaoke / Advanced)
     popup.querySelectorAll('.pill-tab').forEach((t) => {
@@ -1803,9 +1861,12 @@ function setupSubPopupEvents() {
     // Đóng + Reset toàn bộ
     const closeBtn = popup.querySelector('#subPanelClose') || popup.querySelector('#sub-settings-close');
     if (closeBtn) closeBtn.onclick = () => hideSubPanel();
-    popup.querySelector('#sub-settings-reset').onclick = () => {
+    const resetBtn = popup.querySelector('#sub-settings-reset');
+    if (resetBtn) resetBtn.onclick = () => {
       State.subSettings = JSON.parse(JSON.stringify(SUB_SETTINGS_DEFAULTS));
       State.timeShiftMs = 0;
+      const tsIn = popup.querySelector('#sub-ts-input');
+      if (tsIn) tsIn.value = '0';
       saveSubSettings();
       // nạp lại style gốc từ .ass hiện tại
       if (State.subtitles.length && State.rawAssText) {
@@ -1822,7 +1883,8 @@ function setupSubPopupEvents() {
       if (State.subsEnabled) updateCurrentSubtitle();
       toast('Đã reset cài đặt phụ đề.', 'info', 1800);
     };
-// Reset all styles
+
+    // Reset tất cả style về vị trí / màu gốc
     const resetAll = popup.querySelector('#sub-reset-all-styles');
     if (resetAll) {
       resetAll.onclick = () => {
@@ -1848,21 +1910,6 @@ function setupSubPopupEvents() {
         if (State.subsEnabled) updateCurrentSubtitle();
       };
     }
-
-    // Use Global Setting checkbox
-    const gChk = popup.querySelector('#sub-use-global-settings');
-    if (gChk) {
-      gChk.addEventListener('change', () => {
-        State.subSettings.useGlobalStyles = gChk.checked;
-        Object.keys(State.styleSettings || {}).forEach((name) => {
-          State.styleSettings[name].override = !gChk.checked;
-        });
-        saveSubSettings();
-        renderSubStyleItems();
-        if (State.subsEnabled) updateCurrentSubtitle();
-      });
-    }
-
     // Format B/I/U/S
     ['isBold', 'isItalic', 'isUnderline', 'isStrike'].forEach((key) => {
       const btn = popup.querySelector('#sub-btn-' + key);
@@ -1874,22 +1921,22 @@ function setupSubPopupEvents() {
       };
     });
 
-    // Timeshift
+    // Timeshift: −100 / +100 / nhập trực tiếp / đặt lại 0
     const tsInput = popup.querySelector('#sub-ts-input');
     if (tsInput) {
-      popup.querySelector('#sub-ts-dec').onclick = () => {
-        State.timeShiftMs = (parseInt(tsInput.value, 10) || 0) - 100;
-        tsInput.value = State.timeShiftMs;
+      const setTs = (v) => {
+        State.timeShiftMs = v;
+        tsInput.value = v;
         if (State.subsEnabled) updateCurrentSubtitle();
       };
-      popup.querySelector('#sub-ts-inc').onclick = () => {
-        State.timeShiftMs = (parseInt(tsInput.value, 10) || 0) + 100;
-        tsInput.value = State.timeShiftMs;
-        if (State.subsEnabled) updateCurrentSubtitle();
-      };
+      const decBtn = popup.querySelector('#sub-ts-dec');
+      if (decBtn) decBtn.onclick = () => setTs((parseInt(tsInput.value, 10) || 0) - 100);
+      const incBtn = popup.querySelector('#sub-ts-inc');
+      if (incBtn) incBtn.onclick = () => setTs((parseInt(tsInput.value, 10) || 0) + 100);
+      const zeroBtn = popup.querySelector('#sub-ts-zero');
+      if (zeroBtn) zeroBtn.onclick = () => setTs(0);
       tsInput.addEventListener('change', () => {
-        State.timeShiftMs = parseInt(tsInput.value, 10) || 0;
-        if (State.subsEnabled) updateCurrentSubtitle();
+        setTs(parseInt(tsInput.value, 10) || 0);
       });
     }
 
@@ -1911,8 +1958,7 @@ function setupSubPopupEvents() {
         if (State.subsEnabled) updateCurrentSubtitle();
       });
     }
-
-    // Input chính: global g-*, karaoke data-k, style data-style
+    // Input chính: global g-*, karaoke data-k, per-style data-style
     popup.addEventListener('input', (e) => {
       const t = e.target;
       const id = t.id, style = t.getAttribute('data-style'), type = t.getAttribute('data-type'), kTab = t.getAttribute('data-k');
@@ -1928,17 +1974,12 @@ function setupSubPopupEvents() {
       } else if (style) {
         const s = State.styleSettings[style];
         if (!s) return;
+        // Trong "Cài đặt từng style", mọi thay đổi đều là per-style override trực tiếp
         s[type] = (t.type === 'number' || t.type === 'range') ? parseFloat(val) : val;
-        if (type === 'posX' || type === 'posY') {
-          const row = t.closest('.g-row');
-          if (row) {
-            const sibling = row.querySelector('input[data-type="' + type + '"][type="' + (t.type === 'range' ? 'number' : 'range') + '"]');
-            if (sibling) sibling.value = val;
-          }
-        }
-        if (type === 'override') {
-          const adv = t.closest('.style-item').querySelector('.sub-adv-style');
-          if (adv) adv.style.display = val ? 'block' : 'none';
+        const row = t.closest('.g-row, .pos-row');
+        if (row) {
+          const sibling = row.querySelector('input[data-type="' + type + '"][type="' + (t.type === 'range' ? 'number' : 'range') + '"]');
+          if (sibling) sibling.value = val;
         }
       } else if (id) {
         let key = id.replace('g-', '').replace('Val', '');
@@ -1966,7 +2007,6 @@ function setupSubPopupEvents() {
         saveSubSettings();
       });
     }
-
     // Backup cài đặt phụ đề của máy này → tải về file JSON
     const bkpBtn = popup.querySelector('#sub-backup');
     if (bkpBtn) {
@@ -3781,9 +3821,12 @@ function setupSubPopupEvents() {
     document.addEventListener('webkitfullscreenchange', updateVideoFsIcon); // Safari
 
     // Điều khiển player: lùi / phát-tạm dừng / kế tiếp / tự động / ngẫu nhiên
-    $('#pcPrev').addEventListener('click', playPrevSong);
-    $('#pcPlay').addEventListener('click', togglePlay);
-    $('#pcNext').addEventListener('click', playNextSong);
+    const pcPrev = $('#pcPrev');
+    if (pcPrev) pcPrev.addEventListener('click', playPrevSong);
+    const pcPlay = $('#pcPlay');
+    if (pcPlay) pcPlay.addEventListener('click', togglePlay);
+    const pcNext = $('#pcNext');
+    if (pcNext) pcNext.addEventListener('click', playNextSong);
     const pcAuto = $('#pcAuto');
     if (pcAuto) pcAuto.addEventListener('click', () => { State.autoNext = !State.autoNext; savePlayerPrefs(); updatePlayerControlsUI(); });
     const pcShuffle = $('#pcShuffle');
