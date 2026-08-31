@@ -387,36 +387,197 @@
 
 
   /* ──────────────────────────────────────────────────────
-     5. GITHUB: TỰ ĐỘNG LẤY DANH SÁCH FILE .ass
+     5. GITHUB: TỰ ĐỘNG LẤY DANH SÁCH FILE .ass (NHIỀU REPO + CACHE)
      ────────────────────────────────────────────────────── */
+  const ASS_REPOS_KEY = 'kullanime_ass_repos_v1';
+
+  function readAssRepos() {
+    try {
+      const raw = localStorage.getItem(ASS_REPOS_KEY);
+      const arr = raw ? JSON.parse(raw) : [];
+      return Array.isArray(arr) ? arr : [];
+    } catch (_e) { return []; }
+  }
+  function writeAssRepos(list) {
+    try { localStorage.setItem(ASS_REPOS_KEY, JSON.stringify(list)); } catch (_e) { /* quota */ }
+  }
+  function parseAssRepo(url) {
+    let owner = '', repo = '', branch = 'main', path = 'subs';
+    try {
+      const m = String(url || '').match(/github\.com\/([^/]+)\/([^/\s?#]+)/i);
+      if (m) { owner = m[1]; repo = m[2].replace(/\.git$/, ''); }
+      const treeM = String(url || '').match(/\/tree\/([^/\s?#]+)(\/[\s\S]*)?$/);
+      if (treeM) {
+        branch = treeM[1];
+        if (treeM[2]) path = treeM[2].replace(/^\/+|\/+$/g, '') || path;
+      }
+    } catch (_e) { /* ignore */ }
+    return { owner: owner, repo: repo, branch: branch, path: path };
+  }
+  function listUrlFor(repo) {
+    return 'https://api.github.com/repos/' + repo.owner + '/' + repo.repo +
+      '/contents/' + repo.path + '?ref=' + repo.branch;
+  }
+  function getAssRepoList() {
+    const list = [];
+    if (State.config && State.config.GITHUB_SUBS_OWNER) {
+      list.push({ owner: State.config.GITHUB_SUBS_OWNER, repo: State.config.GITHUB_SUBS_REPO, branch: State.config.GITHUB_SUBS_BRANCH, path: State.config.GITHUB_SUBS_PATH });
+    }
+    readAssRepos().forEach((r) => {
+      const p = parseAssRepo(typeof r === 'string' ? r : r.url);
+      if (p.owner && p.repo) list.push(p);
+    });
+    return list;
+  }
+  async function fetchRepoAssFiles(repo) {
+    const res = await fetch(listUrlFor(repo), { headers: { 'Accept': 'application/vnd.github+json' } });
+    if (!res.ok) throw new Error('HTTP ' + res.status + ' (' + repo.owner + '/' + repo.repo + ')');
+    const data = await res.json();
+    return (Array.isArray(data) ? data : [])
+      .filter((f) => f.type === 'file' && /\.ass$/i.test(f.name))
+      .map((f) => ({ name: f.name, path: f.path, download_url: f.download_url, size: f.size }));
+  }
   async function fetchSubsFiles() {
     if (!State.config) return;
     const statusEl = $('#assStatus');
+    const repos = getAssRepoList();
     try {
-      statusEl.textContent = 'Đang kết nối Github...';
-      const res = await fetch(State.config.GITHUB_SUBS_LIST_URL, {
-        headers: { 'Accept': 'application/vnd.github+json' }
+      statusEl.textContent = 'Đang kết nối Github (' + repos.length + ' repo)...';
+      const results = await Promise.allSettled(repos.map(fetchRepoAssFiles));
+      let list = [];
+      results.forEach((r) => { if (r.status === 'fulfilled') list = list.concat(r.value); });
+      const seen = {};
+      State.subsFiles = list.filter((f) => {
+        if (seen[f.name]) return false;
+        seen[f.name] = true;
+        return true;
       });
-      if (!res.ok) throw new Error('HTTP ' + res.status);
-      const data = await res.json();
-      const files = Array.isArray(data) ? data : [];
-      State.subsFiles = files
-        .filter((f) => f.type === 'file' && /\.ass$/i.test(f.name))
-        .map((f) => ({
-          name: f.name,
-          path: f.path,
-          download_url: f.download_url,
-          size: f.size
-        }));
+      mergeAssCacheIntoSubs();
+      renderAssCacheList();
       renderAssStatus();
     } catch (err) {
-      console.warn('Không lấy được danh sách .ass từ GitHub:', err.message);
+      console.warn('Lỗi fetch subs:', err.message);
       State.subsFiles = [];
-      if (statusEl) {
-        statusEl.textContent = '⚠️ Không tải được kho phụ đề GitHub (kiểm tra internet / rate limit).';
-      }
+      mergeAssCacheIntoSubs();
+      renderAssCacheList();
+      if (statusEl) statusEl.textContent = '⚠️ Không tải được kho phụ đề GitHub.';
+      renderAssStatus();
     }
   }
+  function renderAssRepoList() {
+    const listEl = $('#assRepoList');
+    if (!listEl) return;
+    const repos = readAssRepos();
+    if (repos.length === 0) {
+      listEl.innerHTML = '<p style="color:var(--text-faint);font-size:12px">Chưa có repo phụ thêm. Repo mặc định (config) luôn được nạp.</p>';
+      return;
+    }
+    listEl.innerHTML = repos.map((r, i) => {
+      const url = typeof r === 'string' ? r : (r.url || '');
+      const p = parseAssRepo(url);
+      const display = p.owner && p.repo ? (p.owner + '/' + p.repo) : url;
+      return (
+        '<div class="repo-item" data-idx="' + i + '">' +
+          '<span class="repo-url" title="' + esc(url) + '">' + esc(display) + '</span>' +
+          '<span class="repo-meta">' + esc(p.branch || '') + (p.path ? '/' + esc(p.path) : '') + '</span>' +
+          '<button class="mini-btn danger" data-rp="del" data-idx="' + i + '">🗑</button>' +
+        '</div>'
+      );
+    }).join('');
+  }
+
+  function renderAssCacheList() {
+    const list = $('#assCacheList');
+    if (!list) return;
+    const cache = readAssCache();
+    const names = Object.keys(cache).sort((a, b) => (cache[a].addedAt || 0) - (cache[b].addedAt || 0));
+    if (names.length === 0) {
+      list.innerHTML = '<div class="ass-cache-empty">Chưa có file .ass nào trong cache. Hãy tải file lên ở trên.</div>';
+      return;
+    }
+    list.innerHTML = names.map((name) => {
+      const yid = parseAssYoutubeId(name);
+      const title = stripAssTitle(name);
+      const isActive = State.currentSong && String(State.currentSong.id) === 'ass:' + name;
+      const cls = 'ass-cache-row' + (isActive ? ' active' : '');
+      const thumb = yid
+        ? '<span class="ass-file-thumb"><img src="https://i.ytimg.com/vi/' + yid + '/hqdefault.jpg" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.closest(\'.ass-file-thumb\').classList.add(\'no-img\')" /><span class="ass-thumb-dur">▶</span></span>'
+        : '';
+      return (
+        '<div class="' + cls + '" data-cache-ass="' + esc(name) + '">' +
+          thumb +
+          '<span class="ass-file-name" title="' + esc(name) + '">' + esc(title || name) + '</span>' +
+          '<span class="ass-cache-actions">' +
+            '<button class="cc-play" title="Phát video này" data-cact="play">▶</button>' +
+            '<button class="cc-dl" title="Tải ngược file .ass về máy">⬇</button>' +
+            '<button class="danger" data-cact="del" title="Xóa khỏi cache">🗑</button>' +
+          '</span>' +
+        '</div>'
+      );
+    }).join('');
+  }
+
+  // Tải ngược file .ass về máy với đúng tên "youtubeID_tiêu đề.ass"
+  function downloadCachedAss(name) {
+    const entry = readAssCache()[name];
+    if (!entry || !entry.text) return;
+    const blob = new Blob([entry.text], { type: 'text/plain;charset=utf-8' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = name;
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 400);
+    toast('Đã tải về: ' + name, 'success', 2400);
+  }
+
+  // Lưu file .ass vừa chọn vào cache (đặt tên theo link YT + tiêu đề nhập)
+  function addAssFileToCache(file) {
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      const text = String(reader.result || '');
+      const name = buildAssCacheFileName($('#assCacheYt').value, $('#assCacheTitle').value);
+      const cache = readAssCache();
+      cache[name] = { name: name, text: text, addedAt: Date.now() };
+      writeAssCache(cache);
+      toast('Đã lưu "💾 ' + name + '" vào Phụ đề Cache.', 'success', 2600);
+      renderAssCacheList();
+      mergeAssCacheIntoSubs();
+      renderAssStatus();
+      $('#assCacheYt').value = '';
+      $('#assCacheTitle').value = '';
+    };
+    reader.onerror = () => toast('Không đọc được file.', 'error');
+    reader.readAsText(file);
+  }
+
+  function deleteAssCache(name) {
+    if (!confirm('Xóa "💾 ' + name + '" khỏi Phụ đề Cache?')) return;
+    const cache = readAssCache();
+    delete cache[name];
+    writeAssCache(cache);
+    renderAssCacheList();
+    State.subsFiles = (State.subsFiles || []).filter((f) => !(f.cached && f.name === name));
+    renderAssStatus();
+    toast('Đã xóa khỏi cache.', 'success');
+  }
+
+  // Phát 1 file .ass trong cache: tạo song rồi bơm text trực tiếp (không cần fetch)
+  async function playCachedAss(name) {
+    const entry = readAssCache()[name];
+    if (!entry || !entry.text) return;
+    const file = { name: name, cached: true, text: entry.text, download_url: null };
+    const song = buildAssSong(file);
+    if (!song) {
+      toast('ID sai — tên file phải bắt đầu bằng YouTube ID hợp lệ.', 'error', 4000);
+      return;
+    }
+    await playSong(song);
+    renderAssCacheList();
+    renderAssStatus();
+  }
+
 
   function renderAssStatus() {
     const statusEl = $('#assStatus');
@@ -497,6 +658,69 @@
   // Danh sách file .ass có YouTube ID hợp lệ (dùng làm playlist khi bấm tiến/lùi bài)
   function getAssPlaylist() {
     return (State.subsFiles || []).filter((f) => !!parseAssYoutubeId(f.name));
+  }
+
+  /* ──────────────────────────────────────────────────────
+     5.1 PHỤ ĐỀ CACHE — file .ass lưu trên máy người dùng
+     (localStorage, KHÔNG đồng bộ server). Dùng chung định dạng
+     tên "youtubeID_tiêu đề.ass" để khớp video + playlist.
+     ────────────────────────────────────────────────────── */
+  const ASS_CACHE_KEY = 'kullanime_ass_cache_v1';
+
+  function readAssCache() {
+    try {
+      const raw = localStorage.getItem(ASS_CACHE_KEY);
+      if (!raw) return {};
+      const c = JSON.parse(raw);
+      return (c && typeof c === 'object') ? c : {};
+    } catch (_e) { return {}; }
+  }
+  function writeAssCache(cache) {
+    try { localStorage.setItem(ASS_CACHE_KEY, JSON.stringify(cache)); } catch (_e) {
+      toast('Dung lượng Phụ đề Cache đã đầy — hãy xóa bớt file cũ.', 'warning', 4000);
+    }
+  }
+  // Làm sạch tên: chỉ giữ ký tự an toàn, thay chuỗi trắng bằng '_'
+  function sanitizeAssTitle(str) {
+    return String(str || '')
+      .replace(/[\\/:*?"<>|]+/g, '')
+      .replace(/\s+/g, ' ')
+      .trim()
+      .replace(/\s+/g, '_')
+      .slice(0, 120);
+  }
+  // Dựng tên file "youtubeID_tiêu đề.ass" từ link/ID YouTube + tiêu đề (tuỳ chọn)
+  function buildAssCacheFileName(ytInput, titleInput) {
+    const yid = parseYoutubeId(ytInput);
+    const base = sanitizeAssTitle(titleInput);
+    let name;
+    if (yid) {
+      name = base ? (yid + '_' + base) : yid;
+    } else {
+      name = base || 'untitled';
+    }
+    return name.replace(/\.ass$/i, '') + '.ass';
+  }
+  // Gộp file trong cache vào State.subsFiles (đánh dấu cached + giữ text)
+  function mergeAssCacheIntoSubs() {
+    const cache = readAssCache();
+    const names = Object.keys(cache);
+    if (!names.length) return;
+    names.forEach((name) => {
+      const entry = cache[name];
+      if (!entry || !entry.text) return;
+      // tránh trùng tên với file từ GitHub
+      if (State.subsFiles.some((f) => f.name === name)) return;
+      State.subsFiles.push({
+        name: name,
+        path: 'cache:' + name,
+        download_url: null,
+        size: (entry.text || '').length,
+        cached: true,
+        text: entry.text,
+        addedAt: entry.addedAt || 0
+      });
+    });
   }
 
   // Kiểm tra bài hát hiện tại có phải là file .ass từ kho GitHub không
@@ -1385,26 +1609,32 @@
     // Tải & nạp phụ đề .ass ở nền (song song với việc phát video)
     const subFile = matchSubtitleFor(song);
     if (subFile) {
-      fetch(subFile.download_url)
-        .then((res) => (res.ok ? res.text() : Promise.reject(new Error('HTTP ' + res.status))))
-        .then((text) => {
-          if (State.currentSong && State.currentSong.id !== song.id) return; // đã chuyển bài khác
-          State.rawAssText = text;
-          try {
-            const parsed = parseAssEngine(text);
-            State.subtitles = parsed.subtitles;
-            State.styleSettings = parsed.styleSettings;
-            State.playResX = parsed.playResX;
-            State.playResY = parsed.playResY;
-            State.subsEnabled = parsed.subtitles.length > 0; // tự bật phụ đề khi có file .ass
-          } catch (_e) { State.subtitles = []; }
-          applySubContextChanges(song);
-        })
-        .catch((e) => {
-          console.warn('Lỗi tải .ass:', e);
-          State.subtitles = [];
-          applySubContextChanges(song);
-        });
+      const applyText = (text) => {
+        if (State.currentSong && State.currentSong.id !== song.id) return; // đã chuyển bài khác
+        State.rawAssText = text;
+        try {
+          const parsed = parseAssEngine(text);
+          State.subtitles = parsed.subtitles;
+          State.styleSettings = parsed.styleSettings;
+          State.playResX = parsed.playResX;
+          State.playResY = parsed.playResY;
+          State.subsEnabled = parsed.subtitles.length > 0; // tự bật phụ đề khi có file .ass
+        } catch (_e) { State.subtitles = []; }
+        applySubContextChanges(song);
+      };
+      if (subFile.cached && subFile.text) {
+        // file từ Phụ đề Cache (đã có sẵn text trên máy)
+        applyText(subFile.text);
+      } else {
+        fetch(subFile.download_url)
+          .then((res) => (res.ok ? res.text() : Promise.reject(new Error('HTTP ' + res.status))))
+          .then(applyText)
+          .catch((e) => {
+            console.warn('Lỗi tải .ass:', e);
+            State.subtitles = [];
+            applySubContextChanges(song);
+          });
+      }
     } else {
       applySubContextChanges(song);
     }
@@ -1769,6 +1999,8 @@
             '<button type="button" id="sub-settings-reset" title="Khôi phục toàn bộ về cài đặt gốc">↺ Reset chung</button>' +
             '<button type="button" id="sub-backup" title="Tải cài đặt phụ đề của máy này về máy (JSON)">💾 Backup</button>' +
             '<button type="button" id="sub-restore" title="Khôi phục cài đặt phụ đề từ file JSON">📥 Restore</button>' +
+            '<button type="button" id="ass-cache-backup" title="Sao lưu toàn bộ Phụ đề Cache (file .ass) của máy này về file JSON">🖫 Backup Cache</button>' +
+            '<button type="button" id="ass-cache-restore" title="Khôi phục Phụ đề Cache từ file backup JSON">🖮 Restore Cache</button>' +
           '</div>' +
         '</div>' +
       '</div>';
@@ -2138,6 +2370,53 @@ function setupSubPopupEvents() {
             toast('Đã khôi phục cài đặt phụ đề từ backup ✅', 'success', 2600);
           } catch (err) {
             toast('File backup không hợp lệ: ' + (err.message || 'lỗi'), 'error', 4000);
+          }
+        };
+        input.click();
+      });
+    }
+    // ── Backup / Restore Phụ đề Cache (toàn bộ file .ass trên máy) ──
+    const cacheBkpBtn = popup.querySelector('#ass-cache-backup');
+    if (cacheBkpBtn) {
+      cacheBkpBtn.addEventListener('click', () => {
+        try {
+          const cache = readAssCache();
+          const data = JSON.stringify({ app: 'kullanime', type: 'ass-cache-backup', exported: new Date().toISOString(), cache: cache }, null, 2);
+          const blob = new Blob([data], { type: 'application/json' });
+          const a = document.createElement('a');
+          a.href = URL.createObjectURL(blob);
+          a.download = 'kullanime-ass-cache-backup.json';
+          document.body.appendChild(a);
+          a.click();
+          setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 400);
+          toast('Đã sao lưu toàn bộ Phụ đề Cache (' + Object.keys(cache).length + ' file) ✅', 'success', 2600);
+        } catch (_e) { toast('Không thể tạo file backup cache.', 'error'); }
+      });
+    }
+    const cacheRstBtn = popup.querySelector('#ass-cache-restore');
+    if (cacheRstBtn) {
+      cacheRstBtn.addEventListener('click', () => {
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = 'application/json,.json';
+        input.onchange = async () => {
+          const file = input.files && input.files[0];
+          if (!file) return;
+          try {
+            const text = await file.text();
+            const data = JSON.parse(text);
+            const newCache = (data && data.cache && typeof data.cache === 'object') ? data.cache : {};
+            if (Object.keys(newCache).length === 0) throw new Error('File backup cache trống');
+            // Hợp nhất: giữ cache cũ, thêm file mới từ backup (ghi đè nếu trùng tên)
+            const existing = readAssCache();
+            Object.assign(existing, newCache);
+            writeAssCache(existing);
+            mergeAssCacheIntoSubs();
+            renderAssCacheList();
+            renderAssStatus();
+            toast('Đã khôi phục Phụ đề Cache ✅ (' + Object.keys(existing).length + ' file total)', 'success', 2600);
+          } catch (err) {
+            toast('File backup cache không hợp lệ: ' + (err.message || 'lỗi'), 'error', 4000);
           }
         };
         input.click();
@@ -3258,7 +3537,22 @@ function setupSubPopupEvents() {
       list.innerHTML = '<p class="empty-desc">Chưa có anime nào.</p>';
       return;
     }
-    list.innerHTML = State.animes.map((a) =>
+    // Lọc theo từ khoá tìm kiếm
+    const q = ($('#adminAnimeSearch') ? $('#adminAnimeSearch').value : '').trim().toLowerCase();
+    let items = q ? State.animes.filter((a) => (a.title || '').toLowerCase().includes(q)) : State.animes.slice();
+    // Sắp xếp
+    const sortVal = $('#adminAnimeSort') ? $('#adminAnimeSort').value : 'newest';
+    items.sort((a, b) => {
+      if (sortVal === 'oldest') return (a.year || 0) - (b.year || 0) || String(a.title || '').localeCompare(String(b.title || ''));
+      if (sortVal === 'title') return String(a.title || '').localeCompare(String(b.title || ''));
+      // newest
+      return (b.year || 0) - (a.year || 0) || String(b.title || '').localeCompare(String(a.title || ''));
+    });
+    if (items.length === 0) {
+      list.innerHTML = '<p class="empty-desc">Không có anime khớp.</p>';
+      return;
+    }
+    list.innerHTML = items.map((a) =>
       '<div class="admin-row" data-id="' + esc(a.id) + '">' +
         '<div class="admin-row-thumb">' + (a.poster_url ? '<img src="' + esc(a.poster_url) + '" alt="" onerror="this.remove()" />' : '🎞') + '</div>' +
         '<div class="admin-row-info">' +
@@ -3502,17 +3796,43 @@ function setupSubPopupEvents() {
   async function renderAdminCommentList() {
     const list = $('#adminCommentList');
     if (!State.isAdmin) { list.innerHTML = ''; return; }
-    const { data, error } = await State.supabase
-      .from('comments')
-      .select('*')
-      .order('created_at', { ascending: false })
-      .limit(100);
-    if (error) { list.innerHTML = '<p class="empty-desc">Lỗi tải bình luận.</p>'; return; }
-    if (!data || data.length === 0) {
+    // Lần đầu hoặc gọi lại sau CRUD → nạp lại data
+    if (!State._adminCommentsCache) {
+      const { data, error } = await State.supabase
+        .from('comments')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(100);
+      if (error) { list.innerHTML = '<p class="empty-desc">Lỗi tải bình luận.</p>'; return; }
+      State._adminCommentsCache = data || [];
+    }
+    let items = State._adminCommentsCache;
+    if (items.length === 0) {
       list.innerHTML = '<p class="empty-desc">Không có bình luận nào.</p>';
       return;
     }
-    list.innerHTML = data.map((c) => {
+    // Lọc theo từ khoá
+    const q = ($('#adminCommentSearch') ? $('#adminCommentSearch').value : '').trim().toLowerCase();
+    if (q) {
+      items = items.filter((c) => {
+        const animeName = c.anime_id == null ? '' : ((State.animes.find((a) => a.id === c.anime_id) || {}).title || '');
+        return (c.author_name || '').toLowerCase().includes(q)
+          || (c.content || '').toLowerCase().includes(q)
+          || animeName.toLowerCase().includes(q);
+      });
+    }
+    // Sắp xếp
+    const sortVal = $('#adminCommentSort') ? $('#adminCommentSort').value : 'newest';
+    items = items.slice().sort((a, b) => {
+      if (sortVal === 'oldest') return new Date(a.created_at || 0) - new Date(b.created_at || 0);
+      if (sortVal === 'title') return String(a.author_name || '').localeCompare(String(b.author_name || ''), 'vi');
+      return new Date(b.created_at || 0) - new Date(a.created_at || 0);
+    });
+    if (items.length === 0) {
+      list.innerHTML = '<p class="empty-desc">Không có bình luận khớp.</p>';
+      return;
+    }
+    list.innerHTML = items.map((c) => {
       const animeName = c.anime_id == null
         ? '💬 Chat All'
         : ((State.animes.find((a) => a.id === c.anime_id) || {}).title || '—');
@@ -3545,6 +3865,7 @@ function setupSubPopupEvents() {
       if (error) { toast('Lỗi: ' + error.message, 'error'); return; }
       toast(isPinned ? 'Đã bỏ ghim.' : 'Đã ghim 📌', 'success');
     }
+    State._adminCommentsCache = null; // xoá cache để nạp lại sau CRUD
     await renderAdminCommentList();
     if (State.currentAnime) loadComments(State.currentAnime.id);
   }
@@ -4026,7 +4347,9 @@ function setupSubPopupEvents() {
       openModal('adminModal');
       renderAdminAnimeList();
       renderAdminSongList();
+      State._adminCommentsCache = null; // nạp lại danh sách bình luận
       renderAdminCommentList();
+      renderAssRepoList();
     });
     // Admin tab
     $$('#adminModal [data-atab]').forEach((btn) => {
@@ -4065,6 +4388,97 @@ function setupSubPopupEvents() {
       if (!btn) return;
       adminCommentAction(btn.dataset.cact, btn.dataset.id);
     });
+
+    // ── ASS Cache: upload file ──
+    const assCacheFile = $('#assCacheFile');
+    if (assCacheFile) {
+      assCacheFile.addEventListener('change', (e) => {
+        const file = e.target.files && e.target.files[0];
+        if (file) addAssFileToCache(file);
+        e.target.value = ''; // reset để chọn lại cùng 1 file cũng được
+      });
+    }
+    // ── ASS Cache: click danh sách (play / download / delete) ──
+    const assCacheList = $('#assCacheList');
+    if (assCacheList) {
+      assCacheList.addEventListener('click', (e) => {
+        const row = e.target.closest('.ass-cache-row[data-cache-ass]');
+        if (!row) return;
+        const name = row.dataset.cacheAss;
+        const actBtn = e.target.closest('[data-cact]');
+        if (actBtn) {
+          const act = actBtn.dataset.cact;
+          if (act === 'play') playCachedAss(name);
+          else if (act === 'del') deleteAssCache(name);
+        } else if (e.target.closest('.cc-dl')) {
+          downloadCachedAss(name);
+        } else {
+          playCachedAss(name);
+        }
+      });
+    }
+
+    // ── Admin: tìm kiếm + sắp xếp Anime ──
+    const adminAnimeSearch = $('#adminAnimeSearch');
+    if (adminAnimeSearch) {
+      adminAnimeSearch.addEventListener('input', () => renderAdminAnimeList());
+    }
+    const adminAnimeSort = $('#adminAnimeSort');
+    if (adminAnimeSort) {
+      adminAnimeSort.addEventListener('change', () => renderAdminAnimeList());
+    }
+    // ── Admin: tìm kiếm + sắp xếp Comments ──
+    const adminCommentSearch = $('#adminCommentSearch');
+    if (adminCommentSearch) {
+      adminCommentSearch.addEventListener('input', () => renderAdminCommentList());
+    }
+    const adminCommentSort = $('#adminCommentSort');
+    if (adminCommentSort) {
+      adminCommentSort.addEventListener('change', () => renderAdminCommentList());
+    }
+
+    // ── Admin: quản lý repo phụ đề (thêm / xóa) ──
+    const addAssRepoBtn = $('#addAssRepoBtn');
+    if (addAssRepoBtn) {
+      addAssRepoBtn.addEventListener('click', () => {
+        const input = $('#assRepoInput');
+        if (!input) return;
+        const url = input.value.trim();
+        if (!url) { toast('Nhập link repo trước.', 'error'); return; }
+        if (!/github\.com\/[^/]+\/[^/]+/i.test(url)) {
+          toast('Link phải dạng https://github.com/user/repo', 'error', 3200);
+          return;
+        }
+        const repos = readAssRepos();
+        // Kiểm tra trùng
+        const exists = repos.some((r) => {
+          const u = typeof r === 'string' ? r : (r.url || '');
+          return u.replace(/\/+$/, '') === url.replace(/\/+$/, '');
+        });
+        if (exists) { toast('Repo này đã được thêm rồi.', 'error'); return; }
+        repos.push(url);
+        writeAssRepos(repos);
+        input.value = '';
+        renderAssRepoList();
+        toast('Đã thêm repo ✅', 'success');
+      });
+    }
+    const assRepoList = $('#assRepoList');
+    if (assRepoList) {
+      assRepoList.addEventListener('click', (e) => {
+        const btn = e.target.closest('[data-rp="del"]');
+        if (!btn) return;
+        const idx = parseInt(btn.dataset.idx, 10);
+        if (isNaN(idx)) return;
+        if (!confirm('Xóa repo phụ đề này?')) return;
+        const repos = readAssRepos();
+        repos.splice(idx, 1);
+        writeAssRepos(repos);
+        renderAssRepoList();
+        toast('Đã xóa repo.', 'success');
+      });
+    }
+
 
     // Nút thêm anime, bài hát
     $('#addAnimeBtn').addEventListener('click', openAddAnimeForm);
