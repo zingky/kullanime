@@ -1869,8 +1869,8 @@
     const header = document.createElement('div');
     header.className = 'sub-panel-header';
     header.innerHTML =
-      // 1 hàng duy nhất: [tên file (cắt …)] [⏱ − input + ⟳ ms] [✕]
-      '<em class="sub-panel-ctx" id="subPanelCtx" title="' + esc(ctxLabel) + '">' + esc(ctxLabel) + '</em>' +
+      // 1 hàng: [tên file chạy marquee] [⏱ − input + ⟳ ms] [✕]
+      '<em class="sub-panel-ctx" id="subPanelCtx" title="' + esc(ctxLabel) + '"><span class="sub-ctx-scroll">' + esc(ctxLabel) + '</span></em>' +
       '<div class="sub-ts-bar sub-ts-in-header">' +
         '<span class="sub-ts-ico" title="Timeshift">⏱</span>' +
         '<button type="button" id="sub-ts-dec" title="Lùi 100ms">−</button>' +
@@ -1966,28 +1966,16 @@
         '</div>' +
 
         '<div class="pill-panel" data-pill="karaoke">' +
-          '<div class="k-tabs">' +
-            '<button type="button" class="k-tab-btn active" data-tab="pre">Pre</button>' +
-            '<button type="button" class="k-tab-btn" data-tab="active">Active</button>' +
-            '<button type="button" class="k-tab-btn" data-tab="post">Post</button>' +
-          '</div>' +
-          '<div class="k-tab-panels">' +
-            '<div id="sub-k-pre-panel" class="k-tab-content" style="display:block;">' + renderSubKTab('kPre') + '</div>' +
-            '<div id="sub-k-active-panel" class="k-tab-content" style="display:none;">' + renderSubKTab('kActive') + '</div>' +
-            '<div id="sub-k-post-panel" class="k-tab-content" style="display:none;">' + renderSubKTab('kPost') + '</div>' +
-          '</div>' +
+          '<div class="k-section"><span class="k-section-label">🥽 Pre</span>' + renderSubKTab('kPre') + '</div>' +
+          '<div class="k-section"><span class="k-section-label">🎵 Active</span>' + renderSubKTab('kActive') + '</div>' +
+          '<div class="k-section"><span class="k-section-label">📤 Post</span>' + renderSubKTab('kPost') + '</div>' +
         '</div>' +
-'<div class="pill-panel" data-pill="advanced">' +
+        '<div class="pill-panel" data-pill="advanced">' +
           '<div class="g-row">' +
             '<label style="white-space:nowrap;">Zoom chữ</label>' +
             '<input type="number" id="g-textZoom" value="' + Math.round((gs.textZoom || 0.8) * 100) + '" class="num-in" step="5" min="10" max="300"><span class="sub-pct">%</span>' +
             '<label style="white-space:nowrap; margin-left:4px;">Dãn chữ</label>' +
             '<input type="number" id="g-letterSpacing" value="' + (gs.letterSpacing || 0) + '" class="num-in" step="0.5" min="0" max="30">' +
-          '</div>' +
-          '<div class="g-row sub-check-row">' +
-            '<input type="checkbox" id="g-useTextStroke" ' + (gs.useTextStroke ? 'checked' : '') + '> <b>text-stroke</b>' +
-            '<span class="sub-sep">|</span>' +
-            '<input type="checkbox" id="g-deepGlow" ' + (gs.deepGlow ? 'checked' : '') + '> <b>Deep Glow</b>' +
           '</div>' +
         '</div>' +
       '</div>' +
@@ -1999,15 +1987,17 @@
           '<span id="sub-reset-all-styles" title="Reset tất cả style về vị trí/màu gốc">↺ ALL</span>' +
         '</div>' +
         '<div id="sub-style-items"></div>' +
-        '<div class="sub-style-actions">' +
-          '<label class="sub-foot-lab"><input type="checkbox" id="sub-close-outside" ' + (gs.closeOnClickOutside ? 'checked' : '') + '> Đóng khi bấm ngoài</label>' +
-          '<div class="sub-foot-actions">' +
-            '<button type="button" id="sub-settings-reset" title="Khôi phục toàn bộ về cài đặt gốc">↺ Reset chung</button>' +
-            '<button type="button" id="sub-backup" title="Tải cài đặt phụ đề của máy này về máy (JSON)">💾 Backup</button>' +
-            '<button type="button" id="sub-restore" title="Khôi phục cài đặt phụ đề từ file JSON">📥 Restore</button>' +
-            '<button type="button" id="ass-cache-backup" title="Sao lưu toàn bộ Phụ đề Cache (file .ass) của máy này về file JSON">🖫 Backup Cache</button>' +
-            '<button type="button" id="ass-cache-restore" title="Khôi phục Phụ đề Cache từ file backup JSON">🖮 Restore Cache</button>' +
-          '</div>' +
+      '</div>' +
+
+      // ---------- Footer chung: luôn hiển thị ở cả 2 tab ----------
+      '<div class="sub-panel-footer">' +
+        '<label class="sub-foot-lab"><input type="checkbox" id="sub-close-outside" ' + (gs.closeOnClickOutside ? 'checked' : '') + '> Đóng khi bấm ngoài</label>' +
+        '<div class="sub-foot-actions">' +
+          '<button type="button" id="sub-settings-reset" title="Khôi phục toàn bộ về cài đặt gốc">↺ Reset chung</button>' +
+          '<button type="button" id="sub-backup" title="Tải cài đặt phụ đề của máy này về máy (JSON)">💾 Backup</button>' +
+          '<button type="button" id="sub-restore" title="Khôi phục cài đặt phụ đề từ file JSON">📥 Restore</button>' +
+          '<button type="button" id="ass-cache-backup" title="Sao lưu toàn bộ Phụ đề Cache (file .ass) của máy này về file JSON">🖫 Cache</button>' +
+          '<button type="button" id="ass-cache-restore" title="Khôi phục Phụ đề Cache từ file backup JSON">📥 Cache</button>' +
         '</div>' +
       '</div>';
   }
