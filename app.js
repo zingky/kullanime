@@ -1464,7 +1464,6 @@
     if (!fsBtn) return;
     const fs = !!document.fullscreenElement;
     fsBtn.classList.toggle('active', fs);
-    fsBtn.classList.toggle('fs-hidden', fs); // ẩn nút khi đang fullscreen
     fsBtn.setAttribute('aria-label', fs ? 'Thoát toàn màn hình' : 'Phóng to video');
     fsBtn.setAttribute('title', fs ? 'Thoát toàn màn hình (Esc)' : 'Phóng to video');
     const enterSvg = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M21 8V5a2 2 0 0 0-2-2h-3"/><path d="M3 16v3a2 2 0 0 0 2 2h3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/></svg>';
@@ -4332,15 +4331,6 @@ function setupSubPopupEvents() {
     }
     document.addEventListener('fullscreenchange', updateVideoFsIcon);
     document.addEventListener('webkitfullscreenchange', updateVideoFsIcon); // Safari
-
-    // Double-click vào khung player để mở / thoát fullscreen (trừ khi bấm vào nút fs)
-    const videoWrap = $('.video-wrap');
-    if (videoWrap) {
-      videoWrap.addEventListener('dblclick', (e) => {
-        if (e.target.closest('.video-fs-btn, .subs-settings-icon')) return;
-        toggleVideoFullscreen();
-      });
-    }
 
     // Điều khiển player: lùi / phát-tạm dừng / kế tiếp / tự động / ngẫu nhiên
     const pcPrev = $('#pcPrev');
