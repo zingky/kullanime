@@ -275,6 +275,39 @@ select.input { appearance: none; -webkit-appearance: none; background-image: url
 .sub-line { display: block; margin: 2px auto; line-height: 1.35; background: rgba(0, 0, 0, 0.45); border-radius: 8px; padding: 2px 12px; width: fit-content; max-width: 92%; }
 .sub-romaji { font-size: clamp(14px, 2.2vw, 20px); font-weight: 600; letter-spacing: 0.02em; }
 .sub-vietsub { font-size: clamp(15px, 2.4vw, 22px); font-weight: 700; color: #ffd54a; }
+/* ============ SUB SETTINGS POPUP (port YouTube-Aegisub-Loader) ============ */
+#sub-settings-popup { font-family: 'Segoe UI', Roboto, sans-serif; }
+#sub-settings-popup * { box-sizing: border-box; background: transparent; }
+#sub-settings-popup .g-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+#sub-settings-popup .g-row label { width: 70px; color: #aaa; font-weight: bold; font-size: .75em; flex-shrink: 0; }
+#sub-settings-popup .g-row input[type="range"] { flex: 1; margin: 0 6px; height: 3px; cursor: pointer; flex-shrink: 0; }
+#sub-settings-popup .num-in { background: rgba(255,255,255,0.1) !important; border: 1px solid #444; color: #fff; width: 43px; max-width: 43px; min-height: 24px; text-align: center; border-radius: 3px; padding: 2px 3px; font-size: .85em; }
+#sub-settings-popup .k-tabs { display: flex; gap: 2px; margin-bottom: 4px; }
+#sub-settings-popup .k-tab-btn { flex: 1; padding: 4px; background: rgba(255,255,255,0.1); border: 1px solid #444; color: #888; cursor: pointer; border-radius: 3px; }
+#sub-settings-popup .k-tab-btn.active { background: #3ea6ff; color: #fff; border-color: #3ea6ff; }
+#sub-settings-popup .k-tab-content { background: rgba(255,255,255,0.03); padding: 8px; border: 1px solid #444; border-radius: 4px; }
+#sub-settings-popup .style-item { border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; margin-bottom: 5px; background: rgba(255,255,255,0.03); overflow: hidden; }
+#sub-settings-popup .style-head { padding: 6px 10px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; background: rgba(255,255,255,0.05); font-size: 11px; }
+#sub-settings-popup .style-body { padding: 10px; display: none; border-top: 1px dashed rgba(255,255,255,0.1); }
+#sub-settings-popup .one-line { display: flex; align-items: center; justify-content: space-between; gap: 4px; width: 100%; margin-top: 5px; font-size: 0.9em; color: #ccc; }
+#sub-settings-popup .format-btn { background: rgba(255,255,255,0.1); border: 1px solid #444; color: #fff; padding: 2px 7px; cursor: pointer; border-radius: 3px; font-weight: bold; font-size: .8em; }
+#sub-settings-popup .format-btn.active { background: #3ea6ff !important; border-color: #fff !important; color: #fff !important; }
+#sub-settings-popup input[type="color"] { width: 31px; height: 25px; border: 1px solid #444; background: rgba(255,255,255,0.1); padding: 2px; cursor: pointer; border-radius: 3px; }
+#sub-settings-popup select { background: #222 !important; color: #fff !important; border: 1px solid #555 !important; border-radius: 3px; font-size: 11px; padding: 2px 4px; }
+#sub-settings-popup select option { background: #222; color: #fff; }
+#sub-settings-popup .pill-tabs { display: flex; gap: 4px; margin-bottom: 8px; }
+#sub-settings-popup .pill-tab { flex: 1; padding: 6px 4px; border-radius: 20px; border: 1px solid rgba(255,255,255,0.15); background: rgba(255,255,255,0.05); color: #aaa; font-size: 10px; font-weight: bold; cursor: pointer; text-align: center; transition: all .2s ease; user-select: none; }
+#sub-settings-popup .pill-tab:hover { background: rgba(255,255,255,0.1); color: #fff; }
+#sub-settings-popup .pill-tab.active { background: #3ea6ff; border-color: #3ea6ff; color: #fff; box-shadow: 0 0 12px rgba(62,166,255,0.3); }
+#sub-settings-popup .pill-panel { display: none; animation: subFadeIn .2s ease; }
+#sub-settings-popup .pill-panel.open { display: block; }
+@keyframes subFadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+#sub-settings-popup input[type="range"] { -webkit-appearance: none; appearance: none; height: 4px; background: #444; border-radius: 4px; outline: none; }
+#sub-settings-popup input[type="range"]::-webkit-slider-runnable-track { height: 4px; background: #444; border-radius: 4px; }
+#sub-settings-popup input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 12px; height: 12px; border-radius: 50%; background: #3ea6ff; border: 2px solid #fff; cursor: pointer; margin-top: -4px; }
+#sub-settings-popup input[type="range"]::-moz-range-track { height: 4px; background: #444; border-radius: 4px; }
+#sub-settings-popup input[type="range"]::-moz-range-thumb { width: 12px; height: 12px; border-radius: 50%; background: #3ea6ff; border: 2px solid #fff; cursor: pointer; }
+#sub-settings-popup #sub-settings-left, #sub-settings-popup #sub-style-list { scrollbar-width: thin; scrollbar-color: #555 transparent; }
 
 
 
