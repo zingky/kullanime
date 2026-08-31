@@ -432,12 +432,14 @@ select.input { appearance: none; -webkit-appearance: none; background-image: url
 /* ============ THANH ĐIỀU KHIỂN PLAYER (dưới khung video) ============ */
 .player-controls {
   position: relative; z-index: 30;
-  display: flex; align-items: center; gap: 8px; margin-top: 12px;
+  display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 12px;
   padding: 10px 14px; background: var(--bg-card); border: var(--glass-border);
   border-radius: var(--radius); flex-wrap: wrap;
   backdrop-filter: blur(14px) saturate(150%); -webkit-backdrop-filter: blur(14px) saturate(150%);
   box-shadow: var(--shadow-soft);
 }
+/* Nhóm nút con: dàn ngang, không co hẹp để giữ căn đều theo chiều rộng khung video */
+.pc-group { display: inline-flex; align-items: center; gap: 8px; flex-shrink: 0; }
 .pc-btn {
   display: inline-flex; align-items: center; justify-content: center; gap: 6px;
   min-width: 38px; height: 38px; padding: 0 10px; border-radius: 10px;
@@ -455,10 +457,9 @@ select.input { appearance: none; -webkit-appearance: none; background-image: url
 .pc-btn.pc-play:hover { background: var(--primary); filter: brightness(1.1); }
 .pc-btn.pc-toggle.active { background: rgba(168,85,247,0.22); border-color: var(--primary); color: var(--primary); }
 .pc-toggle-label { white-space: nowrap; }
-/* Nhóm nút phụ đề trong thanh điều khiển — là context neo cho popup cài đặt sub */
-.pc-subs { position: relative; display: inline-flex; align-items: center; gap: 6px; flex-shrink: 0; z-index: 50; }
+/* Nhóm nút phụ đề trong thanh điều khiển */
+.pc-subs { display: inline-flex; align-items: center; gap: 6px; flex-shrink: 0; }
 .subs-toggle { min-width: 38px; padding: 0; font-size: 15px; height: 36px; }
-.pc-divider { width: 1px; height: 24px; background: var(--border); margin: 0 4px; flex-shrink: 0; }
 /* Ẩn văn bản nhưng vẫn dành cho trình đọc màn hình */
 .sr-only {
   position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
@@ -1014,13 +1015,13 @@ html[data-theme="light"] .modal { background: rgba(255, 255, 255, 0.72); }
 }
 
 
-/* ============ PANEL SUB SETTINGS (popup sổ xuống che phía dưới, neo dưới nút ⚙️ trong thanh điều khiển) ============ */
-/* Nằm absolute bên trong .pc-subs (relative): sổ xuống đè lên phần nội dung phía dưới
-   (now-playing, playlist...) thay vì đẩy in-flow. Kích cỡ vừa phải, không che hết màn hình. */
+/* ============ PANEL SUB SETTINGS (popup sổ xuống che phía dưới, rộng bằng khung video player) ============ */
+/* Nằm absolute bên trong .player-controls (position: relative · z-index: 30): sổ xuống đè lên phần nội dung phía dưới
+   (now-playing, playlist...) thay vì đẩy in-flow. left:0; right:0 → rộng đúng chiều rộng thanh điều khiển = khung video. */
 .sub-panel {
   position: absolute; z-index: 70;
-  top: calc(100% + 8px); right: 0;
-  width: min(430px, calc(100vw - 32px));
+  top: calc(100% + 8px); left: 0; right: 0;
+  width: auto;
   display: flex; flex-direction: column;
   background: rgba(13, 17, 30, 0.97);
   backdrop-filter: blur(20px) saturate(160%);
