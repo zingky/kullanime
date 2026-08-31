@@ -1129,18 +1129,20 @@
     if (cue.ovFs != null) baseFs = cue.ovFs;
     baseFs = baseFs * ((cue.ovScaleY || 100) / 100);
     // Cỡ chữ tỷ lệ với khung video. Nếu file .ass là 4K (PlayResY=2160) thì scaleH
-    // rất nhỏ trên khung nhỏ → chữ bé xíu. Giữ proportional nhưng chặn ngưỡng đọc
-    // được tối thiểu (~18px) để không bao giờ vô dụng; vẫn co/giãn đều từ ngưỡng này
-    // khi chuyển fullscreen/non-fullscreen (cả hai đều trên floor).
+    // rất nhỏ trên khung nhỏ → chữ bé xíu. floor TỶ LỆ (xem bên dưới) khắc phục.
     const fsRaw = baseFs * scaleH * customResize * textZoom * ((gs.fontScale != null ? gs.fontScale : 100) / 100);
-    const fs = Math.max(18, fsRaw);
+    // Dùng floor TỶ LỆ theo chiều cao khung video (~4.5%) thay vì floor px cố định:
+    // giữ proportional giữa fullscreen/non-fullscreen (chữ co/giãn đều) mà vẫn đảm bảo
+    // đọc được. Nếu fsRaw tự nhiên đã to hơn ngưỡng thì giữ nguyên (không phình).
+    const minFs = Math.max(9, (State.subOverlayHeight || 0) * 0.045);
+    const fs = Math.max(minFs, fsRaw);
 
     // DEBUG (tạm): in giá trị thực tế để kiểm tra tỷ lệ chữ so với khung video
     if (typeof console !== 'undefined') {
       if (Date.now() - (State._dbgT || 0) > 1000) {
         State._dbgT = Date.now();
-        console.log('[ass] scaleH=%s masterFs=%s baseFs=%s textZoom=%s customResize=%s → fs=%s subH=%s pY=%s',
-          scaleH.toFixed(3), masterFs, baseFs.toFixed(1), textZoom, customResize, fs.toFixed(1), State.subOverlayHeight, pY);
+        console.log('[ass] scaleH=%s masterFs=%s baseFs=%s textZoom=%s customResize=%s → fs=%s (raw=%s,min=%s) subH=%s pY=%s',
+          scaleH.toFixed(3), masterFs, baseFs.toFixed(1), textZoom, customResize, fs.toFixed(1), fsRaw.toFixed(1), minFs.toFixed(1), State.subOverlayHeight, pY);
       }
     }
 
@@ -1262,8 +1264,10 @@
     // Cỡ chữ hiệu dụng CHUNG cho cả 3 tab karaoke (luôn dùng gs.fontSize vì đã gộp về cỡ chữ chung)
     const karaFs = (k, fallback) => {
       const raw = (gs.fontSize != null && gs.fontSize > 0) ? gs.fontSize : (fallback || 70);
-      // Cùng ngưỡng đọc được tối thiểu như fs chính (xem renderAssCue) để chữ karaoke không bé xíu với .ass 4K.
-      return Math.max(18, raw * scaleH * customResize * textZoom * ((gs.fontScale != null ? gs.fontScale : 100) / 100));
+      // Cùng floor TỶ LỆ theo chiều cao khung video như fs chính (xem renderAssCue) để
+      // chữ karaoke proportional + đọc được với .ass 4K (không bé xíu, không phình).
+      const minFs = Math.max(9, (State.subOverlayHeight || 0) * 0.045);
+      return Math.max(minFs, raw * scaleH * customResize * textZoom * ((gs.fontScale != null ? gs.fontScale : 100) / 100));
     };
     const karaOutl = (k, fallback) => Math.max(0, ((k && k.outl != null) ? Number(k.outl) : fallback)) * scaleH;
 
@@ -2043,8 +2047,8 @@
 
       // ---------- 2 tab lớn: Cài đặt chung / Cài đặt từng style ----------
       '<div class="sub-mtabs" role="tablist">' +
-        '<button type="button" class="sub-mtab' + (useCommon ? ' active' : '') + '" data-m="common" role="tab">🌍 Cài đặt chung</button>' +
-        '<button type="button" class="sub-mtab' + (useCommon ? '' : ' active') + '" data-m="styles" role="tab">🎨 Cài đặt từng style</button>' +
+        '<button type="button" class="sub-mtab' + (useCommon ? ' active' : '') + '" data-m="common" role="tab">🌍 Use Global</button>' +
+        '<button type="button" class="sub-mtab' + (useCommon ? '' : ' active') + '" data-m="styles" role="tab">🎨 Use Style</button>' +
       '</div>' +
 
       // ---------- Panel 1: Cài đặt chung (chỉ 3 tab karaoke: Pre / Active / Post) ----------
@@ -2074,10 +2078,10 @@
         '</div>' +
       '</div>' +
 
-      // ---------- Panel 2: Cài đặt từng style ----------
+      // ---------- Panel 2: Use Style ----------
       '<div class="sub-mtab-panel" data-m="styles" role="tabpanel" style="display:' + (useCommon ? 'none' : 'block') + ';">' +
         '<div class="sub-style-headbar">' +
-          '<span class="sub-styles-title">🎨 Cài đặt từng style <em class="sub-filter-hint">(tự lọc style không có dòng)</em></span>' +
+          '<span class="sub-styles-title">🎨 Use Style <em class="sub-filter-hint">(tự lọc style không có dòng)</em></span>' +
           '<span id="sub-reset-all-styles" title="Reset tất cả style về vị trí/màu gốc">↺ ALL</span>' +
         '</div>' +
         '<div id="sub-style-items"></div>' +
