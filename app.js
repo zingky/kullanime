@@ -1869,7 +1869,8 @@
     const header = document.createElement('div');
     header.className = 'sub-panel-header';
     header.innerHTML =
-      // Thanh Timeshift nằm ngay trên header, kế bên id/tên file (luôn hoạt động cho cả 2 tab)
+      // 1 hàng duy nhất: [tên file (cắt …)] [⏱ − input + ⟳ ms] [✕]
+      '<em class="sub-panel-ctx" id="subPanelCtx" title="' + esc(ctxLabel) + '">' + esc(ctxLabel) + '</em>' +
       '<div class="sub-ts-bar sub-ts-in-header">' +
         '<span class="sub-ts-ico" title="Timeshift">⏱</span>' +
         '<button type="button" id="sub-ts-dec" title="Lùi 100ms">−</button>' +
@@ -1878,7 +1879,6 @@
         '<button type="button" id="sub-ts-zero" title="Đặt lại về 0">⟳</button>' +
         '<span class="sub-ts-ms">ms</span>' +
       '</div>' +
-      '<em class="sub-panel-ctx" id="subPanelCtx" title="Cài đặt này được lưu riêng cho video / file .ass đang phát">' + esc(ctxLabel) + '</em>' +
       '<button type="button" class="sub-panel-close" id="subPanelClose" aria-label="Đóng cài đặt phụ đề" title="Đóng (Esc)">✕</button>';
     const body = document.createElement('div');
     body.className = 'sub-panel-body';
@@ -1918,23 +1918,20 @@
   function buildSubPopupHTML(gs) {
     const useCommon = !!(gs.useGlobalStyles);
     return '' +
-      // ---------- Thanh công cụ chung: Font + B/I/U/S + Cỡ chữ % + reset ----------
+      // ---------- Thanh công cụ CHUNG 1 dòng: Font + B/I/U/S + Cỡ chữ % + reset ----------
       '<div class="sub-global-toolbar">' +
-        '<div class="sub-tool-row sub-gtb-row">' +
-          '<b class="sub-gtb-lab">Font:</b>' + getSubFontOptionsHTML() +
-        '</div>' +
-        '<div class="sub-tool-row sub-fmt-row sub-gtb-fmt">' +
+        '<span class="sub-gtb-lab">Aa</span>' + getSubFontOptionsHTML() +
+        '<div class="sub-gtb-fmt">' +
           '<button type="button" class="format-btn ' + (gs.isBold ? 'active' : '') + '" id="sub-btn-isBold" title="In đậm">B</button>' +
           '<button type="button" class="format-btn ' + (gs.isItalic ? 'active' : '') + '" id="sub-btn-isItalic" title="In nghiêng">I</button>' +
           '<button type="button" class="format-btn ' + (gs.isUnderline ? 'active' : '') + '" id="sub-btn-isUnderline" title="Gạch chân">U</button>' +
           '<button type="button" class="format-btn ' + (gs.isStrike ? 'active' : '') + '" id="sub-btn-isStrike" title="Gạch ngang">S</button>' +
         '</div>' +
-        '<div class="sub-gtb-scale">' +
-          '<label class="sub-gtb-lab">Cỡ chữ %</label>' +
-          '<input type="range" id="g-fontScale" min="50" max="200" step="1" value="' + (gs.fontScale != null ? gs.fontScale : 100) + '">' +
-          '<input type="number" id="g-fontScaleVal" value="' + (gs.fontScale != null ? gs.fontScale : 100) + '" step="1" min="50" max="200" class="num-in"><span class="sub-pct">%</span>' +
-          '<button type="button" class="sub-gtb-reset" id="sub-gtb-reset" title="Về mặc định: cỡ 100%, bỏ chọn B/I/U/S, font mặc định">⟳</button>' +
-        '</div>' +
+        '<span class="sub-gtb-sep"></span>' +
+        '<label class="sub-gtb-lab sub-gtb-lab-sm">A%</label>' +
+        '<input type="range" id="g-fontScale" min="50" max="200" step="1" value="' + (gs.fontScale != null ? gs.fontScale : 100) + '">' +
+        '<input type="number" id="g-fontScaleVal" value="' + (gs.fontScale != null ? gs.fontScale : 100) + '" step="1" min="50" max="200" class="num-in">' +
+        '<button type="button" class="sub-gtb-reset" id="sub-gtb-reset" title="Về mặc định: cỡ 100%, bỏ chọn B/I/U/S, font mặc định">⟳</button>' +
       '</div>' +
 
       // ---------- 2 tab lớn: Cài đặt chung / Cài đặt từng style ----------
