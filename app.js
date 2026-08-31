@@ -1309,11 +1309,29 @@
     } catch (_e) { /* ignore */ }
   }
 
+  const PC_AR_ICON_AUTO = '<svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>';
+  const PC_AR_ICON_REPEAT = '<svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/><line x1="13" y1="16" x2="13" y2="16"/><circle cx="12" cy="12" r="1" fill="currentColor" stroke="none"/></svg>';
+
   function updatePlayerControlsUI() {
-    const autoBtn = $('#pcAuto');
-    if (autoBtn) autoBtn.classList.toggle('active', !!State.autoNext);
-    const repBtn = $('#pcRepeat');
-    if (repBtn) repBtn.classList.toggle('active', !!State.repeat);
+    const arBtn = $('#pcAutoRepeat');
+    if (arBtn) {
+      if (State.repeat) {
+        arBtn.classList.add('active');
+        arBtn.title = 'Lặp lại bài hiện tại (đang bật)';
+        arBtn.setAttribute('aria-label', 'Lặp lại bài hiện tại (đang bật). Bấm để chuyển sang tự động chuyển bài');
+        arBtn.innerHTML = PC_AR_ICON_REPEAT;
+      } else if (State.autoNext) {
+        arBtn.classList.add('active');
+        arBtn.title = 'Tự động chuyển bài (đang bật)';
+        arBtn.setAttribute('aria-label', 'Tự động chuyển bài (đang bật). Bấm để tắt');
+        arBtn.innerHTML = PC_AR_ICON_AUTO;
+      } else {
+        arBtn.classList.remove('active');
+        arBtn.title = 'Lặp lại / Tự động chuyển bài (đang tắt)';
+        arBtn.setAttribute('aria-label', 'Lặp lại hoặc tự động chuyển bài. Bấm để bật lặp 1 video');
+        arBtn.innerHTML = PC_AR_ICON_AUTO;
+      }
+    }
     const shfBtn = $('#pcShuffle');
     if (shfBtn) shfBtn.classList.toggle('active', !!State.shuffle);
     const playIcon = $('#pcPlayIcon');
@@ -3904,10 +3922,14 @@ function setupSubPopupEvents() {
     if (pcPlay) pcPlay.addEventListener('click', togglePlay);
     const pcNext = $('#pcNext');
     if (pcNext) pcNext.addEventListener('click', playNextSong);
-    const pcAuto = $('#pcAuto');
-    if (pcAuto) pcAuto.addEventListener('click', () => { State.autoNext = !State.autoNext; savePlayerPrefs(); updatePlayerControlsUI(); });
-    const pcRepeat = $('#pcRepeat');
-    if (pcRepeat) pcRepeat.addEventListener('click', () => { State.repeat = !State.repeat; savePlayerPrefs(); updatePlayerControlsUI(); });
+    const pcAutoRepeat = $('#pcAutoRepeat');
+    if (pcAutoRepeat) pcAutoRepeat.addEventListener('click', () => {
+      // Chu kỳ 3 trạng thái: Tắt → Chỉ lặp 1 → Chỉ tự động chuyển → Tắt
+      if (State.repeat) { State.repeat = false; State.autoNext = true; }        // lặp 1 → tự động
+      else if (State.autoNext) { State.autoNext = false; }                      // tự động → tắt
+      else { State.repeat = true; State.autoNext = false; }                     // tắt → lặp 1
+      savePlayerPrefs(); updatePlayerControlsUI();
+    });
     const pcShuffle = $('#pcShuffle');
     if (pcShuffle) pcShuffle.addEventListener('click', () => { State.shuffle = !State.shuffle; savePlayerPrefs(); updatePlayerControlsUI(); });
 
