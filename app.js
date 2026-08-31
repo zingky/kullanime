@@ -1094,6 +1094,8 @@
   function renderAssCue(cue) {
     const gs = State.subSettings || {};
     const st = (State.styleSettings && State.styleSettings[cue.style]) || {};
+    // Bỏ qua style đã ẩn bởi nút 👁️ trong tab "Cài đặt từng style"
+    if (st.visible === false) return document.createDocumentFragment();
     const pX = State.playResX || 384;
     const pY = State.playResY || 288;
     const align = cue.align || 2;
@@ -1721,7 +1723,15 @@
     }
     // Render từng cue ASS (engine) — style/vị trí/karaoke
     overlay.innerHTML = '';
-    active.forEach((cue) => overlay.appendChild(renderAssCue(cue)));
+    let rendered = 0;
+    active.forEach((cue) => {
+      const frag = renderAssCue(cue);
+      if (frag && frag.childNodes && frag.childNodes.length) {
+        overlay.appendChild(frag);
+        rendered++;
+      }
+    });
+    if (rendered === 0) { hideSubtitleOverlay(); return; }
     overlay.classList.add('show');
   }
   function hideSubtitleOverlay() {
@@ -2093,8 +2103,8 @@
           '<span>XY:' + (s.posX || 0) + ',' + (s.posY || 0) + '</span>' +
           '<span>1c ' + (s.color1 || '') + '</span>' +
           '<span>3c ' + (s.color3 || '') + '</span>' +
-          '<span>S:' + (s.fontSize || 25) + '</span>' +
-          '<span>O:' + (s.outlineWidth || 2) + '</span>' +
+          '<span>Cỡ:' + (s.fontSize || 25) + '</span>' +
+          '<span>Viền:' + (s.outlineWidth || 2) + '</span>' +
           '<span>Blur:' + (s.blur != null ? s.blur : 2) + '</span>' +
         '</div>' +
         '<div class="style-body" style="display:none;">' +
@@ -2106,19 +2116,12 @@
             '<input type="range" data-style="' + sName + '" data-type="posY" min="0" max="' + (State.playResY * 2) + '" value="' + (s.posY || 0) + '">' +
             '<input type="number" value="' + (s.posY || 0) + '" class="num-in" data-style="' + sName + '" data-type="posY">' +
           '</div>' +
-          '<div class="sub-adv-style">' +
-            '<div class="adv-grid">' +
-              '<div class="adv-cell"><span class="adv-lab">1c</span><input type="color" data-style="' + sName + '" data-type="color1" value="' + (s.color1 || '#ffffff') + '"></div>' +
-              '<div class="adv-cell"><span class="adv-lab">3c</span><input type="color" data-style="' + sName + '" data-type="color3" value="' + (s.color3 || '#000000') + '"></div>' +
-            '</div>' +
-            '<div class="pos-row"><span class="pos-lab">S</span>' +
-              '<input type="range" data-style="' + sName + '" data-type="fontSize" min="10" max="100" step="1" value="' + (s.fontSize || 25) + '">' +
-              '<input type="number" value="' + (s.fontSize || 25) + '" class="num-in" data-style="' + sName + '" data-type="fontSize">' +
-            '</div>' +
-            '<div class="pos-row"><span class="pos-lab">O</span>' +
-              '<input type="range" data-style="' + sName + '" data-type="outlineWidth" min="0" max="30" step="0.1" value="' + (s.outlineWidth || 2) + '">' +
-              '<input type="number" value="' + (s.outlineWidth || 2) + '" class="num-in" data-style="' + sName + '" data-type="outlineWidth">' +
-            '</div>' +
+          '<div class="adv-grid">' +
+            '<div class="adv-cell"><span class="adv-lab">1C</span><input type="color" data-style="' + sName + '" data-type="color1" value="' + (s.color1 || '#ffffff') + '"></div>' +
+            '<div class="adv-cell"><span class="adv-lab">3C</span><input type="color" data-style="' + sName + '" data-type="color3" value="' + (s.color3 || '#000000') + '"></div>' +
+            '<div class="adv-cell"><span class="adv-lab">S</span><input type="number" data-style="' + sName + '" data-type="fontSize" min="10" max="100" step="1" value="' + (s.fontSize || 25) + '"></div>' +
+            '<div class="adv-cell"><span class="adv-lab">O</span><input type="number" data-style="' + sName + '" data-type="outlineWidth" min="0" max="30" step="0.5" value="' + (s.outlineWidth || 2) + '"></div>' +
+            '<div class="adv-cell"><span class="adv-lab">B</span><input type="number" data-style="' + sName + '" data-type="blur" min="0" max="50" step="0.5" value="' + (s.blur != null ? s.blur : 2) + '"></div>' +
           '</div>' +
         '</div>';
       item.querySelector('.sub-reset-style').onclick = (e) => {
