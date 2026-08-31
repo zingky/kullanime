@@ -447,10 +447,13 @@
         const badge = yid
           ? '<span class="ass-file-play-btn">▶</span>'
           : '<span class="ass-file-bad" title="File này không có YouTube ID hợp lệ">ID sai</span>';
+        const thumb = yid
+          ? '<span class="ass-file-thumb"><img src="https://i.ytimg.com/vi/' + yid + '/hqdefault.jpg" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.closest(\'.ass-file-thumb\').classList.add(\'no-img\')" /><span class="ass-thumb-dur">▶</span></span>'
+          : '';
         return (
           '<div class="' + cls
           + '" data-ass="' + esc(f.name) + '" tabindex="0" role="button" aria-label="Mở video ' + esc(title) + '">'
-          + '<span class="dot"></span>'
+          + thumb
           + '<span class="ass-file-name">' + esc(title) + '</span>'
           + badge
           + '</div>'
@@ -475,24 +478,39 @@
       .trim() || String(name || '').replace(/\.ass$/i, '').trim();
   }
 
-  // Mở video YouTube theo file .ass (click vào kết quả tìm kiếm)
-  async function playAssSub(file) {
-    if (!file) return;
+  // Dựng đối tượng bài hát từ 1 file .ass (dùng chung cho playAssSub & tiến/lùi bài)
+  function buildAssSong(file) {
     const yid = parseAssYoutubeId(file.name);
-    if (!yid) {
-      toast('ID sai — file "' + file.name + '" không có YouTube ID hợp lệ.', 'error', 4000);
-      return;
-    }
-    const title = stripAssTitle(file.name);
-    const song = {
+    if (!yid) return null;
+    return {
       id: 'ass:' + file.name,
       youtube_id: yid,
       ass_file: file.name,
-      title: title,
+      title: stripAssTitle(file.name),
       artist: '',
       anime: 'Phụ đề .ass',
       song_type: 'ASS'
     };
+  }
+
+  // Danh sách file .ass có YouTube ID hợp lệ (dùng làm playlist khi bấm tiến/lùi bài)
+  function getAssPlaylist() {
+    return (State.subsFiles || []).filter((f) => !!parseAssYoutubeId(f.name));
+  }
+
+  // Kiểm tra bài hát hiện tại có phải là file .ass từ kho GitHub không
+  function isAssSongId(id) {
+    return typeof id === 'string' && id.indexOf('ass:') === 0;
+  }
+
+  // Mở video YouTube theo file .ass (click vào kết quả tìm kiếm)
+  async function playAssSub(file) {
+    if (!file) return;
+    const song = buildAssSong(file);
+    if (!song) {
+      toast('ID sai — file "' + file.name + '" không có YouTube ID hợp lệ.', 'error', 4000);
+      return;
+    }
     await playSong(song);
     renderAssStatus();
   }
@@ -1199,9 +1217,26 @@
 
   // Chọn bài kế tiếp — tôn trọng chế độ ngẫu nhiên (shuffle)
   function pickNextSong() {
+    const curId = State.currentSong && State.currentSong.id;
+    // Đang phát file .ass từ kho GitHub → tiến theo danh sách phụ đề .ass
+    if (isAssSongId(curId)) {
+      const list = getAssPlaylist();
+      if (list.length === 0) return null;
+      if (State.shuffle) {
+        if (list.length === 1) return buildAssSong(list[0]);
+        const curName = curId.slice(4);
+        let file;
+        let guard = 0;
+        do { file = list[Math.floor(Math.random() * list.length)]; guard++; } while (file.name === curName && guard < 50);
+        return buildAssSong(file);
+      }
+      const curName = curId.slice(4);
+      const idx = list.findIndex((f) => f.name === curName);
+      if (idx !== -1 && idx < list.length - 1) return buildAssSong(list[idx + 1]);
+      return null; // hết danh sách (không vòng lại)
+    }
     const songs = State.songs;
     if (!songs || songs.length === 0) return null;
-    const curId = State.currentSong && State.currentSong.id;
     const idx = songs.findIndex((s) => s.id === curId);
     if (State.shuffle) {
       // ngẫu nhiên trong danh sách, tránh lặp lại bài đang phát nếu có > 1 bài
@@ -1216,9 +1251,19 @@
 
   // Lùi về bài trước (vòng lại cuối danh sách nếu đang ở bài đầu)
   function playPrevSong() {
+    const curId = State.currentSong && State.currentSong.id;
+    // Đang phát file .ass từ kho GitHub → lùi theo danh sách phụ đề .ass
+    if (isAssSongId(curId)) {
+      const list = getAssPlaylist();
+      if (list.length === 0) return;
+      const curName = curId.slice(4);
+      const idx = list.findIndex((f) => f.name === curName);
+      const target = idx > 0 ? list[idx - 1] : list[list.length - 1];
+      playAssSub(target);
+      return;
+    }
     const songs = State.songs;
     if (!songs || songs.length === 0) return;
-    const curId = State.currentSong && State.currentSong.id;
     const idx = songs.findIndex((s) => s.id === curId);
     if (idx > 0) playSong(songs[idx - 1]);
     else if (idx === 0) playSong(songs[songs.length - 1]);
@@ -1227,10 +1272,21 @@
 
   // Sang bài kế tiếp (vòng lại đầu danh sách nếu ở bài cuối) — shuffle thì ngẫu nhiên
   function playNextSong() {
+    const curId = State.currentSong && State.currentSong.id;
+    // Đang phát file .ass từ kho GitHub → tiến theo danh sách phụ đề .ass
+    if (isAssSongId(curId)) {
+      const list = getAssPlaylist();
+      if (list.length === 0) return;
+      if (State.shuffle) { const n = pickNextSong(); if (n) playSong(n); return; }
+      const curName = curId.slice(4);
+      const idx = list.findIndex((f) => f.name === curName);
+      const target = (idx !== -1 && idx < list.length - 1) ? list[idx + 1] : list[0];
+      playAssSub(target);
+      return;
+    }
     const songs = State.songs;
     if (!songs || songs.length === 0) return;
     if (State.shuffle) { const n = pickNextSong(); if (n) playSong(n); return; }
-    const curId = State.currentSong && State.currentSong.id;
     const idx = songs.findIndex((s) => s.id === curId);
     if (idx !== -1 && idx < songs.length - 1) playSong(songs[idx + 1]);
     else playSong(songs[0]);
@@ -1536,12 +1592,29 @@
     if (_subPopupEl) _subPopupEl.classList.remove('hidden', 'is-closing');
     const fab = $('#subsSettingsBtn');
     if (fab) fab.setAttribute('aria-expanded', 'true');
+    if (fab) fab.classList.add('active');
+    // Đặt panel ngay dưới nút ⚙️ cài đặt sub (dạng menu xổ xuống / dropdown)
+    const panel = _subPopupEl || $('#subPanel');
+    if (panel && fab) {
+      const r = fab.getBoundingClientRect();
+      const pw = panel.offsetWidth || Math.min(420, window.innerWidth - 24);
+      let left = r.left + r.width / 2 - pw / 2;
+      let top = r.bottom + 8;
+      // không cho tràn ra ngoài màn hình
+      left = Math.max(10, Math.min(left, window.innerWidth - pw - 10));
+      if (top + (panel.offsetHeight || 300) > window.innerHeight - 10) {
+        top = Math.max(10, window.innerHeight - (panel.offsetHeight || 300) - 10);
+      }
+      panel.style.left = left + 'px';
+      panel.style.top = top + 'px';
+    }
   }
   function hideSubPanel() {
     if (_subPopupEl) _subPopupEl.classList.add('is-closing');
     setTimeout(() => { if (_subPopupEl) _subPopupEl.classList.add('hidden'); }, 160);
     const fab = $('#subsSettingsBtn');
     if (fab) fab.setAttribute('aria-expanded', 'false');
+    if (fab) fab.classList.remove('active');
   }
   function createSubPopup() {
     if (_subPopupEl && document.body.contains(_subPopupEl) && ($('#subPanelBody') && $('#subPanelBody').children.length)) return _subPopupEl;
@@ -3819,6 +3892,15 @@ function setupSubPopupEvents() {
     }
     document.addEventListener('fullscreenchange', updateVideoFsIcon);
     document.addEventListener('webkitfullscreenchange', updateVideoFsIcon); // Safari
+
+    // Double-click vào khung player để mở / thoát fullscreen (trừ khi bấm vào nút fs)
+    const videoWrap = $('.video-wrap');
+    if (videoWrap) {
+      videoWrap.addEventListener('dblclick', (e) => {
+        if (e.target.closest('.video-fs-btn, .subs-settings-icon')) return;
+        toggleVideoFullscreen();
+      });
+    }
 
     // Điều khiển player: lùi / phát-tạm dừng / kế tiếp / tự động / ngẫu nhiên
     const pcPrev = $('#pcPrev');
