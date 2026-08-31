@@ -1875,9 +1875,9 @@
         '<span class="sub-ts-ico" title="Timeshift">⏱</span>' +
         '<button type="button" id="sub-ts-dec" title="Lùi 100ms">−</button>' +
         '<input type="text" id="sub-ts-input" value="' + (State.timeShiftMs || 0) + '" inputmode="numeric" aria-label="Timeshift (ms)">' +
+        '<span class="sub-ts-ms">ms</span>' +
         '<button type="button" id="sub-ts-inc" title="Tiến 100ms">+</button>' +
         '<button type="button" id="sub-ts-zero" title="Đặt lại về 0">⟳</button>' +
-        '<span class="sub-ts-ms">ms</span>' +
       '</div>' +
       '<button type="button" class="sub-panel-close" id="subPanelClose" aria-label="Đóng cài đặt phụ đề" title="Đóng (Esc)">✕</button>';
     const body = document.createElement('div');
