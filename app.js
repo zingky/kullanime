@@ -1085,7 +1085,7 @@
       : (gs.fontSize || 70);
     if (cue.ovFs != null) baseFs = cue.ovFs;
     baseFs = baseFs * ((cue.ovScaleY || 100) / 100);
-    const fs = Math.max(6, baseFs * scaleH * customResize * textZoom);
+    const fs = Math.max(6, baseFs * scaleH * customResize * textZoom * ((gs.fontScale != null ? gs.fontScale : 100) / 100));
 
     // ---- Màu / viền / glow (style override hoặc global setting) ----
     let c1 = isO ? (st.color1 || '#ffffff') : (gs.color1 || '#ffffff');
@@ -1708,7 +1708,7 @@
   const SUB_STORE_KEY = 'kullanime_sub_store_v2';     // lưu cài đặt theo từng video / file .ass
   const SUB_SETTINGS_DEFAULTS = {
     fontSize: 90, outlineWidth: 3, blur: 6, color1: '#ffffff', color3: '#000000',
-    spacing: 0, letterSpacing: 0, textZoom: 1.4,
+    spacing: 0, letterSpacing: 0, textZoom: 1.4, fontScale: 100,
     useBox: false, deepGlow: false, boxColor: '#000000', boxOpacity: 0.5, fontFamily: 'VNF-Comic Sans',
     fadIn: 200, fadOut: 200, popupOpacity: 0.95, popupZoom: 1.0,
     posX: 350, posY: 100, width: 820, height: 600,
@@ -1869,7 +1869,16 @@
     const header = document.createElement('div');
     header.className = 'sub-panel-header';
     header.innerHTML =
-      '<span class="sub-panel-title">⚙️ SUB Settings <em class="sub-panel-ctx" id="subPanelCtx" title="Cài đặt này được lưu riêng cho video / file .ass đang phát">' + esc(ctxLabel) + '</em></span>' +
+      // Thanh Timeshift nằm ngay trên header, kế bên id/tên file (luôn hoạt động cho cả 2 tab)
+      '<div class="sub-ts-bar sub-ts-in-header">' +
+        '<span class="sub-ts-ico" title="Timeshift">⏱</span>' +
+        '<button type="button" id="sub-ts-dec" title="Lùi 100ms">−</button>' +
+        '<input type="text" id="sub-ts-input" value="' + (State.timeShiftMs || 0) + '" inputmode="numeric" aria-label="Timeshift (ms)">' +
+        '<button type="button" id="sub-ts-inc" title="Tiến 100ms">+</button>' +
+        '<button type="button" id="sub-ts-zero" title="Đặt lại về 0">⟳</button>' +
+        '<span class="sub-ts-ms">ms</span>' +
+      '</div>' +
+      '<em class="sub-panel-ctx" id="subPanelCtx" title="Cài đặt này được lưu riêng cho video / file .ass đang phát">' + esc(ctxLabel) + '</em>' +
       '<button type="button" class="sub-panel-close" id="subPanelClose" aria-label="Đóng cài đặt phụ đề" title="Đóng (Esc)">✕</button>';
     const body = document.createElement('div');
     body.className = 'sub-panel-body';
@@ -1903,18 +1912,29 @@
     setupSubPopupEvents();
   }
 
-  // Tạo HTML nội dung panel: thanh Timeshift chung + 2 tab lớn (Cài đặt chung / Cài đặt riêng).
+  // Tạo HTML nội dung panel body: thanh công cụ CHUNG (Font + B/I/U/S + %scale + reset)
+  // luôn hiển thị trên hàng chọn Cài đặt chung / Cài đặt từng style, và hoạt động kể cả
+  // khi đang ở Cài đặt từng style. Thanh Timeshift nằm ở header (createSubPopup).
   function buildSubPopupHTML(gs) {
     const useCommon = !!(gs.useGlobalStyles);
     return '' +
-      // ---------- Thanh Timeshift: luôn hiển thị chung cho cả 2 tab ----------
-      '<div class="sub-ts-bar">' +
-        '<span class="sub-ts-lab">⏱ Timeshift</span>' +
-        '<button type="button" id="sub-ts-dec" title="Lùi 100ms">−100</button>' +
-        '<input type="text" id="sub-ts-input" value="' + (State.timeShiftMs || 0) + '" inputmode="numeric" aria-label="Timeshift (ms)">' +
-        '<button type="button" id="sub-ts-inc" title="Tiến 100ms">+100</button>' +
-        '<button type="button" id="sub-ts-zero" title="Đặt lại về 0">0</button>' +
-        '<span class="sub-ts-ms">ms</span>' +
+      // ---------- Thanh công cụ chung: Font + B/I/U/S + Cỡ chữ % + reset ----------
+      '<div class="sub-global-toolbar">' +
+        '<div class="sub-tool-row sub-gtb-row">' +
+          '<b class="sub-gtb-lab">Font:</b>' + getSubFontOptionsHTML() +
+        '</div>' +
+        '<div class="sub-tool-row sub-fmt-row sub-gtb-fmt">' +
+          '<button type="button" class="format-btn ' + (gs.isBold ? 'active' : '') + '" id="sub-btn-isBold" title="In đậm">B</button>' +
+          '<button type="button" class="format-btn ' + (gs.isItalic ? 'active' : '') + '" id="sub-btn-isItalic" title="In nghiêng">I</button>' +
+          '<button type="button" class="format-btn ' + (gs.isUnderline ? 'active' : '') + '" id="sub-btn-isUnderline" title="Gạch chân">U</button>' +
+          '<button type="button" class="format-btn ' + (gs.isStrike ? 'active' : '') + '" id="sub-btn-isStrike" title="Gạch ngang">S</button>' +
+        '</div>' +
+        '<div class="sub-gtb-scale">' +
+          '<label class="sub-gtb-lab">Cỡ chữ %</label>' +
+          '<input type="range" id="g-fontScale" min="50" max="200" step="1" value="' + (gs.fontScale != null ? gs.fontScale : 100) + '">' +
+          '<input type="number" id="g-fontScaleVal" value="' + (gs.fontScale != null ? gs.fontScale : 100) + '" step="1" min="50" max="200" class="num-in"><span class="sub-pct">%</span>' +
+          '<button type="button" class="sub-gtb-reset" id="sub-gtb-reset" title="Về mặc định: cỡ 100%, bỏ chọn B/I/U/S, font mặc định">⟳</button>' +
+        '</div>' +
       '</div>' +
 
       // ---------- 2 tab lớn: Cài đặt chung / Cài đặt từng style ----------
@@ -1926,21 +1946,10 @@
       // ---------- Panel 1: Cài đặt chung ----------
       '<div class="sub-mtab-panel" data-m="common" role="tabpanel" style="display:' + (useCommon ? 'block' : 'none') + ';">' +
 
-        '<div class="sub-tool-row">' +
-          '<b>Font:</b>' + getSubFontOptionsHTML() +
-        '</div>' +
-
-        '<div class="sub-tool-row sub-fmt-row">' +
-          '<button type="button" class="format-btn ' + (gs.isBold ? 'active' : '') + '" id="sub-btn-isBold">B</button>' +
-          '<button type="button" class="format-btn ' + (gs.isItalic ? 'active' : '') + '" id="sub-btn-isItalic">I</button>' +
-          '<button type="button" class="format-btn ' + (gs.isUnderline ? 'active' : '') + '" id="sub-btn-isUnderline">U</button>' +
-          '<button type="button" class="format-btn ' + (gs.isStrike ? 'active' : '') + '" id="sub-btn-isStrike">S</button>' +
-        '</div>' +
-
         '<div class="pill-tabs">' +
-          '<div class="pill-tab active" data-pill="settings">🎨 Ngoại hình</div>' +
-          '<div class="pill-tab" data-pill="karaoke">🎤 Karaoke</div>' +
-          '<div class="pill-tab" data-pill="advanced">🛠️ Nâng cao</div>' +
+          '<div class="pill-tab active" data-pill="settings">Pre</div>' +
+          '<div class="pill-tab" data-pill="karaoke">Active</div>' +
+          '<div class="pill-tab" data-pill="advanced">Post</div>' +
         '</div>' +
 
         '<div class="pill-panel open" data-pill="settings">' +
@@ -2238,6 +2247,31 @@ function setupSubPopupEvents() {
         if (State.subsEnabled) updateCurrentSubtitle();
       };
     });
+
+    // Reset thanh công cụ chung: cỡ chữ về 100%, bỏ chọn B/I/U/S, font về mặc định
+    const gtbReset = popup.querySelector('#sub-gtb-reset');
+    if (gtbReset) gtbReset.onclick = () => {
+      State.subSettings.fontScale = 100;
+      State.subSettings.isBold = false;
+      State.subSettings.isItalic = false;
+      State.subSettings.isUnderline = false;
+      State.subSettings.isStrike = false;
+      State.subSettings.fontFamily = SUB_SETTINGS_DEFAULTS.fontFamily;
+      // cập nhật giao diện
+      const fsR = popup.querySelector('#g-fontScale');
+      const fsV = popup.querySelector('#g-fontScaleVal');
+      if (fsR) fsR.value = '100';
+      if (fsV) fsV.value = '100';
+      const fontSel = popup.querySelector('#sub-fontSelect');
+      if (fontSel) fontSel.value = State.subSettings.fontFamily;
+      ['isBold', 'isItalic', 'isUnderline', 'isStrike'].forEach((key) => {
+        const btn = popup.querySelector('#sub-btn-' + key);
+        if (btn) btn.classList.remove('active');
+      });
+      saveSubSettings();
+      if (State.subsEnabled) updateCurrentSubtitle();
+      toast('Đã reset thanh công cụ phụ đề (font / cỡ chữ / B I U S).', 'info', 1800);
+    };
 
     // Timeshift: −100 / +100 / nhập trực tiếp / đặt lại 0
     const tsInput = popup.querySelector('#sub-ts-input');
