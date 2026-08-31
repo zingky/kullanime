@@ -32,7 +32,7 @@
   <!-- File cấu hình (đọc .env.local / fallback) -->
   <script src="./config.js"></script>
 
-  <link rel="stylesheet" href="./styles.css?v=24" />
+  <link rel="stylesheet" href="./styles.css?v=25" />
 </head>
 <body>
   <!-- Nền aurora động (liquid glass background) -->
@@ -175,6 +175,14 @@
               <button type="button" class="subs-settings-icon" id="subsSettingsBtn" title="Cài đặt phụ đề (kích thước, màu, karaoke, kiểu...)" aria-label="Cài đặt phụ đề" aria-expanded="false">⚙️</button>
             </div>
           </div>
+          <!-- Panel SUB Settings — menu sổ xuống (dropdown) nằm ngay dưới thanh now-playing (tên bài hát + phụ đề bật/tắt). Ẩn/hiện bằng nút ⚙️ -->
+          <aside class="sub-panel hidden" id="subPanel" aria-label="Cài đặt phụ đề">
+            <div class="sub-panel-header">
+              <span class="sub-panel-title">⚙️ SUB Settings <em class="sub-panel-ctx" id="subPanelCtx"></em></span>
+              <button type="button" class="sub-panel-close" id="subPanelClose" aria-label="Đóng cài đặt phụ đề" title="Đóng (Esc)">✕</button>
+            </div>
+            <div class="sub-panel-body" id="subPanelBody"><!-- JS render --></div>
+          </aside>
         </div>
 
         <!-- Phụ đề .ass -->
@@ -210,14 +218,6 @@
     <span class="chat-fab-badge" id="chatFabBadge" hidden>0</span>
   </button>
 
-  <!-- Panel SUB Settings — menu xổ xuống từ nút ⚙️ cài đặt phụ đề ở thanh now-playing: thanh Timeshift chung + 2 tab lớn (Cài đặt chung / Cài đặt từng style) -->
-  <aside class="sub-panel hidden" id="subPanel" aria-label="Cài đặt phụ đề">
-    <div class="sub-panel-header">
-      <span class="sub-panel-title">⚙️ SUB Settings <em class="sub-panel-ctx" id="subPanelCtx"></em></span>
-      <button type="button" class="sub-panel-close" id="subPanelClose" aria-label="Đóng cài đặt phụ đề" title="Đóng (Esc)">✕</button>
-    </div>
-    <div class="sub-panel-body" id="subPanelBody"><!-- JS render --></div>
-  </aside>
   <aside class="chat-panel hidden" id="chatDock" aria-label="Chat All">
     <!-- Tiêu đề panel + nút đóng -->
     <div class="chat-panel-header">
@@ -559,7 +559,7 @@
   <div class="mini-pop hidden" id="epPop"></div>
   <div class="mini-pop hidden" id="heartPop"></div>
 
-  <script src="./app.js?v=24"></script>
+  <script src="./app.js?v=25"></script>
 </body>
 </html>
 
