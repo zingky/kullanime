@@ -114,7 +114,8 @@ Nếu thiếu `.env.local` hoặc deploy lên hosting tĩnh không serve file n�
 
 - **RLS** trên Supabase: public chỉ đọc `animes`/`songs`; bình luận public đọc/ghi; ghi/sửa/xóa dữ liệu admin chỉ dành cho `is_admin`
 - **DOMPurify** lọc mọi HTML render từ user (chống XSS)
-- **Captcha + Rate limit (45s/lần)** chống spam bình luận — **chỉ áp dụng cho khách chưa đăng nhập**; tài khoản đã đăng nhập (thành viên/admin) gửi bình luận/chat không cần captcha
+- **Captcha + Rate limit (45s/lần)** chống spam bình luận — captcha chỉ bắt khách chưa đăng nhập; tài khoản đã đăng nhập (thành viên/admin) không cần captcha
+- **Rate-limit SERVER-SIDE** (trigger `prevent_comment_spam` trong SQL): tối đa **1 bình luận forum / 45 giây / người**, tính theo `user_id` (do server gán qua `auth.uid()`, client không giả mạo được). Kẻ mở F12 gọi thẳng API cũng bị chặn. Chat (realtime) không bị giới hạn 45s này.
 - `.env.local` không commit (chỉ chứa key publishable — không bao giờ để Service Role Key ở client)
 
 ## 📌 Lưu ý
