@@ -32,7 +32,7 @@
   <!-- File cấu hình (đọc .env.local / fallback) -->
   <script src="./config.js"></script>
 
-  <link rel="stylesheet" href="./styles.css?v=20" />
+  <link rel="stylesheet" href="./styles.css?v=21" />
 </head>
 <body>
   <!-- Nền aurora động (liquid glass background) -->
@@ -383,6 +383,15 @@
           <button class="btn btn-primary" id="addSongBtn">＋ Thêm bài hát</button>
         </div>
         <div class="admin-list" id="adminSongList"></div>
+        <div class="admin-repo-manager">
+          <h4 class="admin-pane-title">📂 Nguồn phụ đề .ass (GitHub repo)</h4>
+          <p class="admin-repo-desc">Nhập link GitHub repo chứa file .ass (VD: <code>https://github.com/zingky/Kull-Vietsub</code>). Các file .ass trong repo sẽ được <b>gộp vào danh sách chung</b> hiển thị ở tab Song.</p>
+          <div class="admin-repo-row">
+            <input type="text" id="assRepoInput" class="input" placeholder="https://github.com/user/repo (mặc định thư mục gốc, branch main)" />
+            <button type="button" class="btn btn-accent" id="addAssRepoBtn">＋ Thêm repo</button>
+          </div>
+          <div class="admin-repo-list" id="assRepoList"></div>
+        </div>
       </div>
 
       <!-- ── Quản lý Bình luận ── -->
@@ -544,7 +553,7 @@
   <div class="mini-pop hidden" id="epPop"></div>
   <div class="mini-pop hidden" id="heartPop"></div>
 
-  <script src="./app.js?v=20"></script>
+  <script src="./app.js?v=21"></script>
 </body>
 </html>
 
