@@ -1107,15 +1107,24 @@
     const isO = useGlobal ? false : (st.override !== false);
 
     // ---- Scale theo chiều cao overlay (y như extension engine-css.js) ----
-    const scaleH = (State.subOverlayHeight > 0 && pY > 0)
+    let scaleH = (State.subOverlayHeight > 0 && pY > 0)
       ? (State.subOverlayHeight / pY) : 1;
+    // Chặn dưới để phụ đề không bao giờ bị co xuống mức không đọc được
+    // khi overlay chưa đo đúng chiều cao (scaleH ~0) lúc vừa phát.
+    if (scaleH < 0.45) scaleH = 0.45;
     const customResize = getFontResize(gs.fontFamily || '') || 1;
     const textZoom = (gs.textZoom > 0 && gs.textZoom <= 3) ? gs.textZoom : 0.9;
 
     // ---- Font size hiệu dụng (base * scaleH * customResize * textZoom) ----
-    let baseFs = isO
-      ? (st.fontSize || 25)
-      : (gs.fontSize || 70);
+    // Cỡ chữ CHUNG (gs.fontSize) là chuẩn chính cho cả 2 chế độ — đảm bảo phụ đề
+    // luôn đọc được dù video không fullscreen (giống karaFs đã gộp về cỡ chữ chung).
+    // Ở chế độ "từng style", s.fontSize đóng vai trò hệ số tỷ lệ so với cỡ gốc .ass
+    // để nút S vẫn chỉnh được mà không bị nhỏ xíu do cỡ .ass vốn thấp.
+    const masterFs = (gs.fontSize && gs.fontSize > 0) ? gs.fontSize : 70;
+    let baseFs = masterFs;
+    if (isO && st.origFontSize && st.fontSize) {
+      baseFs = masterFs * (st.fontSize / st.origFontSize);
+    }
     if (cue.ovFs != null) baseFs = cue.ovFs;
     baseFs = baseFs * ((cue.ovScaleY || 100) / 100);
     const fs = Math.max(6, baseFs * scaleH * customResize * textZoom * ((gs.fontScale != null ? gs.fontScale : 100) / 100));
@@ -2119,7 +2128,7 @@
           '<div class="adv-grid">' +
             '<div class="adv-cell"><span class="adv-lab">1C</span><input type="color" data-style="' + sName + '" data-type="color1" value="' + (s.color1 || '#ffffff') + '"></div>' +
             '<div class="adv-cell"><span class="adv-lab">3C</span><input type="color" data-style="' + sName + '" data-type="color3" value="' + (s.color3 || '#000000') + '"></div>' +
-            '<div class="adv-cell"><span class="adv-lab">S</span><input type="number" data-style="' + sName + '" data-type="fontSize" min="10" max="100" step="1" value="' + (s.fontSize || 25) + '"></div>' +
+            '<div class="adv-cell"><span class="adv-lab">S</span><input type="number" data-style="' + sName + '" data-type="fontSize" min="10" max="200" step="1" value="' + (s.fontSize || s.origFontSize || 25) + '"></div>' +
             '<div class="adv-cell"><span class="adv-lab">O</span><input type="number" data-style="' + sName + '" data-type="outlineWidth" min="0" max="30" step="0.5" value="' + (s.outlineWidth || 2) + '"></div>' +
             '<div class="adv-cell"><span class="adv-lab">B</span><input type="number" data-style="' + sName + '" data-type="blur" min="0" max="50" step="0.5" value="' + (s.blur != null ? s.blur : 2) + '"></div>' +
           '</div>' +
