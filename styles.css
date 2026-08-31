@@ -1089,12 +1089,15 @@ html[data-theme="light"] .modal { background: rgba(255, 255, 255, 0.72); }
   cursor: default;
 }
 .sub-ctx-scroll {
-  display: inline-block; white-space: nowrap;
+  display: inline-flex; white-space: nowrap;
   animation: sub-marquee 10s linear infinite;
 }
+.sub-ctx-text {
+  padding-right: 40px;
+}
 @keyframes sub-marquee {
-  0%, 20% { transform: translateX(0); }
-  80%, 100% { transform: translateX(calc(-100%)); }
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
 }
 .sub-panel-close {
   border: 1px solid rgba(255, 255, 255, 0.12); background: rgba(255, 255, 255, 0.06); color: #bbb;
