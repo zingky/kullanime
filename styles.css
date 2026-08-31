@@ -287,9 +287,8 @@ select.input { appearance: none; -webkit-appearance: none; background-image: url
 .video-fs-btn:hover { background: rgba(16, 24, 48, 0.8); transform: scale(1.08); }
 .video-fs-btn:active { transform: scale(0.94); }
 .video-fs-btn.active { background: rgba(244, 63, 94, 0.75); }
-/* Ẩn nút fs khi đang fullscreen: không hiện khi hover, không bị bấm */
-.video-wrap:fullscreen .video-fs-btn,
-.video-fs-btn.fs-hidden { opacity: 0; pointer-events: none; }
+/* Nút fullscreen luôn hiển thị khi đang fullscreen (để bấm thoát) */
+.video-wrap:fullscreen .video-fs-btn { opacity: 1; pointer-events: auto; }
 /* Fullscreen: giữ video tỷ lệ 16:9 giữa màn hình (letterbox) để không bị giãn méo
    overlay phụ đề + placeholder cũng nằm trong cùng ô 16:9 nên vị trí % vẫn khớp video */
 .video-wrap:fullscreen {
