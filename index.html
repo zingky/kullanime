@@ -32,7 +32,7 @@
   <!-- File cấu hình (đọc .env.local / fallback) -->
   <script src="./config.js"></script>
 
-  <link rel="stylesheet" href="./styles.css?v=30" />
+  <link rel="stylesheet" href="./styles.css?v=31" />
 </head>
 <body>
   <!-- Nền aurora động (liquid glass background) -->
@@ -172,6 +172,7 @@
             <!-- Panel SUB Settings — popup sổ xuống che phần phía dưới, rộng bằng khung video player -->
             <aside class="sub-panel hidden" id="subPanel" aria-label="Cài đặt phụ đề">
               <div class="sub-panel-header">
+                <em class="sub-panel-ctx" id="subPanelCtx"></em>
                 <div class="sub-ts-bar sub-ts-in-header">
                   <span class="sub-ts-ico" title="Timeshift">⏱</span>
                   <button type="button" id="sub-ts-dec" title="Lùi 100ms">−</button>
@@ -180,7 +181,6 @@
                   <button type="button" id="sub-ts-zero" title="Đặt lại về 0">⟳</button>
                   <span class="sub-ts-ms">ms</span>
                 </div>
-                <em class="sub-panel-ctx" id="subPanelCtx"></em>
                 <button type="button" class="sub-panel-close" id="subPanelClose" aria-label="Đóng cài đặt phụ đề" title="Đóng (Esc)">✕</button>
               </div>
               <div class="sub-panel-body" id="subPanelBody"><!-- JS render --></div>
@@ -596,7 +596,7 @@
   <div class="mini-pop hidden" id="epPop"></div>
   <div class="mini-pop hidden" id="heartPop"></div>
 
-  <script src="./app.js?v=30"></script>
+  <script src="./app.js?v=31"></script>
 </body>
 </html>
 
