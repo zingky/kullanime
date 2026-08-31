@@ -431,6 +431,7 @@ select.input { appearance: none; -webkit-appearance: none; background-image: url
 
 /* ============ THANH ĐIỀU KHIỂN PLAYER (dưới khung video) ============ */
 .player-controls {
+  position: relative; z-index: 30;
   display: flex; align-items: center; gap: 8px; margin-top: 12px;
   padding: 10px 14px; background: var(--bg-card); border: var(--glass-border);
   border-radius: var(--radius); flex-wrap: wrap;
