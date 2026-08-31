@@ -46,6 +46,8 @@
     nickname: '',        // tên hiển thị (nickname) của tài khoản đã đăng nhập
     youtubeReady: false,
     ytPlayer: null,
+    autoNext: true,        // tự động chuyển bài kế tiếp khi bài hiện tại kết thúc
+    shuffle: false,        // phát ngẫu nhiên khi kết thúc / bấm next
     // Rate limit comment
     lastCommentAt: 0,
     lastChatAt: 0,
@@ -1077,16 +1079,39 @@
   }
 
   // Nút phóng to video full màn hình (dùng Fullscreen API trên khung video-wrap)
+  // Trên điện thoại: cố gắng khoá màn hình theo chiều ngang (landscape) để video
+  // phóng to ngang màn hình thay vì dọc (dùng Screen Orientation API, iOS 16.4+/Android).
   function toggleVideoFullscreen() {
     const wrap = $('.video-wrap');
     if (!wrap) return;
     if (!document.fullscreenElement) {
-      if (wrap.requestFullscreen) wrap.requestFullscreen();
-      else if (wrap.webkitRequestFullscreen) wrap.webkitRequestFullscreen(); // Safari
-      else toast('Trình duyệt không hỗ trợ fullscreen.', 'warning');
+      const doEnter = () => {
+        if (wrap.requestFullscreen) wrap.requestFullscreen();
+        else if (wrap.webkitRequestFullscreen) wrap.webkitRequestFullscreen(); // Safari
+        else toast('Trình duyệt không hỗ trợ fullscreen.', 'warning');
+      };
+      // Khoá hướng landscape trước khi vào fullscreen
+      const so = screen.orientation || (screen.mozOrientation) || (window.screen && window.screen.orientation);
+      let lockPromise = Promise.resolve();
+      if (so && typeof so.lock === 'function') {
+        try {
+          // landscape-primary/landscape-secondary — thử từng loại, ưu tiên primary
+          if (so.type && so.type.indexOf('landscape') === 0) {
+            doEnter(); // đã ở landscape rồi
+          } else {
+            lockPromise = so.lock('landscape').catch(() => { /* trình duyệt có thể không cho phép lock */ });
+          }
+        } catch (_e) { /* fallthrough */ }
+      }
+      Promise.resolve(lockPromise).then(() => doEnter()).catch(() => doEnter());
     } else {
       if (document.exitFullscreen) document.exitFullscreen();
       else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
+      // Thử mở khoá hướng (về tự do) khi thoát fullscreen
+      try {
+        const so = screen.orientation || (window.screen && window.screen.orientation);
+        if (so && typeof so.unlock === 'function') so.unlock();
+      } catch (_e) { /* ignore */ }
     }
   }
 
@@ -1105,15 +1130,84 @@
   function onPlayerStateChange(e) {
     if (e.data === YT.PlayerState.PLAYING) {
       startSubtitleTicker();
+      updatePlayerControlsUI();
+    } else if (e.data === YT.PlayerState.PAUSED || e.data === YT.PlayerState.BUFFERING) {
+      updatePlayerControlsUI();
+      if (e.data === YT.PlayerState.PAUSED) hideSubtitleOverlay();
     } else if (e.data === YT.PlayerState.ENDED) {
       hideSubtitleOverlay();
-      // Tự phát bài kế tiếp
-      const idx = State.songs.findIndex((s) => s.id === (State.currentSong && State.currentSong.id));
-      if (idx !== -1 && idx < State.songs.length - 1) {
-        setTimeout(() => playSong(State.songs[idx + 1]), 1200);
+      // Tự phát bài kế tiếp (nếu bật) — ngẫu nhiên nếu bật shuffle
+      if (State.autoNext) {
+        const next = pickNextSong();
+        if (next) setTimeout(() => playSong(next), 1200);
       }
     } else if (e.data === YT.PlayerState.PAUSED || e.data === YT.PlayerState.BUFFERING) {
       hideSubtitleOverlay();
+    }
+  }
+
+  // Chọn bài kế tiếp — tôn trọng chế độ ngẫu nhiên (shuffle)
+  function pickNextSong() {
+    const songs = State.songs;
+    if (!songs || songs.length === 0) return null;
+    const curId = State.currentSong && State.currentSong.id;
+    const idx = songs.findIndex((s) => s.id === curId);
+    if (State.shuffle) {
+      // ngẫu nhiên trong danh sách, tránh lặp lại bài đang phát nếu có > 1 bài
+      if (songs.length === 1) return songs[0];
+      let pick;
+      do { pick = songs[Math.floor(Math.random() * songs.length)]; } while (pick.id === curId);
+      return pick;
+    }
+    if (idx !== -1 && idx < songs.length - 1) return songs[idx + 1];
+    return null; // hết danh sách (không vòng lại)
+  }
+
+  // Lùi về bài trước (vòng lại cuối danh sách nếu đang ở bài đầu)
+  function playPrevSong() {
+    const songs = State.songs;
+    if (!songs || songs.length === 0) return;
+    const curId = State.currentSong && State.currentSong.id;
+    const idx = songs.findIndex((s) => s.id === curId);
+    if (idx > 0) playSong(songs[idx - 1]);
+    else if (idx === 0) playSong(songs[songs.length - 1]);
+    else playSong(songs[0]);
+  }
+
+  // Sang bài kế tiếp (vòng lại đầu danh sách nếu ở bài cuối) — shuffle thì ngẫu nhiên
+  function playNextSong() {
+    const songs = State.songs;
+    if (!songs || songs.length === 0) return;
+    if (State.shuffle) { const n = pickNextSong(); if (n) playSong(n); return; }
+    const curId = State.currentSong && State.currentSong.id;
+    const idx = songs.findIndex((s) => s.id === curId);
+    if (idx !== -1 && idx < songs.length - 1) playSong(songs[idx + 1]);
+    else playSong(songs[0]);
+  }
+
+  // Bật / tạm dừng (chỉ khi có player và đang phát một video)
+  function togglePlay() {
+    if (!State.ytPlayer || !State.youtubeReady || !State.currentSong) return;
+    try {
+      const st = State.ytPlayer.getPlayerState();
+      if (st === YT.PlayerState.PLAYING) { State.ytPlayer.pauseVideo(); hideSubtitleOverlay(); }
+      else State.ytPlayer.playVideo();
+      updatePlayerControlsUI();
+    } catch (_e) { /* ignore */ }
+  }
+
+  function updatePlayerControlsUI() {
+    const autoBtn = $('#pcAuto');
+    if (autoBtn) autoBtn.classList.toggle('active', !!State.autoNext);
+    const shfBtn = $('#pcShuffle');
+    if (shfBtn) shfBtn.classList.toggle('active', !!State.shuffle);
+    const playIcon = $('#pcPlayIcon');
+    if (playIcon && State.ytPlayer && State.youtubeReady) {
+      let playing = false;
+      try { playing = State.ytPlayer.getPlayerState() === YT.PlayerState.PLAYING; } catch (_e) {}
+      playIcon.innerHTML = playing
+        ? '<path d="M6 5h4v14H6zM14 5h4v14h-4z"/>'
+        : '<path d="M8 5v14l11-7z"/>';
     }
   }
 
@@ -1298,6 +1392,20 @@
       '<div class="g-row"><label>Zoom</label><input type="range" data-k="' + key + '" data-type="zoom" min="0.5" max="2.0" step="0.05" value="' + (obj.zoom || 1.0) + '"><input type="number" data-k="' + key + '" data-type="zoom" value="' + (obj.zoom || 1.0) + '" class="num-in" step="0.05"></div>' +
       (isAct ? '<div class="one-line" style="border-top:1px dashed #444; padding-top:5px; margin-top:5px;">Z-In:<input type="number" data-k="' + key + '" data-type="zIn" value="' + (obj.zIn || 100) + '" class="num-in" step="10"> Z-Out:<input type="number" data-k="' + key + '" data-type="zOut" value="' + (obj.zOut || 100) + '" class="num-in" step="10"></div>' : '');
   }
+  const PLAYER_PREFS_KEY = 'kullanime_player_prefs_v1';
+  function loadPlayerPrefs() {
+    try {
+      const raw = localStorage.getItem(PLAYER_PREFS_KEY);
+      if (!raw) return;
+      const p = JSON.parse(raw);
+      if (typeof p.autoNext === 'boolean') State.autoNext = p.autoNext;
+      if (typeof p.shuffle === 'boolean') State.shuffle = p.shuffle;
+    } catch (_e) { /* ignore */ }
+  }
+  function savePlayerPrefs() {
+    try { localStorage.setItem(PLAYER_PREFS_KEY, JSON.stringify({ autoNext: State.autoNext, shuffle: State.shuffle })); } catch (_e) { /* ignore */ }
+  }
+
 function createSubPopup() {
     if (_subPopupEl && document.body.contains(_subPopupEl)) return _subPopupEl;
     const gs = ensureSubSettings();
@@ -3493,6 +3601,15 @@ function setupSubPopupEvents() {
     document.addEventListener('fullscreenchange', updateVideoFsIcon);
     document.addEventListener('webkitfullscreenchange', updateVideoFsIcon); // Safari
 
+    // Điều khiển player: lùi / phát-tạm dừng / kế tiếp / tự động / ngẫu nhiên
+    $('#pcPrev').addEventListener('click', playPrevSong);
+    $('#pcPlay').addEventListener('click', togglePlay);
+    $('#pcNext').addEventListener('click', playNextSong);
+    const pcAuto = $('#pcAuto');
+    if (pcAuto) pcAuto.addEventListener('click', () => { State.autoNext = !State.autoNext; savePlayerPrefs(); updatePlayerControlsUI(); });
+    const pcShuffle = $('#pcShuffle');
+    if (pcShuffle) pcShuffle.addEventListener('click', () => { State.shuffle = !State.shuffle; savePlayerPrefs(); updatePlayerControlsUI(); });
+
     // Bình luận: gửi & captcha & toolbar (bold/italic/.../) + paste tự xử lý link/ảnh
     $('#submitCommentBtn').addEventListener('click', submitComment);
     $('#captchaRefresh').addEventListener('click', newCaptcha);
@@ -3883,7 +4000,9 @@ function setupSubPopupEvents() {
   async function init() {
     await initSupabase();
     ensureSubSettings(); // nạp cài đặt phụ đề toàn cục từ localStorage
+    loadPlayerPrefs();   // nạp tùy chọn tự động / ngẫu nhiên từ localStorage
     bindEvents();
+    updatePlayerControlsUI();
     // Khôi phục tab đang active (mặc định anime)
     switchTab('anime');
     // Tải dữ liệu công khai
