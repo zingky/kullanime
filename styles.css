@@ -271,6 +271,36 @@ select.input { appearance: none; -webkit-appearance: none; background-image: url
 
 .subtitle-overlay { position: absolute; inset: 0; pointer-events: none; z-index: 5; opacity: 0; transition: opacity 0.2s ease; }
 .subtitle-overlay.show { opacity: 1; }
+/* Nút phóng to video full màn hình (nổi góc phải khung video) */
+.video-fs-btn {
+  position: absolute; top: 10px; right: 10px; z-index: 30;
+  width: 38px; height: 38px; border-radius: 10px;
+  background: rgba(8, 12, 24, 0.55); backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.2); color: #fff;
+  display: flex; align-items: center; justify-content: center; cursor: pointer;
+  opacity: 0.85; transition: opacity 0.15s ease, transform 0.15s ease, background 0.15s ease;
+}
+.video-wrap:hover .video-fs-btn { opacity: 1; }
+.video-fs-btn:hover { background: rgba(16, 24, 48, 0.8); transform: scale(1.08); }
+.video-fs-btn:active { transform: scale(0.94); }
+.video-fs-btn.active { background: rgba(244, 63, 94, 0.75); }
+/* Fullscreen: giữ video tỷ lệ 16:9 giữa màn hình (letterbox) để không bị giãn méo
+   overlay phụ đề + placeholder cũng nằm trong cùng ô 16:9 nên vị trí % vẫn khớp video */
+.video-wrap:fullscreen {
+  background: #000; border-radius: 0; border: none;
+  overflow: hidden;
+}
+.video-wrap:fullscreen iframe,
+.video-wrap:fullscreen .subtitle-overlay,
+.video-wrap:fullscreen .player-placeholder {
+  position: absolute; inset: 0; margin: auto;
+  width: min(100vw, calc(100vh * 16 / 9));
+  height: min(100vh, calc(100vw * 9 / 16));
+}
+@media (max-width: 480px) {
+  .video-fs-btn { width: 34px; height: 34px; top: 8px; right: 8px; }
+}
 /* Các dòng cũ (compat) — engine mới render theo từng cue ASS với style riêng */
 .sub-line { display: block; margin: 2px auto; line-height: 1.35; background: rgba(0, 0, 0, 0.45); border-radius: 8px; padding: 2px 12px; width: fit-content; max-width: 92%; }
 .sub-romaji { font-size: clamp(14px, 2.2vw, 20px); font-weight: 600; letter-spacing: 0.02em; }
@@ -842,6 +872,36 @@ html[data-theme="light"] .modal { background: rgba(255, 255, 255, 0.72); }
 @media (max-width: 480px) {
   .chat-fab { left: 14px; bottom: 14px; width: 56px; height: 56px; }
   .chat-panel { left: 12px; bottom: 80px; width: calc(100vw - 24px); }
+}
+
+/* ============ NÚT BONG BÓNG SUB SETTINGS (chỉ hiện khi ở tab Song) ============ */
+.subs-fab {
+  position: fixed; right: 20px; bottom: 20px; z-index: 85;
+  width: 60px; height: 60px; border-radius: 50%;
+  background: linear-gradient(135deg, #ff9a3c, #f43f5e);
+  color: #fff; border: none; cursor: pointer;
+  display: none; align-items: center; justify-content: center;
+  box-shadow: 0 10px 28px rgba(244, 63, 94, 0.5);
+  transition: transform 0.18s ease, box-shadow 0.18s ease, filter 0.18s ease;
+}
+body.is-song .subs-fab { display: flex; }
+.subs-fab:hover {
+  transform: translateY(-3px) scale(1.06);
+  box-shadow: 0 14px 34px rgba(244, 63, 94, 0.65);
+  filter: brightness(1.08);
+}
+.subs-fab:active { transform: scale(0.95); }
+.subs-fab-text {
+  font-size: 18px; font-weight: 900; letter-spacing: 1px;
+  font-family: 'Segoe UI', Roboto, sans-serif;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.35);
+  margin-right: -6px;
+}
+.subs-fab-gear { font-size: 10px; align-self: flex-start; margin-top: 3px; filter: drop-shadow(0 1px 2px rgba(0,0,0,0.4)); }
+
+@media (max-width: 480px) {
+  .subs-fab { right: 14px; bottom: 14px; width: 56px; height: 56px; }
+  .subs-fab-text { font-size: 16px; }
 }
 
 /* ============ RESPONSIVE TUNING ============ */
