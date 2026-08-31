@@ -1055,10 +1055,16 @@
           playsinline: 1,
           controls: 1,
           enablejsapi: 1,
-          fs: 0 // ẩn nút fullscreen của YouTube; dùng nút fullscreen riêng của app
+          fs: 0, // ẩn nút fullscreen của YouTube; dùng nút fullscreen riêng của app
+          cc_load_policy: 0, // luôn mặc định tắt phụ đề CC gốc của YouTube (dùng engine ASS riêng)
+          cc_lang_pref: 'vi'
         },
         events: {
-          onReady: () => { startSubtitleTicker(); },
+          onReady: () => {
+            startSubtitleTicker();
+            // Tắt hẳn module captions của YouTube để không bao giờ hiện CC gốc chồng lên phụ đề ASS
+            try { State.ytPlayer.unloadModule('captions'); } catch (_e) { /* nếu module không có sẵn thì bỏ qua */ }
+          },
           onStateChange: onPlayerStateChange,
           onError: () => { toast('Không thể phát video này.', 'error'); }
         }
@@ -1068,6 +1074,32 @@
       console.error('Lỗi tạo YT player:', e);
       return false;
     }
+  }
+
+  // Nút phóng to video full màn hình (dùng Fullscreen API trên khung video-wrap)
+  function toggleVideoFullscreen() {
+    const wrap = $('.video-wrap');
+    if (!wrap) return;
+    if (!document.fullscreenElement) {
+      if (wrap.requestFullscreen) wrap.requestFullscreen();
+      else if (wrap.webkitRequestFullscreen) wrap.webkitRequestFullscreen(); // Safari
+      else toast('Trình duyệt không hỗ trợ fullscreen.', 'warning');
+    } else {
+      if (document.exitFullscreen) document.exitFullscreen();
+      else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
+    }
+  }
+
+  function updateVideoFsIcon() {
+    const fsBtn = $('#videoFullscreenBtn');
+    if (!fsBtn) return;
+    const fs = !!document.fullscreenElement;
+    fsBtn.classList.toggle('active', fs);
+    fsBtn.setAttribute('aria-label', fs ? 'Thoát toàn màn hình' : 'Phóng to video');
+    fsBtn.setAttribute('title', fs ? 'Thoát toàn màn hình (Esc)' : 'Phóng to video');
+    const enterSvg = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M21 8V5a2 2 0 0 0-2-2h-3"/><path d="M3 16v3a2 2 0 0 0 2 2h3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/></svg>';
+    const exitSvg = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3v3a2 2 0 0 1-2 2H3"/><path d="M21 8h-3a2 2 0 0 1-2-2V3"/><path d="M3 16h3a2 2 0 0 1 2 2v3"/><path d="M16 21v-3a2 2 0 0 1 2-2h3"/></svg>';
+    fsBtn.innerHTML = fs ? exitSvg : enterSvg;
   }
 
   function onPlayerStateChange(e) {
@@ -1378,6 +1410,8 @@ function toggleSubPopup() {
     const p = createSubPopup();
     const show = p.style.display === 'none' || p.style.display === '';
     p.style.display = show ? 'flex' : 'none';
+    const fab = $('#subsSettingsBtn');
+    if (fab) fab.setAttribute('aria-expanded', String(show));
     if (show) {
       renderSubStyleItems();
       if (State.subsEnabled) updateCurrentSubtitle();
@@ -1502,6 +1536,7 @@ function setupSubPopupEvents() {
       if (p && p.style.display !== 'none' && !p.contains(e.target) && !(btn && btn.contains(e.target)) &&
           State.subSettings && State.subSettings.closeOnClickOutside) {
         p.style.display = 'none';
+        if (btn) btn.setAttribute('aria-expanded', 'false');
       }
     });
 
@@ -3447,6 +3482,17 @@ function setupSubPopupEvents() {
       });
     }
 
+    // Nút phóng to video full màn hình + cập nhật icon khi vào/thoát fullscreen
+    const videoFsBtn = $('#videoFullscreenBtn');
+    if (videoFsBtn) {
+      videoFsBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        toggleVideoFullscreen();
+      });
+    }
+    document.addEventListener('fullscreenchange', updateVideoFsIcon);
+    document.addEventListener('webkitfullscreenchange', updateVideoFsIcon); // Safari
+
     // Bình luận: gửi & captcha & toolbar (bold/italic/.../) + paste tự xử lý link/ảnh
     $('#submitCommentBtn').addEventListener('click', submitComment);
     $('#captchaRefresh').addEventListener('click', newCaptcha);
@@ -3795,6 +3841,22 @@ function setupSubPopupEvents() {
     $$('.nav-tab[data-tab]').forEach((b) => {
       b.classList.toggle('active', b.dataset.tab === tabName);
     });
+    // Nút SUB bong bóng cài đặt phụ đề: chỉ hiện khi ở tab Song (music)
+    document.body.classList.toggle('is-song', tabName === 'music');
+    // Đóng popup cài đặt phụ đề nếu đang mở khi rời tab Song
+    if (tabName !== 'music') {
+      const sp = _subPopupEl;
+      const fab = $('#subsSettingsBtn');
+      if (sp && sp.style.display !== 'none') {
+        sp.style.display = 'none';
+        if (fab) fab.setAttribute('aria-expanded', 'false');
+      }
+      // Thoát fullscreen video nếu đang bật
+      if (document.fullscreenElement) {
+        if (document.exitFullscreen) document.exitFullscreen();
+        else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
+      }
+    }
     // Đổi brand theo tab: KullAnime hoặc KullSong
     const brand = $('#brandName');
     if (brand) {

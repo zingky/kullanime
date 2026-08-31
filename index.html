@@ -32,7 +32,7 @@
   <!-- File cấu hình (đọc .env.local / fallback) -->
   <script src="./config.js"></script>
 
-  <link rel="stylesheet" href="./styles.css?v=18" />
+  <link rel="stylesheet" href="./styles.css?v=20" />
 </head>
 <body>
   <!-- Nền aurora động (liquid glass background) -->
@@ -135,6 +135,10 @@
               <span class="ph-icon">🎵</span>
               <p>Chọn một bài hát bên dưới để phát</p>
             </div>
+            <!-- Nút phóng to video full màn hình -->
+            <button type="button" class="video-fs-btn" id="videoFullscreenBtn" aria-label="Phóng to video" title="Phóng to video">
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M21 8V5a2 2 0 0 0-2-2h-3"/><path d="M3 16v3a2 2 0 0 0 2 2h3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/></svg>
+            </button>
           </div>
           <div class="now-playing">
             <div class="np-thumb" id="npThumb"><span class="np-thumb-ph">🎜</span></div>
@@ -146,7 +150,6 @@
               <span id="subsToggleIcon">💬</span>
               <span class="btn-label" id="subsToggleLabel">Phụ đề: Tắt</span>
             </button>
-            <button class="btn btn-subtle" id="subsSettingsBtn" title="Cài đặt phụ đề (kích thước, màu, karaoke, kiểu...)">SUB ⚙️</button>
           </div>
         </div>
 
@@ -181,6 +184,12 @@
   <button type="button" class="chat-fab" id="chatFab" aria-expanded="false" aria-label="Mở Chat All" title="Chat All">
     <span class="chat-fab-icon">💬</span>
     <span class="chat-fab-badge" id="chatFabBadge" hidden>0</span>
+  </button>
+
+  <!-- Nút SUB bong bóng — cài đặt phụ đề (chỉ hiện khi ở tab Song) -->
+  <button type="button" class="subs-fab" id="subsSettingsBtn" aria-label="Cài đặt phụ đề" title="Cài đặt phụ đề (kích thước, màu, karaoke, kiểu...)" aria-expanded="false">
+    <span class="subs-fab-text">SUB</span>
+    <span class="subs-fab-gear">⚙️</span>
   </button>
   <aside class="chat-panel hidden" id="chatDock" aria-label="Chat All">
     <!-- Tiêu đề panel + nút đóng -->
