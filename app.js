@@ -900,6 +900,24 @@
     return { h, v };
   }
 
+  // ── Toạ độ anchor (điểm neo) trong hệ PlayRes — mô phỏng chính xác Aegisub ──
+  // X: lề trái/ phải là khoảng cách thực từ mép; khi căn giữa thì lấy tâm giữa
+  //     vùng còn lại sau khi trừ cả MarginL lẫn MarginR (giống libass).
+  // Y (điểm neo): top → cách mép trên đúng MarginV; bottom → cách mép dưới đúng
+  //     MarginV; mid → giữa khung. Trình render sẽ dùng translate để áp neo này.
+  function assAnchorX(align, mL, mR, playResX) {
+    const hv = alignToHV(align);
+    if (hv.h === 'left') return mL;
+    if (hv.h === 'right') return playResX - mR;
+    return mL + (playResX - mL - mR) / 2;
+  }
+  function assAnchorY(align, mV, playResY) {
+    const hv = alignToHV(align);
+    if (hv.v === 'top') return mV;
+    if (hv.v === 'bottom') return playResY - mV;
+    return playResY / 2;
+  }
+
   // Tách chuỗi ASS thành mảng đoạn karaoke: [{text,time}], time=ms từ đầu dòng.
   function splitAssKaraoke(rawText) {
     const segments = [];
@@ -955,11 +973,10 @@
         const marginV = p[21] ? (parseInt(p[21].trim(), 10) || 10) : 10;
         const align = p[18] ? (parseInt(p[18].trim(), 10) || 2) : 2;
         const hv = alignToHV(align);
-        let defX = playResX / 2, defY = playResY - marginV - 20;
-        if (hv.h === 'left') defX = marginL + 20;
-        else if (hv.h === 'right') defX = playResX - marginR - 20;
-        if (hv.v === 'top') defY = marginV + 20;
-        else if (hv.v === 'mid') defY = playResY / 2;
+        // Toạ độ gốc giống Aegisub: lề Margin chính là khoảng cách thực từ mép khung
+        // (không cộng thêm offset ảo +20). X định tâm theo cả 2 lề L/R.
+        const anX = assAnchorX(align, marginL, marginR, playResX);
+        const anY = assAnchorY(align, marginV, playResY);
         styleSettings[name] = {
           color1: assToHex(p[3]), color3: assToHex(p[5]),
           origColor1: assToHex(p[3]), origColor3: assToHex(p[5]),
@@ -973,7 +990,7 @@
           fontName: (p[1] || '').trim(),
           align: align, marginL: marginL, marginR: marginR, marginV: marginV,
           origAlign: align, origMarginL: marginL, origMarginR: marginR, origMarginV: marginV,
-          posX: defX, posY: defY, blur: 2,
+          posX: anX, posY: anY, blur: 2, posOverridden: false,
           override: !(State.subSettings && State.subSettings.useGlobalStyles),
           visible: true
         };
@@ -1042,16 +1059,15 @@
     if (an) effAlign = an;
     else if (a) effAlign = a;
     const hv = alignToHV(effAlign);
-    let posX = st.posX, posY = st.posY;
+    // Lề hiệu lực: ưu tiên lề style (hoặc override từng dòng — đơn giản hoá ở đây).
+    const effMarginL = (st.marginL != null) ? st.marginL : 10;
+    const effMarginR = (st.marginR != null) ? st.marginR : 10;
+    const effMarginV = (st.marginV != null) ? st.marginV : 10;
+    // Vị trí mặc định theo Aegisub (điểm neo theo Alignment + lề).
+    let posX = assAnchorX(effAlign, effMarginL, effMarginR, playResX);
+    let posY = assAnchorY(effAlign, effMarginV, playResY);
+    const hasPos = !!pos;
     if (pos) { posX = pos.x; posY = pos.y; }
-    else if (an || a) {
-      if (hv.h === 'left') posX = st.marginL + 20;
-      else if (hv.h === 'right') posX = playResX - st.marginR - 20;
-      else posX = playResX / 2;
-      if (hv.v === 'top') posY = st.marginV + 20;
-      else if (hv.v === 'mid') posY = playResY / 2;
-      else posY = playResY - st.marginV - 20;
-    }
     // ---- Dòng + văn bản sạch ----
     const rawLines = rawText.split(/\\N/gi);
     const hasKara = /\\[kKf][\d.]+/i.test(rawText);
@@ -1063,6 +1079,8 @@
       cleanText: cleanText.replace(/\s+/g, ' ').trim(),
       rawLines: rawLines,
       align: effAlign, posX, posY, hasKara: hasKara,
+      marginL: effMarginL, marginR: effMarginR, marginV: effMarginV,
+      hasPos: hasPos, anchorV: hv.v,
       ovFs, ovC1, ovC3, ovBord, ovBlur, ovSpacing, ovBold, ovItalic,
       ovScaleX, ovScaleY
     };
@@ -1186,20 +1204,39 @@
     div.className = 'ass-cue';
     const useFont = fontName ? '\'' + fontName + '\', sans-serif' : 'inherit';
 
-    // ---- Vị trí theo tỷ lệ PlayRes ----
-    // Luôn đọc vị trí X/Y từ styleSettings (per-style) — kể cả khi đang ở "Cài đặt chung".
-    // Người dùng chỉnh X/Y ở tab "Cài đặt từng style" sẽ áp dụng trực tiếp (không snapshot theo cue).
-    let cueX = cue.posX, cueY = cue.posY;
-    if (st && st.posX != null && st.posY != null) { cueX = st.posX; cueY = st.posY; }
-    const leftPct = (cueX / pX * 100);
-    const topPct = (cueY / pY * 100);
+    // ---- Vị trí theo tỷ lệ PlayRes (giống Aegisub: Alignment + Margin) ----
+    // Ưu tiên: (1) dòng có \pos → dùng toạ độ cố định; (2) style được người dùng
+    // kéo X/Y trong tab "từng style" (posOverridden) → dùng toạ độ thủ công;
+    // (3) mặc định → tính lại điểm neo từ Alignment + MarginL/R/V mỗi lần render
+    //     để khớp chính xác với Aegisub (không bị "đóng băng" từ lúc parse).
+    let anchorX, anchorY, anchorV = cue.anchorV || hv.v;
+    let anchorH = hv.h;
+    if (cue.hasPos) {
+      anchorX = cue.posX; anchorY = cue.posY;
+    } else if (st && st.posOverridden && st.posX != null && st.posY != null) {
+      anchorX = st.posX; anchorY = st.posY;
+    } else {
+      const mL = (cue.marginL != null) ? cue.marginL : 10;
+      const mR = (cue.marginR != null) ? cue.marginR : 10;
+      const mV = (cue.marginV != null) ? cue.marginV : 10;
+      anchorX = assAnchorX(cue.align || 2, mL, mR, pX);
+      anchorY = assAnchorY(cue.align || 2, mV, pY);
+    }
+    const leftPct = (anchorX / pX * 100);
+    const topPct = (anchorY / pY * 100);
     let tx = '-50%', ty = '-50%';
-    if (hv.h === 'left') tx = '0%';
-    else if (hv.h === 'right') tx = '-100%';
-    if (hv.v === 'top') ty = '0%';
-    else if (hv.v === 'mid') ty = '-50%';
+    if (anchorH === 'left') tx = '0%';
+    else if (anchorH === 'right') tx = '-100%';
+    if (anchorV === 'top') ty = '0%';
+    else if (anchorV === 'mid') ty = '-50%';
     else ty = '-100%';
-    const textAlign = hv.h === 'left' ? 'left' : hv.h === 'right' ? 'right' : 'center';
+    const textAlign = anchorH === 'left' ? 'left' : anchorH === 'right' ? 'right' : 'center';
+
+    // Lưu dữ liệu cho bước tách chồng lấn (collision resolution): vector dịch dọc.
+    div.dataset.v = anchorV;         // 'top' | 'bottom' | 'mid'
+    div.dataset.tx = tx;             // translate ngang
+    div.dataset.ty = ty;             // translate dọc gốc
+    div.dataset.off = '0';           // pixel dịch thêm do chồng lấn
 
     div.style.cssText =
       'position:absolute; left:' + leftPct + '%; top:' + topPct + '%;' +
@@ -1535,6 +1572,61 @@
     fsBtn.innerHTML = fs ? exitSvg : enterSvg;
   }
 
+  // ── Nút fullscreen tự ẩn (cả trong lẫn ngoài fullscreen) ──
+  // Chỉ hiện khi rê chuột/chạm vùng góc trên khung video (.fs-hover-zone) hoặc
+  // khi hover lên nút; tự ẩn sau ~2.5s nhàn rỗi. Vùng .fs-hover-zone nằm TRÊN
+  // iframe YouTube nên nhận được pointer event trên cả desktop lẫn điện thoại
+  // (iframe không "nuốt" sự kiện ở vùng đó nữa). Hiển thị thật sự do CSS
+  // (.revealed / :hover của zone) điều khiển; JS chỉ quản lý giờ tự ẩn.
+  function initVideoFsAutohide() {
+    const wrap = $('.video-wrap');
+    const btn = $('#videoFullscreenBtn');
+    const zone = wrap ? wrap.querySelector('.fs-hover-zone') : null;
+    if (!wrap || !btn) return;
+    let hideTimer = null;
+    const HIDE_MS = 2500;
+    const scheduleHide = () => {
+      if (hideTimer) clearTimeout(hideTimer);
+      hideTimer = setTimeout(() => {
+        if (!btn.matches(':hover') && !(zone && zone.matches(':hover'))) {
+          btn.classList.remove('revealed');
+          btn.classList.add('hiding');
+          setTimeout(() => btn.classList.remove('hiding'), 300);
+        }
+      }, HIDE_MS);
+    };
+    const reveal = () => {
+      if (hideTimer) clearTimeout(hideTimer);
+      btn.classList.remove('hiding');
+      btn.classList.add('revealed');
+      scheduleHide();
+    };
+    // Vùng trên: rê/chạm vào đó → hiện nút (bao gồm touch trên điện thoại).
+    if (zone) {
+      zone.addEventListener('pointerenter', reveal);
+      // pointerdown giúp hiện ngay khi chạm (touch); pointermove đẩy lùi giờ ẩn.
+      zone.addEventListener('pointermove', reveal, { passive: true });
+      zone.addEventListener('pointerdown', reveal, { passive: true });
+    }
+    // Giữ nút hiển thị khi rê đang nằm trên nút.
+    btn.addEventListener('pointerenter', reveal);
+    btn.addEventListener('pointerleave', scheduleHide);
+    // Dự phòng: theo dõi toàn viewport để bắt trường hợp con trỏ lướt tới vùng trên.
+    window.addEventListener('pointermove', (e) => {
+      if (!zone) return;
+      const r = zone.getBoundingClientRect();
+      if (r.height > 0 && e.clientY >= r.top && e.clientY <= r.bottom &&
+          e.clientX >= r.left && e.clientX <= r.right) reveal();
+    }, { passive: true });
+    // Bất kỳ lúc vào/ra fullscreen đều ẩn nút (không bật mãi khi fullscreen).
+    const hideNow = () => {
+      btn.classList.remove('revealed', 'hiding');
+      if (hideTimer) clearTimeout(hideTimer);
+    };
+    document.addEventListener('fullscreenchange', hideNow);
+    document.addEventListener('webkitfullscreenchange', hideNow);
+  }
+
   function onPlayerStateChange(e) {
     if (e.data === YT.PlayerState.PLAYING) {
       startSubtitleTicker();
@@ -1802,6 +1894,69 @@
     });
     if (rendered === 0) { hideSubtitleOverlay(); return; }
     overlay.classList.add('show');
+    // Tách chồng lấn: nếu nhiều cue hoạt động cùng lúc đè lên nhau, dịch dọc tách ra.
+    resolveSubtitleCollisions(overlay);
+  }
+
+  // ── Tách chồng lấn giữa các phụ đề đang hiển thị ──
+  // Hai cue coi là "đè" nhau khi khung ngoài của chúng trùng nhau theo cả chiều
+  // ngang lẫn chiều dọc. Khi đó dịch cue phía dưới/trên tách ra theo hướng phù
+  // hợp với kiểu neo (bottom → đẩy lên trên để giữ sát mép dưới; top → đẩy xuống;
+  // giữa → đẩy nhau xa tâm). Lặp vài vòng cho tới khi hết đè hoặc hết lượt.
+  function resolveSubtitleCollisions(overlay) {
+    const cues = Array.from(overlay.querySelectorAll('.ass-cue'));
+    if (cues.length < 2) return;
+    const r = overlay.getBoundingClientRect();
+    const ovH = r.height || 1;
+    const GAP = Math.max(3, ovH * 0.012);         // khoảng trống tối thiểu giữa 2 dòng
+    const readBox = (el) => {
+      const b = el.getBoundingClientRect();
+      return {
+        el, v: el.dataset.v || 'bottom',
+        top: b.top - r.top, bottom: b.bottom - r.top,
+        left: b.left - r.left, right: b.right - r.left
+      };
+    };
+    const apply = (bx, off) => {
+      const el = bx.el;
+      const cur = parseFloat(el.dataset.off || 0);
+      if (cur === off) return;
+      el.dataset.off = String(off);
+      el.style.transform = 'translate(' + el.dataset.tx + ',' + el.dataset.ty + ') translateY(' + off + 'px)';
+    };
+    let boxes = cues.map(readBox);
+    // Giới hạn vòng lặp để không treo; mỗi vòng chỉ cần 1 cặp đè đầu tiên được xử lý.
+    for (let iter = 0; iter < 20; iter++) {
+      let progressed = false;
+      for (let i = 0; i < boxes.length; i++) {
+        for (let j = i + 1; j < boxes.length; j++) {
+          const a = boxes[i], b = boxes[j];
+          // Trùng ngang: khung ngoài 2 cue chồng nhau theo trục X
+          const hOverlap = a.left < b.right - 1 && a.right > b.left + 1;
+          if (!hOverlap) continue;
+          // Trùng dọc: chồng nhau theo trục Y (bỏ qua khoảng trống GAP)
+          const vOverlap = Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top);
+          if (vOverlap <= GAP) continue;
+          // Xác định cue trên (top nhỏ hơn) và dưới
+          const upper = a.top <= b.top ? a : b;
+          const lower = upper === a ? b : a;
+          const shift = vOverlap + GAP;
+          if (a.v === 'top' || b.v === 'top') {
+            // Neo trên → đẩy cue dưới xuống thêm (giữ cue trên sát mép trên)
+            apply(lower, parseFloat(lower.el.dataset.off || 0) + shift);
+          } else {
+            // Neo dưới / giữa → đẩy cue trên lên (giữ cue dưới sát mép dưới)
+            apply(upper, parseFloat(upper.el.dataset.off || 0) - shift);
+          }
+          // Cập nhật toạ độ sau khi dịch rồi tiếp tục vòng ngoài (đơn giản, ổn định)
+          boxes = cues.map(readBox);
+          progressed = true;
+          break;
+        }
+        if (progressed) break;
+      }
+      if (!progressed) break;
+    }
   }
   function hideSubtitleOverlay() {
     const overlay = $('#subtitleOverlay');
@@ -2202,12 +2357,9 @@
         const mL = (s.origMarginL !== undefined && s.origMarginL !== null) ? s.origMarginL : (s.marginL || 10);
         const mR = (s.origMarginR !== undefined && s.origMarginR !== null) ? s.origMarginR : (s.marginR || 10);
         const mV = (s.origMarginV !== undefined && s.origMarginV !== null) ? s.origMarginV : (s.marginV || 10);
-        if (a % 3 === 1) s.posX = mL + 10;
-        else if (a % 3 === 0) s.posX = State.playResX - mR - 10;
-        else s.posX = State.playResX / 2;
-        if (a >= 7) s.posY = mV + 10;
-        else if (a >= 4) s.posY = State.playResY / 2;
-        else s.posY = State.playResY - mV - 10;
+        s.posX = assAnchorX(a, mL, mR, State.playResX);
+        s.posY = assAnchorY(a, mV, State.playResY);
+        s.posOverridden = false;   // trả về toạ độ tự động theo Alignment + Margin
         s.color1 = s.origColor1 || '#ffffff';
         s.color3 = s.origColor3 || '#000000';
         s.fontSize = s.origFontSize || s.fontSize || 25;
@@ -2346,12 +2498,9 @@ function setupSubPopupEvents() {
           const mL = (s.origMarginL !== undefined && s.origMarginL !== null) ? s.origMarginL : (s.marginL || 10);
           const mR = (s.origMarginR !== undefined && s.origMarginR !== null) ? s.origMarginR : (s.marginR || 10);
           const mV = (s.origMarginV !== undefined && s.origMarginV !== null) ? s.origMarginV : (s.marginV || 10);
-          if (a % 3 === 1) s.posX = mL + 10;
-          else if (a % 3 === 0) s.posX = State.playResX - mR - 10;
-          else s.posX = State.playResX / 2;
-          if (a >= 7) s.posY = mV + 10;
-          else if (a >= 4) s.posY = State.playResY / 2;
-          else s.posY = State.playResY - mV - 10;
+          s.posX = assAnchorX(a, mL, mR, State.playResX);
+          s.posY = assAnchorY(a, mV, State.playResY);
+          s.posOverridden = false;
           s.color1 = s.origColor1 || '#ffffff';
           s.color3 = s.origColor3 || '#000000';
           s.fontSize = s.origFontSize || s.fontSize || 25;
@@ -2498,6 +2647,9 @@ function setupSubPopupEvents() {
         if (!s) return;
         // Trong "Cài đặt từng style", mọi thay đổi đều là per-style override trực tiếp
         s[type] = (t.type === 'number' || t.type === 'range') ? parseFloat(val) : val;
+        // Người dùng chủ động kéo X/Y → tạm ngừng dùng toạ độ tự động theo Margin/Alignment
+        // để không bị renderer ghi đè mỗi lần vẽ (renderAssCue vẫn hoạt động trong tab "Chung").
+        if (type === 'posX' || type === 'posY') s.posOverridden = true;
         const row = t.closest('.g-row, .pos-row');
         if (row) {
           const sibling = row.querySelector('input[data-type="' + type + '"][type="' + (t.type === 'range' ? 'number' : 'range') + '"]');
@@ -4406,6 +4558,8 @@ function setupSubPopupEvents() {
     }
     document.addEventListener('fullscreenchange', updateVideoFsIcon);
     document.addEventListener('webkitfullscreenchange', updateVideoFsIcon); // Safari
+    // Nút fullscreen: tự ẩn khi nhàn rỗi (cả trong/ngoài fullscreen) + hiện khi chạm/rê gần mép trên
+    initVideoFsAutohide();
 
     // Điều khiển player: lùi / phát-tạm dừng / kế tiếp / tự động / ngẫu nhiên
     const pcPrev = $('#pcPrev');
