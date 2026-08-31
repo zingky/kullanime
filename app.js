@@ -83,6 +83,57 @@
     setTimeout(() => { el.classList.add('hide'); setTimeout(() => el.remove(), 350); }, duration);
   }
 
+  // ── Inline Confirm: hiện bubbles xác nhận nhỏ ngay tại nút cần xác nhận ──
+  // Dùng cho các hành động phá huỷ (Reset All, Reset video này).
+  // Returns Promise<boolean> — true nếu người dùng xác nhận.
+  function inlineConfirm(anchor, msg, confirmLabel) {
+    confirmLabel = confirmLabel || 'Xác nhận';
+    return new Promise(function (resolve) {
+      // Xoá bubble cũ nếu có
+      var old = document.querySelector('.ic-confirm-bubble');
+      if (old) old.remove();
+      var bubble = document.createElement('div');
+      bubble.className = 'ic-confirm-bubble';
+      bubble.innerHTML =
+        '<span class="ic-msg">' + msg + '</span>' +
+        '<button type="button" class="ic-yes">✓ ' + confirmLabel + '</button>' +
+        '<button type="button" class="ic-no">✗</button>';
+      document.body.appendChild(bubble);
+      // Căn vị trí ngay dưới / cạnh anchor
+      var rect = anchor.getBoundingClientRect();
+      var bTop = rect.bottom + window.scrollY + 6;
+      var bLeft = rect.left + window.scrollX;
+      // Đảm bảo bubble không tràn phải màn hình
+      if (bLeft + 260 > window.innerWidth + window.scrollX) bLeft = window.innerWidth + window.scrollX - 270;
+      if (bLeft < window.scrollX + 4) bLeft = window.scrollX + 4;
+      bubble.style.top = bTop + 'px';
+      bubble.style.left = bLeft + 'px';
+      var cleaned = false;
+      var cleanup = function (result) {
+        if (cleaned) return;
+        cleaned = true;
+        bubble.remove();
+        resolve(result);
+      };
+      bubble.querySelector('.ic-yes').onclick = function (e) { e.stopPropagation(); cleanup(true); };
+      bubble.querySelector('.ic-no').onclick = function (e) { e.stopPropagation(); cleanup(false); };
+      // Đóng khi click ra ngoài
+      var onDown = function (e) {
+        if (!bubble.contains(e.target) && e.target !== anchor && !anchor.contains(e.target)) {
+          document.removeEventListener('pointerdown', onDown);
+          cleanup(false);
+        }
+      };
+      setTimeout(function () { document.addEventListener('pointerdown', onDown); }, 20);
+      var onEsc = function (e) {
+        if (e.key === 'Escape') { document.removeEventListener('keydown', onEsc); cleanup(false); }
+      };
+      document.addEventListener('keydown', onEsc);
+      // Tự đóng sau 8 giây
+      setTimeout(function () { cleanup(false); }, 8000);
+    });
+  }
+
   function formatDate(iso) {
     if (!iso) return '';
     try {
@@ -1629,11 +1680,11 @@
   }
 
   // ── Nút fullscreen tự ẩn (cả trong lẫn ngoài fullscreen) ──
-  // Chỉ hiện khi rê chuột/chạm vùng góc trên khung video (.fs-hover-zone) hoặc
-  // khi hover lên nút; tự ẩn sau ~2.5s nhàn rỗi. Vùng .fs-hover-zone nằm TRÊN
-  // iframe YouTube nên nhận được pointer event trên cả desktop lẫn điện thoại
-  // (iframe không "nuốt" sự kiện ở vùng đó nữa). Hiển thị thật sự do CSS
-  // (.revealed / :hover của zone) điều khiển; JS chỉ quản lý giờ tự ẩn.
+  // Chỉ hiện khi rê chuột/chạm gần góc trên khung video hoặc hover lên nút; tự ẩn
+  // sau ~2.5s nhàn rỗi. CSS giao diện: vùng .fs-hover-zone có pointer-events:none
+  // (để KHÔNG che/muốt click chuột của nút YouTube bên dưới) — JS theo dõi toàn
+  // viewport bằng window pointermove để hiện nút khi con trỏ lướt tới vùng trên
+  // (không cần zone nhận pointer event) + lắng nghe trên cả khung video cho touch.
   function initVideoFsAutohide() {
     const wrap = $('.video-wrap');
     const btn = $('#videoFullscreenBtn');
@@ -1644,7 +1695,7 @@
     const scheduleHide = () => {
       if (hideTimer) clearTimeout(hideTimer);
       hideTimer = setTimeout(() => {
-        if (!btn.matches(':hover') && !(zone && zone.matches(':hover'))) {
+        if (!btn.matches(':hover')) {
           btn.classList.remove('revealed');
           btn.classList.add('hiding');
           setTimeout(() => btn.classList.remove('hiding'), 300);
@@ -1657,17 +1708,15 @@
       btn.classList.add('revealed');
       scheduleHide();
     };
-    // Vùng trên: rê/chạm vào đó → hiện nút (bao gồm touch trên điện thoại).
-    if (zone) {
-      zone.addEventListener('pointerenter', reveal);
-      // pointerdown giúp hiện ngay khi chạm (touch); pointermove đẩy lùi giờ ẩn.
-      zone.addEventListener('pointermove', reveal, { passive: true });
-      zone.addEventListener('pointerdown', reveal, { passive: true });
-    }
+    // Vùng trên: rê/chạm vào khung video → hiện nút (bao gồm touch trên điện thoại).
+    wrap.addEventListener('pointermove', reveal, { passive: true });
+    wrap.addEventListener('pointerenter', reveal);
+    wrap.addEventListener('pointerdown', reveal, { passive: true });
     // Giữ nút hiển thị khi rê đang nằm trên nút.
     btn.addEventListener('pointerenter', reveal);
     btn.addEventListener('pointerleave', scheduleHide);
-    // Dự phòng: theo dõi toàn viewport để bắt trường hợp con trỏ lướt tới vùng trên.
+    // Dự phòng: theo dõi toàn viewport để bắt trường hợp con trỏ lướt tới vùng trên
+    // (vì iframe YouTube "nuốt" con trỏ nên wrap không luôn nhận được sự kiện).
     window.addEventListener('pointermove', (e) => {
       if (!zone) return;
       const r = zone.getBoundingClientRect();
@@ -2221,17 +2270,9 @@
     const header = document.createElement('div');
     header.className = 'sub-panel-header';
     header.innerHTML =
-      // 1 hàng: [tên file chạy marquee] [⏱ − input + ⟳ ms] [✕]
+      // 1 hàng: [🗑️ ALL reset] [tên file chạy marquee] [🔄 Reset video này] [✕]
+      '<button type="button" class="sub-reset-all-btn" id="subResetAll" title="Xoá TOÀN BỘ config + cache của TẤT CẢ video">🗑️ ALL</button>' +
       '<em class="sub-panel-ctx" id="subPanelCtx" title="' + esc(ctxLabel) + '"><span class="sub-ctx-scroll"><span class="sub-ctx-text">' + esc(ctxLabel) + '</span><span class="sub-ctx-text">' + esc(ctxLabel) + '</span></span></em>' +
-      '<div class="sub-ts-bar sub-ts-in-header">' +
-        '<span class="sub-ts-ico" title="Timeshift">⏱</span>' +
-        '<button type="button" id="sub-ts-dec" title="Lùi 100ms">−</button>' +
-        '<input type="text" id="sub-ts-input" value="' + (State.timeShiftMs || 0) + '" inputmode="numeric" aria-label="Timeshift (ms)">' +
-        '<span class="sub-ts-ms">ms</span>' +
-        '<button type="button" id="sub-ts-inc" title="Tiến 100ms">+</button>' +
-        '<button type="button" id="sub-ts-zero" title="Đặt lại về 0">⟳</button>' +
-        '<button type="button" id="sub-ts-dl" title="Tải file .ass đã shift time" style="color:#5eead4">💾</button>' +
-      '</div>' +
       '<div class="sub-header-actions">' +
         '<button type="button" class="sub-reset-ctx" id="subResetCtx" title="Reset tất cả cài đặt + cache của video này (xóa mọi cấu hình đã chọn)">🔄 Reset</button>' +
         '<button type="button" class="sub-panel-close" id="subPanelClose" aria-label="Đóng cài đặt phụ đề" title="Đóng (Esc)">✕</button>' +
@@ -2332,7 +2373,7 @@
         '<div id="sub-style-items"></div>' +
       '</div>' +
 
-      // ---------- Footer chung: gộp Fade + Hộp + Actions ----------
+      // ---------- Footer chung: Fade + Hộp + Reset chung + Timeshift + Actions ----------
       '<div class="sub-panel-footer">' +
 
         // ---- Hàng 1: Fade In/Out + Box hộp gộp chung 1 dòng ----
@@ -2350,10 +2391,23 @@
           '<input type="range" id="g-letterSpacing" min="-5" max="20" step="0.1" value="' + (gs.letterSpacing != null ? gs.letterSpacing : 0.9) + '" class="sub-letter-spacing">' +
           '<input type="number" id="g-letterSpacingVal" min="-5" max="20" step="0.1" value="' + (gs.letterSpacing != null ? gs.letterSpacing : 0.9) + '" class="num-in sub-lsp-val">' +
         '</div>' +
-        // ---- Hàng 2: Actions ----
+        // ---- Hàng 2: Reset chung (Global) + Timeshift ----
+        '<div class="sub-foot-row sub-ts-row">' +
+          '<button type="button" id="sub-settings-reset" class="sub-reset-global-btn" title="Reset cài đặt chung (Global) về mặc định">↺ Reset chung</button>' +
+          '<span class="sub-foot-sep"></span>' +
+          '<div class="sub-ts-bar">' +
+            '<span class="sub-ts-ico" title="Timeshift">⏱</span>' +
+            '<button type="button" id="sub-ts-dec" title="Lùi 100ms">−</button>' +
+            '<input type="text" id="sub-ts-input" value="' + (State.timeShiftMs || 0) + '" inputmode="numeric" aria-label="Timeshift (ms)">' +
+            '<span class="sub-ts-ms">ms</span>' +
+            '<button type="button" id="sub-ts-inc" title="Tiến 100ms">+</button>' +
+            '<button type="button" id="sub-ts-zero" title="Đặt lại về 0">⟳</button>' +
+            '<button type="button" id="sub-ts-dl" title="Tải file .ass đã shift time" style="color:#5eead4">💾</button>' +
+          '</div>' +
+        '</div>' +
+        // ---- Hàng 3: Actions ----
         '<div class="sub-foot-actions">' +
           '<label class="sub-foot-lab"><input type="checkbox" id="sub-close-outside" ' + (gs.closeOnClickOutside ? 'checked' : '') + '> Đóng khi click bên ngoài</label>' +
-          '<button type="button" id="sub-settings-reset" title="Reset cài đặt gốc">↺</button>' +
           '<button type="button" id="sub-backup" title="Backup settings + cache">💾</button>' +
           '<button type="button" id="sub-restore" title="Restore từ file JSON">📥</button>' +
         '</div>' +
@@ -2528,8 +2582,9 @@ function setupSubPopupEvents() {
     if (closeBtn) closeBtn.onclick = () => hideSubPanel();
     // Nút Reset (gần ✕ trên header): xoá toàn bộ cài đặt + cache của video/file .ass hiện tại
     const resetCtxBtn = popup.querySelector('#subResetCtx');
-    if (resetCtxBtn) resetCtxBtn.onclick = () => {
-      if (!confirm('Xoá toàn bộ cài đặt + cache của video này?\n(Sẽ trả về mặc định, không ảnh hưởng video khác)')) return;
+    if (resetCtxBtn) resetCtxBtn.onclick = async () => {
+      const ok = await inlineConfirm(resetCtxBtn, 'Xoá toàn bộ cài đặt + cache của video này? (không ảnh hưởng video khác)', 'Xoá');
+      if (!ok) return;
       const store = readSubStore();
       const ctx = currentSubContext();
       delete store[ctx];
@@ -2554,6 +2609,30 @@ function setupSubPopupEvents() {
       if (State.subsEnabled) updateCurrentSubtitle();
       toast('Đã xoá toàn bộ cài đặt video này.', 'info', 1800);
     };
+    // Nút 🗑️ ALL (đầu header): xoá TOÀN BỘ config + cache cho TẤT CẢ video
+    const resetAllBtn = popup.querySelector('#subResetAll');
+    if (resetAllBtn) resetAllBtn.onclick = async () => {
+      const ok = await inlineConfirm(resetAllBtn, 'Xoá TOÀN BỘ config + cache của TẤT CẢ video? Hành động này không thể hoàn tác!', 'Xoá tất cả');
+      if (!ok) return;
+      writeSubStore({});
+      // Về mặc định cho video đang phát
+      State.subSettings = JSON.parse(JSON.stringify(SUB_SETTINGS_DEFAULTS));
+      State.timeShiftMs = 0;
+      const tsIn = popup.querySelector('#sub-ts-input');
+      if (tsIn) tsIn.value = '0';
+      if (State.subtitles.length && State.rawAssText) {
+        try {
+          const parsed = parseAssEngine(State.rawAssText);
+          State.subtitles = parsed.subtitles;
+          State.styleSettings = parsed.styleSettings;
+        } catch (_e) { }
+      }
+      rerenderSubPanel();
+      showSubPanel();
+      renderSubStyleItems();
+      if (State.subsEnabled) updateCurrentSubtitle();
+      toast('Đã xoá TOÀN BỘ cấu hình của tất cả video.', 'info', 1800);
+    };
     const resetBtn = popup.querySelector('#sub-settings-reset');
     if (resetBtn) resetBtn.onclick = () => {
       State.subSettings = JSON.parse(JSON.stringify(SUB_SETTINGS_DEFAULTS));
@@ -2574,7 +2653,7 @@ function setupSubPopupEvents() {
       showSubPanel();
       renderSubStyleItems();
       if (State.subsEnabled) updateCurrentSubtitle();
-      toast('Đã reset cài đặt phụ đề.', 'info', 1800);
+      toast('Đã reset cài đặt chung (Global).', 'info', 1800);
     };
 
     // Reset tất cả style về vị trí / màu gốc

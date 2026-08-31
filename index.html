@@ -175,17 +175,12 @@
             <!-- Panel SUB Settings — popup sổ xuống che phần phía dưới, rộng bằng khung video player -->
             <aside class="sub-panel hidden" id="subPanel" aria-label="Cài đặt phụ đề">
               <div class="sub-panel-header">
+                <button type="button" class="sub-reset-all-btn" id="subResetAll" title="Xoá TOÀN BỘ config + cache của TẤT CẢ video">🗑️ ALL</button>
                 <em class="sub-panel-ctx" id="subPanelCtx"><span class="sub-ctx-scroll"><span class="sub-ctx-text"></span><span class="sub-ctx-text"></span></span></em>
-                <div class="sub-ts-bar sub-ts-in-header">
-                  <span class="sub-ts-ico" title="Timeshift">⏱</span>
-                  <button type="button" id="sub-ts-dec" title="Lùi 100ms">−</button>
-                  <input type="text" id="sub-ts-input" value="0" inputmode="numeric" aria-label="Timeshift (ms)">
-                  <span class="sub-ts-ms">ms</span>
-                  <button type="button" id="sub-ts-inc" title="Tiến 100ms">+</button>
-                  <button type="button" id="sub-ts-zero" title="Đặt lại về 0">⟳</button>
-                  <button type="button" id="sub-ts-dl" title="Tải file .ass đã shift time">💾</button>
+                <div class="sub-header-actions">
+                  <button type="button" class="sub-reset-ctx" id="subResetCtx" title="Reset tất cả cài đặt + cache của video này">🔄 Reset</button>
+                  <button type="button" class="sub-panel-close" id="subPanelClose" aria-label="Đóng cài đặt phụ đề" title="Đóng (Esc)">✕</button>
                 </div>
-                <button type="button" class="sub-panel-close" id="subPanelClose" aria-label="Đóng cài đặt phụ đề" title="Đóng (Esc)">✕</button>
               </div>
               <div class="sub-panel-body" id="subPanelBody"><!-- JS render --></div>
             </aside>
