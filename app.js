@@ -1098,7 +1098,11 @@
     const pY = State.playResY || 288;
     const align = cue.align || 2;
     const hv = alignToHV(align);
-    const isO = st.override !== false; // style có "override" (không dùng global) ?
+    // Chế độ hiển thị: dùng trực tiếp useGlobalStyles để tránh bất đồng bộ với st.override.
+    // - useGlobalStyles=true  (tab "🌍 Cài đặt chung"): format dùng gs.* (chung), vị trí vẫn lấy per-style.
+    // - useGlobalStyles=false (tab "🎨 Cài đặt từng style"): mỗi style dùng st.* riêng của nó.
+    const useGlobal = !!(State.subSettings && State.subSettings.useGlobalStyles);
+    const isO = useGlobal ? false : (st.override !== false);
 
     // ---- Scale theo chiều cao overlay (y như extension engine-css.js) ----
     const scaleH = (State.subOverlayHeight > 0 && pY > 0)
@@ -1155,8 +1159,12 @@
     const useFont = fontName ? '\'' + fontName + '\', sans-serif' : 'inherit';
 
     // ---- Vị trí theo tỷ lệ PlayRes ----
-    const leftPct = (cue.posX / pX * 100);
-    const topPct = (cue.posY / pY * 100);
+    // Luôn đọc vị trí X/Y từ styleSettings (per-style) — kể cả khi đang ở "Cài đặt chung".
+    // Người dùng chỉnh X/Y ở tab "Cài đặt từng style" sẽ áp dụng trực tiếp (không snapshot theo cue).
+    let cueX = cue.posX, cueY = cue.posY;
+    if (st && st.posX != null && st.posY != null) { cueX = st.posX; cueY = st.posY; }
+    const leftPct = (cueX / pX * 100);
+    const topPct = (cueY / pY * 100);
     let tx = '-50%', ty = '-50%';
     if (hv.h === 'left') tx = '0%';
     else if (hv.h === 'right') tx = '-100%';
@@ -1225,9 +1233,9 @@
       }
     };
 
-    // Cỡ chữ hiệu dụng CHUNG cho cả 3 tab karaoke (luôn dùng gs.fontSize)
+    // Cỡ chữ hiệu dụng CHUNG cho cả 3 tab karaoke (luôn dùng gs.fontSize vì đã gộp về cỡ chữ chung)
     const karaFs = (k, fallback) => {
-      const raw = fallback || gs.fontSize || 70;
+      const raw = (gs.fontSize != null && gs.fontSize > 0) ? gs.fontSize : (fallback || 70);
       return Math.max(6, raw * scaleH * customResize * textZoom * ((gs.fontScale != null ? gs.fontScale : 100) / 100));
     };
     const karaOutl = (k, fallback) => Math.max(0, ((k && k.outl != null) ? Number(k.outl) : fallback)) * scaleH;
@@ -1263,8 +1271,8 @@
             } else if (nowMs >= syl.start + syl.dur) {
               // Đã hát xong -> tab kPost (mờ dần)
               const k = kTab('kPost');
-              useC1 = isO ? (st.color1 || k.c1 || c1) : (k.c1 || '#ffffff');
-              useC3 = isO ? (st.color3 || k.c3 || c3) : (k.c3 || '#000000');
+              useC1 = k.c1 || (isO ? (st.color1 || c1) : c1);
+              useC3 = k.c3 || (isO ? (st.color3 || c3) : c3);
               useOutl = karaOutl(k, ow);
               useBl = (Number(k.blur) != null ? Number(k.blur) : 6) * scaleH;
               useFs = karaFs(k, baseFs);
@@ -1273,8 +1281,8 @@
             } else {
               // Chưa hát -> tab kPre (màu bình thường)
               const k = kTab('kPre');
-              useC1 = isO ? (st.color1 || k.c1 || c1) : (k.c1 || '#ffffff');
-              useC3 = isO ? (st.color3 || k.c3 || c3) : (k.c3 || '#000000');
+              useC1 = k.c1 || (isO ? (st.color1 || c1) : c1);
+              useC3 = k.c3 || (isO ? (st.color3 || c3) : c3);
               useOutl = karaOutl(k, ow);
               useBl = (Number(k.blur) != null ? Number(k.blur) : 6) * scaleH;
               useFs = karaFs(k, baseFs);
