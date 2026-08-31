@@ -339,6 +339,84 @@ select.input { appearance: none; -webkit-appearance: none; background-image: url
 #sub-settings-popup input[type="range"]::-moz-range-thumb { width: 12px; height: 12px; border-radius: 50%; background: #3ea6ff; border: 2px solid #fff; cursor: pointer; }
 #sub-settings-popup #sub-settings-left, #sub-settings-popup #sub-style-list { scrollbar-width: thin; scrollbar-color: #555 transparent; }
 
+/* ============ POPUP REDESIGN (responsive): layout + helper ============ */
+#sub-settings-popup { display: flex; flex-direction: column; }
+#sub-settings-popup #sub-settings-header {
+  padding: 8px 12px; background: rgba(255,255,255,0.05); cursor: move;
+  display: flex; align-items: center; gap: 8px; border-bottom: 1px solid rgba(255,255,255,0.1); flex-shrink: 0;
+}
+#sub-settings-popup .sub-hd-title { font-size: 13px; color: #3ea6ff; white-space: nowrap; }
+#sub-settings-popup .sub-hd-ctx {
+  font-size: 10px; color: #ffd54a; max-width: 40%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  background: rgba(255,213,74,0.12); border: 1px solid rgba(255,213,74,0.35); padding: 1px 7px; border-radius: 999px;
+}
+#sub-settings-popup .sub-hd-spacer { flex: 1; }
+#sub-settings-popup #sub-settings-reset {
+  border: 1px solid #555; color: #ddd; cursor: pointer; background: rgba(255,255,255,0.08);
+  font-size: 10px; padding: 3px 8px; border-radius: 6px; white-space: nowrap;
+}
+#sub-settings-popup #sub-settings-close { cursor: pointer; font-size: 20px; line-height: 20px; color: #aaa; padding: 0 2px; }
+#sub-settings-popup #sub-settings-inner { display: flex; flex: 1; overflow: hidden; position: relative; min-height: 320px; }
+#sub-settings-popup #sub-settings-left { flex: 1; padding: 10px 12px; overflow-y: auto; min-width: 0; }
+#sub-settings-popup #sub-settings-divider {
+  width: 4px; cursor: col-resize; background: rgba(255,255,255,0.05);
+  border-left: 1px solid rgba(255,255,255,0.12); border-right: 1px solid rgba(255,255,255,0.05);
+  user-select: none; flex-shrink: 0;
+}
+#sub-settings-popup #sub-style-list { flex: 1.25; padding: 10px 12px; overflow-y: auto; min-width: 0; border-left: 1px solid rgba(255,255,255,0.06); }
+#sub-settings-popup .sub-tool-row { display: flex; align-items: center; gap: 5px; margin-bottom: 6px; flex-wrap: wrap; }
+#sub-settings-popup .sub-tool-row b { font-size: 11px; white-space: nowrap; }
+#sub-settings-popup #sub-ts-input {
+  background: rgba(255,255,255,0.1); border: 1px solid #ffaa00; color: #ffaa00; font-size: 10px; font-weight: bold;
+  width: 58px; min-width: 58px; text-align: center; border-radius: 4px; padding: 2px 3px;
+}
+#sub-settings-popup #sub-ts-dec, #sub-settings-popup #sub-ts-inc {
+  background: rgba(255,255,255,0.1); border: 1px solid #555; color: #ddd; cursor: pointer; border-radius: 4px; padding: 1px 6px; font-size: 10px;
+}
+#sub-settings-popup .sub-ts-lab { font-size: 9px; color: #ffaa00; white-space: nowrap; }
+#sub-settings-popup .sub-color-row > div, #sub-settings-popup .sub-box-row {
+  display: flex; align-items: center; gap: 4px; flex: 1; font-size: 10px; color: #ccc;
+}
+#sub-settings-popup .sub-color-row { background: rgba(255,255,255,0.05); padding: 4px 6px; border-radius: 5px; }
+#sub-settings-popup .sub-box-row { background: rgba(255,255,255,0.05); padding: 4px 6px; border-radius: 5px; margin-bottom: 6px; }
+#sub-settings-popup .sub-box-row input[type="range"] { flex: 1; }
+#sub-settings-popup .sub-fade-arr { color: #888; font-size: 10px; margin: 0 2px; }
+#sub-settings-popup .sub-check-row { background: rgba(255,255,255,0.04); padding: 3px 6px; border-radius: 5px; }
+#sub-settings-popup .sub-check-row b { font-size: 10px; }
+#sub-settings-popup .sub-sep { color: #555; }
+#sub-settings-popup .sub-pct { font-size: 9px; color: #888; }
+#sub-settings-popup .sub-style-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px; flex-wrap: wrap; }
+#sub-settings-popup .sub-styles-title { color: #ffaa00; font-weight: bold; font-size: 11px; }
+#sub-settings-popup .sub-filter-hint { font-style: normal; font-size: 9px; color: #888; font-weight: normal; }
+#sub-settings-popup .sub-style-tools { display: flex; align-items: center; gap: 8px; }
+#sub-settings-popup #sub-reset-all-styles { cursor: pointer; font-size: 11px; color: #ffaa00; font-weight: bold; opacity: 0.8; }
+#sub-settings-popup .sub-global-lab { display: flex; align-items: center; gap: 3px; font-size: 9.5px; color: #bbb; cursor: pointer; }
+#sub-settings-popup #sub-settings-footer {
+  padding: 8px 12px; background: rgba(255,255,255,0.03); border-top: 1px solid rgba(255,255,255,0.1);
+  display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 10px; color: #999; flex-shrink: 0;
+}
+#sub-settings-popup .sub-foot-lab { display: flex; align-items: center; gap: 4px; cursor: pointer; }
+#sub-settings-popup .sub-foot-actions { display: flex; align-items: center; gap: 6px; }
+#sub-settings-popup .sub-foot-actions button {
+  border: 1px solid #4a5568; color: #ddd; cursor: pointer; background: rgba(255,255,255,0.08);
+  font-size: 10px; padding: 3px 9px; border-radius: 6px; white-space: nowrap;
+}
+#sub-settings-popup .sub-foot-actions button:hover { background: rgba(255,255,255,0.16); }
+#sub-settings-popup .sub-foot-brand { color: #3ea6ff; font-weight: bold; font-size: 9px; }
+/* Style item: nhãn thông tin style (màu, viền, cỡ, vị trí) bị ẩn trên desktop để gọn; hiện trên mobile khi cần */
+#sub-settings-popup .style-item .sub-style-meta { display: none; }
+
+/* Responsive: mobile → 1 cột, bottom sheet toàn bề rộng, tự cuộn */
+@media (max-width: 640px) {
+  #sub-settings-popup { max-height: 90vh; }
+  #sub-settings-popup #sub-settings-inner { flex-direction: column; overflow-y: auto; min-height: 0; }
+  #sub-settings-popup #sub-settings-left { overflow-y: visible; padding: 10px; }
+  #sub-settings-popup #sub-settings-divider { display: none; }
+  #sub-settings-popup #sub-style-list { flex: none; border-left: none; border-top: 1px dashed rgba(255,255,255,0.15); padding: 10px; overflow-y: visible; }
+  #sub-settings-popup .sub-hd-ctx { max-width: 50%; }
+  #sub-settings-popup .sub-foot-brand { display: none; }
+}
+
 
 
 /* ============ NOW PLAYING + PLAYLIST ============ */
@@ -758,6 +836,18 @@ html[data-theme="light"] .modal { background: rgba(255, 255, 255, 0.72); }
 .admin-row-actions { display: flex; gap: 6px; margin-left: auto; }
 .mini-btn { border: var(--glass-border); background: var(--bg-elev); border-radius: 7px; padding: 5px 9px; font-size: 12px; cursor: pointer; color: var(--text); transition: all 0.12s ease; backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); }
 .mini-btn:hover { border-color: var(--border-strong); }
+
+/* Quản lý nguồn repo .ass (admin) */
+.admin-repo-manager { margin-top: 18px; padding-top: 14px; border-top: 1px dashed var(--border-strong); }
+.admin-repo-desc { margin: 6px 0 10px; font-size: 12.5px; color: var(--text-dim); }
+.admin-repo-desc code { background: var(--bg-soft); padding: 1px 5px; border-radius: 4px; color: var(--accent); }
+.admin-repo-row { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
+.admin-repo-row .input { flex: 1 1 260px; min-width: 0; }
+.admin-repo-list { display: flex; flex-direction: column; gap: 6px; }
+.repo-item { display: flex; align-items: center; gap: 8px; padding: 8px 10px; background: var(--bg-card); border: var(--glass-border); border-radius: var(--radius-sm); flex-wrap: wrap; }
+.repo-item .repo-url { flex: 1 1 200px; min-width: 0; font-size: 12.5px; color: var(--accent); word-break: break-all; }
+.repo-item .repo-meta { font-size: 11px; color: var(--text-faint); }
+.repo-item .mini-btn.danger { border-color: rgba(244,63,94,0.4); color: var(--danger); }
 .mini-btn.primary:hover { background: var(--primary); color: #fff; border-color: transparent; }
 .mini-btn.danger:hover { background: var(--danger); color: #fff; border-color: transparent; }
 .backup-desc { color: var(--text-dim); font-size: 14px; margin: 0 0 14px; }
