@@ -31,6 +31,9 @@
     subtitles: [],         // mảng cue phụ đề ASS đã parse (engine)
     subsEnabled: false,
     subsTick: null,
+    subSettings: null,     // cài đặt toàn cục phụ đề (fontSize, màu, karaoke...) -> lưu localStorage
+    timeShiftMs: 0,        // dời phụ đề theo ms (Timeshift)
+    subOverlayHeight: 0,   // chiều cao overlay phụ đề (dùng scaleH cho fontSize)
     // Dữ liệu engine phụ đề ASS (port từ YouTube-Aegisub-Loader)
     styleSettings: {},     // { styleName: {color1,color3,fontSize,outlineWidth,blur,spacing,fontName,align,posX,posY,...} }
     playResX: 384,
@@ -544,10 +547,15 @@
   }
 
   // Aegisub-style outline: vòng 8 hướng text-shadow + blur.
-  function buildShadow(ow, bl, oc) {
+  function buildShadow(ow, bl, oc, useStroke) {
     const ow2 = Math.max(0, Number(ow) || 0);
     const bl2 = Math.max(0, Number(bl) || 0);
     if (ow2 <= 0 && bl2 <= 0) return 'none';
+    if (useStroke) {
+      // text-stroke lo viền sắc nét; shadow chỉ còn blur-glow (ow làm nở rộng)
+      if (bl2 <= 0) return 'none';
+      return '0 0 ' + Math.max(bl2 + ow2, 1) + 'px ' + oc;
+    }
     const shadows = [];
     const ring = Math.max(1, Math.ceil(ow2));
     for (let x = -ring; x <= ring; x++) {
@@ -560,6 +568,50 @@
       shadows.push('0 0 ' + (i * 2) + 'px ' + oc);
     }
     return shadows.length ? shadows.join(',') : 'none';
+  }
+
+  // Deep glow: nhiều lớp text-shadow chồng nhau (port từ globals.js)
+  function buildDeepGlow(ow, bl, oc, useStroke) {
+    const ow2 = Math.max(0, Number(ow) || 0);
+    const bl2 = Math.max(0, Number(bl) || 0);
+    if (ow2 <= 0 && bl2 <= 0) return 'none';
+    const layers = [];
+    if (useStroke) {
+      for (let i = 1; i <= 4; i++) {
+        const blur = (bl2 + ow2) * i * 1.2;
+        layers.push('0 0 ' + Math.max(blur, 1) + 'px ' + oc);
+      }
+      return layers.join(', ');
+    }
+    for (let i = 1; i <= 4; i++) {
+      const spread = ow2 * i * 1.2;
+      const blur = bl2 * i * 1.2;
+      layers.push(spread + 'px ' + spread + 'px ' + blur + 'px ' + oc + ', -' + spread + 'px -' + spread + 'px ' + blur + 'px ' + oc);
+    }
+    layers.push('0 0 ' + bl2 + 'px ' + oc);
+    return layers.join(', ');
+  }
+
+  // Hệ số co font: canvas đo ascent/descent -> customResize (~0.7-0.9)
+  const _fontResizeCache = {};
+  function getFontResize(fontFamily) {
+    const key = String(fontFamily || '');
+    if (_fontResizeCache[key] !== undefined) return _fontResizeCache[key];
+    try {
+      const canvas = document.createElement('canvas');
+      canvas.width = 100;
+      canvas.height = 100;
+      const ctx = canvas.getContext('2d');
+      const usedFontSize = 2048;
+      ctx.font = usedFontSize + 'px "' + key + '"';
+      const metrics = ctx.measureText('MgÀ');
+      const ascent = metrics.actualBoundingBoxAscent || usedFontSize * 0.7;
+      const descent = metrics.actualBoundingBoxDescent || usedFontSize * 0.3;
+      const total = ascent + descent;
+      const resize = total > 0 ? usedFontSize / total : 1;
+      _fontResizeCache[key] = resize;
+      return resize;
+    } catch (_e) { return 1; }
   }
 
   // Aegisub 1-9 -> {h,v}
@@ -635,13 +687,20 @@
         else if (hv.v === 'mid') defY = playResY / 2;
         styleSettings[name] = {
           color1: assToHex(p[3]), color3: assToHex(p[5]),
+          origColor1: assToHex(p[3]), origColor3: assToHex(p[5]),
           fontSize: p[2] ? (parseFloat(p[2].trim()) || 20) : 20,
+          origFontSize: p[2] ? (parseFloat(p[2].trim()) || 20) : 20,
           outlineWidth: p[16] ? (parseFloat(p[16].trim()) || 2) : 2,
+          origOutlineWidth: p[16] ? (parseFloat(p[16].trim()) || 2) : 2,
           shadow: p[17] ? (parseFloat(p[17].trim()) || 0) : 0,
           spacing: p[13] ? (parseFloat(p[13].trim()) || 0) : 0,
+          origSpacing: p[13] ? (parseFloat(p[13].trim()) || 0) : 0,
           fontName: (p[1] || '').trim(),
           align: align, marginL: marginL, marginR: marginR, marginV: marginV,
-          posX: defX, posY: defY, blur: 2
+          origAlign: align, origMarginL: marginL, origMarginR: marginR, origMarginV: marginV,
+          posX: defX, posY: defY, blur: 2,
+          override: !(State.subSettings && State.subSettings.useGlobalStyles),
+          visible: true
         };
         continue;
       }
@@ -758,23 +817,62 @@
 
   // Xây 1 div chứa toàn bộ cue với style/vị trí + karaoke.
   function renderAssCue(cue) {
+    const gs = State.subSettings || {};
     const st = (State.styleSettings && State.styleSettings[cue.style]) || {};
     const pX = State.playResX || 384;
     const pY = State.playResY || 288;
     const align = cue.align || 2;
     const hv = alignToHV(align);
+    const isO = st.override !== false; // style có "override" (không dùng global) ?
 
-    // ---- Font / màu / viền / glow (style + override từng dòng) ----
-    const fs = ((cue.ovFs != null ? cue.ovFs : (st.fontSize || 20)) * ((cue.ovScaleY || 100) / 100));
-    const c1 = cue.ovC1 || st.color1 || '#ffffff';
-    const c3 = cue.ovC3 || st.color3 || '#000000';
-    const ow = ((cue.ovBord != null ? cue.ovBord : (st.outlineWidth != null ? st.outlineWidth : 2)) * ((cue.ovScaleX || 100) / 100));
-    const bl = (cue.ovBlur != null ? cue.ovBlur : (st.blur != null ? st.blur : 0));
-    const spacing = (cue.ovSpacing != null ? cue.ovSpacing : (st.spacing || 0));
-    const bold = (cue.ovBold != null ? cue.ovBold : true);
-    const italic = (cue.ovItalic != null ? cue.ovItalic : false);
-    const fontName = (st.fontName || '').replace(/["']/g, '');
-    const shadow = buildShadow(ow, bl, c3);
+    // ---- Scale theo chiều cao overlay (y như extension engine-css.js) ----
+    const scaleH = (State.subOverlayHeight > 0 && pY > 0)
+      ? (State.subOverlayHeight / pY) : 1;
+    const customResize = getFontResize(gs.fontFamily || '') || 1;
+    const textZoom = (gs.textZoom > 0 && gs.textZoom <= 3) ? gs.textZoom : 0.9;
+
+    // ---- Font size hiệu dụng (base * scaleH * customResize * textZoom) ----
+    let baseFs = isO
+      ? (st.fontSize || 25)
+      : (gs.fontSize || 70);
+    if (cue.ovFs != null) baseFs = cue.ovFs;
+    baseFs = baseFs * ((cue.ovScaleY || 100) / 100);
+    const fs = Math.max(6, baseFs * scaleH * customResize * textZoom);
+
+    // ---- Màu / viền / glow (style override hoặc global setting) ----
+    let c1 = isO ? (st.color1 || '#ffffff') : (gs.color1 || '#ffffff');
+    let c3 = isO ? (st.color3 || '#000000') : (gs.color3 || '#000000');
+    if (cue.ovC1) c1 = cue.ovC1;
+    if (cue.ovC3) c3 = cue.ovC3;
+    let ow = isO
+      ? (st.outlineWidth != null ? st.outlineWidth : (gs.outlineWidth || 0))
+      : (gs.outlineWidth || 0);
+    if (cue.ovBord != null) ow = cue.ovBord;
+    ow = Math.max(0, ow * ((cue.ovScaleX || 100) / 100)) * scaleH;
+    let bl = isO
+      ? (st.blur != null ? st.blur : (gs.blur || 0))
+      : (gs.blur || 0);
+    if (cue.ovBlur != null) bl = cue.ovBlur;
+    bl = Math.max(0, bl) * scaleH;
+    const spacing = cue.ovSpacing != null ? cue.ovSpacing : (st.spacing || gs.letterSpacing || 0);
+    const bold = cue.ovBold != null ? cue.ovBold : (gs.isBold !== false);
+    const italic = cue.ovItalic != null ? cue.ovItalic : !!gs.isItalic;
+    const useStroke = !!gs.useTextStroke;
+    const deepGlow = !!gs.deepGlow;
+    const useBox = !!gs.useBox;
+    const boxColor = gs.boxColor || '#000000';
+    const boxOpacity = (gs.boxOpacity != null ? gs.boxOpacity : 0.5);
+    const letterSpacing = gs.letterSpacing || 0;
+
+    // ---- Font family (style font hoặc global) ----
+    let fontName = (st.fontName || '').replace(/["']/g, '');
+    if (!isO || !fontName) fontName = (gs.fontFamily || '').replace(/["']/g, '');
+    const shadow = deepGlow
+      ? buildDeepGlow(ow, bl, c3, useStroke)
+      : buildShadow(ow, bl, c3, useStroke);
+    const strokeCss = (useStroke && ow > 0)
+      ? ('-webkit-text-stroke:' + Math.max(ow, 1) + 'px ' + c3 + '; paint-order:stroke fill;')
+      : '';
 
     const div = document.createElement('div');
     div.className = 'ass-cue';
@@ -798,11 +896,23 @@
       'font-family:' + useFont + ';' +
       'font-weight:' + (bold ? '700' : '400') + ';' +
       'font-style:' + (italic ? 'italic' : 'normal') + ';' +
-      'letter-spacing:' + spacing + 'px;' +
+      'text-decoration:' + (gs.isUnderline ? 'underline' : 'none') + ';' +
+      (gs.isStrike ? 'text-decoration-line:line-through;' : '') +
+      'letter-spacing:' + (letterSpacing || spacing) + 'px;' +
       'text-align:' + textAlign + ';' +
       'color:' + c1 + ';' +
       'text-shadow:' + shadow + ';' +
+      strokeCss +
       'white-space:nowrap; pointer-events:none; z-index:20;';
+
+    const applyBox = (el) => {
+      if (useBox) {
+        el.style.backgroundColor = hexToRgba(boxColor, boxOpacity);
+        el.style.padding = '4px 10px';
+        el.style.borderRadius = '6px';
+        el.style.display = 'inline-block';
+      }
+    };
 
     // ---- Hiển thị từng dòng (hỗ trợ \\N + karaoke) ----
     const groups = cue.hasKara ? parseKaraokeCue(cue.rawLines) : null;
@@ -820,27 +930,67 @@
       return d;
     };
 
+    const kTab = (key) => (gs[key] || { c1: '#ffffff', c3: '#000000', outl: 3, blur: 6, zoom: 1.0, zIn: 100, zOut: 100 });
+
+    const applySylStyle = (span, useC1, useC3, useOutl, useBl, useZoom) => {
+      span.style.color = useC1;
+      span.style.transform = 'scale(' + useZoom + ')';
+      span.style.textShadow = deepGlow
+        ? buildDeepGlow(useOutl, useBl, useC3, useStroke)
+        : buildShadow(useOutl, useBl, useC3, useStroke);
+      if (useStroke && useOutl > 0) {
+        span.style.webkitTextStroke = Math.max(useOutl, 1) + 'px ' + useC3;
+        span.style.paintOrder = 'stroke fill';
+      }
+    };
+
     if (groups) {
       groups.forEach((g, li) => {
         const lineDiv = makeLineDiv(baseY + li * lineSpacing);
+        applyBox(lineDiv);
         if (g.syllables && g.syllables.length) {
           g.syllables.forEach((syl) => {
             const span = document.createElement('span');
             span.textContent = syl.text;
             span.style.whiteSpace = 'nowrap';
-            if (nowMs >= syl.start && nowMs < syl.start + syl.dur) {
-              // Âm tiết đang hát -> màu trắng + viền đỏ nổi bật
-              span.style.color = '#ffffff';
-              span.style.textShadow = buildShadow(ow + 1, bl + 2, '#ff2d55');
+            span.style.display = 'inline-block';
+            if (letterSpacing > 0) span.style.marginRight = letterSpacing + 'px';
+            let useC1, useC3, useOutl, useBl, useZoom = 1;
+            const active = nowMs >= syl.start && nowMs < syl.start + syl.dur;
+            if (active) {
+              // Âm tiết đang hát -> tab kActive
+              const k = kTab('kActive');
+              useC1 = k.c1 || '#ffffff';
+              useC3 = k.c3 || '#ff2d55';
+              useOutl = (Number(k.outl) != null ? Number(k.outl) : 3) * scaleH;
+              useBl = (Number(k.blur) != null ? Number(k.blur) : 6) * scaleH;
+              const sEl = nowMs - syl.start;
+              const sRem = (syl.start + syl.dur) - nowMs;
+              const zIn = Number(k.zIn) || 100;
+              const zOut = Number(k.zOut) || 100;
+              const zoomMax = Number(k.zoom) || 1.1;
+              if (sEl < zIn) useZoom = 1 + (zoomMax - 1) * (sEl / zIn);
+              else if (sRem < zOut) useZoom = 1 + (zoomMax - 1) * (sRem / zOut);
+              else useZoom = zoomMax;
             } else if (nowMs >= syl.start + syl.dur) {
-              // Đã hát xong -> mờ đi
-              span.style.color = 'rgba(255,255,255,0.5)';
-              span.style.textShadow = shadow;
+              // Đã hát xong -> tab kPost (mờ dần)
+              const k = kTab('kPost');
+              useC1 = isO ? (st.color1 || k.c1 || c1) : (k.c1 || '#ffffff');
+              useC3 = isO ? (st.color3 || k.c3 || c3) : (k.c3 || '#000000');
+              useOutl = ow;
+              useBl = (Number(k.blur) != null ? Number(k.blur) : 6) * scaleH;
+              const zoomPost = Number(k.zoom) || 1.0;
+              useZoom = zoomPost < 1 ? zoomPost : 0.92;
             } else {
-              // Chưa hát -> màu bình thường
-              span.style.color = c1;
-              span.style.textShadow = shadow;
+              // Chưa hát -> tab kPre (màu bình thường)
+              const k = kTab('kPre');
+              useC1 = isO ? (st.color1 || k.c1 || c1) : (k.c1 || '#ffffff');
+              useC3 = isO ? (st.color3 || k.c3 || c3) : (k.c3 || '#000000');
+              useOutl = ow;
+              useBl = (Number(k.blur) != null ? Number(k.blur) : 6) * scaleH;
+              useZoom = Number(k.zoom) || 1.0;
             }
+            applySylStyle(span, useC1, useC3, useOutl, useBl, useZoom);
             lineDiv.appendChild(span);
           });
         } else {
@@ -849,7 +999,9 @@
       });
     } else {
       (cue.rawLines || []).forEach((ln, li) => {
-        makeLineDiv(baseY + li * lineSpacing).textContent = String(ln).replace(/\{[^}]*\}/g, '');
+        const lineDiv = makeLineDiv(baseY + li * lineSpacing);
+        applyBox(lineDiv);
+        lineDiv.textContent = String(ln).replace(/\{[^}]*\}/g, '');
       });
     }
     return div;
@@ -967,6 +1119,7 @@
         const res = await fetch(subFile.download_url);
         if (res.ok) {
           const text = await res.text();
+          State.rawAssText = text;
           const parsed = parseAssEngine(text);
           State.subtitles = parsed.subtitles;
           State.styleSettings = parsed.styleSettings;
@@ -1005,8 +1158,12 @@
     if (!overlay || !State.ytPlayer || !State.youtubeReady) return;
     let current;
     try { current = State.ytPlayer.getCurrentTime(); } catch (_e) { return; }
-    State.lastRenderTime = current;
-    const active = State.subtitles.filter((s) => current >= s.start && current <= s.end);
+    // Áp dụng timeshift (ms) + lưu chiều cao overlay để tính scaleH
+    const shiftSec = (State.timeShiftMs || 0) / 1000;
+    const t = current + shiftSec;
+    State.lastRenderTime = t;
+    State.subOverlayHeight = overlay.clientHeight || overlay.offsetHeight || 0;
+    const active = State.subtitles.filter((s) => t >= s.start && t <= s.end);
     if (!State.subsEnabled || active.length === 0) {
       hideSubtitleOverlay();
       return;
@@ -1043,6 +1200,501 @@
     else hideSubtitleOverlay();
   }
 
+/* ──────────────────────────────────────────────────────
+     7.6 CÀI ĐẶT PHỤ ĐỀ — POPUP MENU (port YouTube-Aegisub-Loader)
+     ────────────────────────────────────────────────────── */
+  const SUB_SETTINGS_KEY = 'kullanime_sub_settings_v1';
+  const SUB_SETTINGS_DEFAULTS = {
+    fontSize: 90, outlineWidth: 3, blur: 6, color1: '#ffffff', color3: '#000000',
+    spacing: 0, letterSpacing: 0, textZoom: 1.4,
+    useBox: false, deepGlow: false, boxColor: '#000000', boxOpacity: 0.5, fontFamily: 'VNF-Comic Sans',
+    fadIn: 200, fadOut: 200, popupOpacity: 0.95, popupZoom: 1.0,
+    posX: 350, posY: 100, width: 820, height: 600,
+    isBold: true, isItalic: false, isUnderline: false, isStrike: false,
+    kPre:    { c1: '#ffffff', c3: '#000000', outl: 3, blur: 6, zoom: 1.0 },
+    kActive: { c1: '#ffffff', c3: '#ff2d55', outl: 4, blur: 8, zoom: 1.1, zIn: 100, zOut: 100 },
+    kPost:   { c1: '#ffffff', c3: '#000000', outl: 3, blur: 6, zoom: 1.0 },
+    closeOnClickOutside: true,
+    useGlobalStyles: false,
+    useTextStroke: false
+  };
+  let _subPopupEl = null;
+  let _subPopupDragging = false;
+  let _subPopupDragOff = [0, 0];
+  const _subFontOptions = ['VNF-Comic Sans', 'Arial', 'Tahoma', 'Verdana', 'Segoe UI', 'Times New Roman'];
+
+  function loadSubSettings() {
+    try {
+      const raw = localStorage.getItem(SUB_SETTINGS_KEY);
+      if (!raw) return JSON.parse(JSON.stringify(SUB_SETTINGS_DEFAULTS));
+      const saved = JSON.parse(raw);
+      return Object.assign({}, JSON.parse(JSON.stringify(SUB_SETTINGS_DEFAULTS)), saved);
+    } catch (_e) {
+      return JSON.parse(JSON.stringify(SUB_SETTINGS_DEFAULTS));
+    }
+  }
+  function saveSubSettings() {
+    try { localStorage.setItem(SUB_SETTINGS_KEY, JSON.stringify(State.subSettings || {})); } catch (_e) { }
+  }
+  function ensureSubSettings() {
+    if (!State.subSettings) State.subSettings = loadSubSettings();
+    return State.subSettings;
+  }
+  function getSubFontOptionsHTML() {
+    const gs = ensureSubSettings();
+    const opts = _subFontOptions.map((f) =>
+      '<option value="' + f + '"' + (gs.fontFamily === f ? ' selected' : '') + '>' + f + '</option>'
+    ).join('');
+    return '<select id="sub-fontSelect">' + opts + '<option value="custom">-- Load --</option></select>';
+  }
+  function renderSubGlobalRow(l, k, min, max, s) {
+    const gs = ensureSubSettings();
+    return '<div class="g-row"><label>' + l + '</label>' +
+      '<input type="range" id="g-' + k + '" min="' + min + '" max="' + max + '" step="' + s + '" value="' + (gs[k] != null ? gs[k] : 0) + '">' +
+      '<input type="number" id="g-' + k + 'Val" value="' + (gs[k] != null ? gs[k] : 0) + '" step="' + s + '" class="num-in"></div>';
+  }
+  function renderSubKTab(key) {
+    const gs = ensureSubSettings();
+    const obj = gs[key] || {};
+    const isAct = key === 'kActive';
+    return '<div class="g-row" style="background: rgba(255,255,255,0.05); padding: 3px 5px; border-radius: 4px;">' +
+      '<div style="display:flex; align-items:center; gap:4px; flex:1;">1c <input type="color" data-k="' + key + '" data-type="c1" value="' + (obj.c1 || '#ffffff') + '"></div>' +
+      '<div style="display:flex; align-items:center; gap:4px; flex:1; justify-content:flex-end;">3c <input type="color" data-k="' + key + '" data-type="c3" value="' + (obj.c3 || '#000000') + '"></div>' +
+      '</div>' +
+      '<div class="g-row"><label>Outline</label><input type="range" data-k="' + key + '" data-type="outl" min="0" max="20" step="0.1" value="' + (obj.outl || 0) + '"><input type="number" data-k="' + key + '" data-type="outl" value="' + (obj.outl || 0) + '" class="num-in" step="0.1"></div>' +
+      '<div class="g-row"><label>Blur</label><input type="range" data-k="' + key + '" data-type="blur" min="0" max="100" step="0.1" value="' + (obj.blur || 0) + '"><input type="number" data-k="' + key + '" data-type="blur" value="' + (obj.blur || 0) + '" class="num-in" step="0.1"></div>' +
+      '<div class="g-row"><label>Zoom</label><input type="range" data-k="' + key + '" data-type="zoom" min="0.5" max="2.0" step="0.05" value="' + (obj.zoom || 1.0) + '"><input type="number" data-k="' + key + '" data-type="zoom" value="' + (obj.zoom || 1.0) + '" class="num-in" step="0.05"></div>' +
+      (isAct ? '<div class="one-line" style="border-top:1px dashed #444; padding-top:5px; margin-top:5px;">Z-In:<input type="number" data-k="' + key + '" data-type="zIn" value="' + (obj.zIn || 100) + '" class="num-in" step="10"> Z-Out:<input type="number" data-k="' + key + '" data-type="zOut" value="' + (obj.zOut || 100) + '" class="num-in" step="10"></div>' : '');
+  }
+function createSubPopup() {
+    if (_subPopupEl && document.body.contains(_subPopupEl)) return _subPopupEl;
+    const gs = ensureSubSettings();
+    const popup = document.createElement('div');
+    popup.id = 'sub-settings-popup';
+    Object.assign(popup.style, {
+      position: 'fixed', minWidth: '620px', width: (gs.width || 820) + 'px',
+      maxWidth: '92vw', height: 'auto', maxHeight: '95vh',
+      top: '60px', left: '180px',
+      background: 'rgba(15,15,15,' + (gs.popupOpacity || 0.95) + ')',
+      backdropFilter: 'blur(15px)', color: '#fff', zIndex: '2147483647',
+      borderRadius: '12px', border: '1px solid #444', display: 'none',
+      flexDirection: 'column', resize: 'both', overflow: 'hidden',
+      boxShadow: '0 20px 50px rgba(0,0,0,0.8)'
+    });
+    popup.innerHTML =
+      '<div id="sub-settings-header" style="padding:4px 10px; background:rgba(255,255,255,0.05); cursor:move; display:flex; align-items:center; border-bottom:1px solid rgba(255,255,255,0.1); gap:6px;">' +
+        '<b style="font-size:11px; color:#3ea6ff;">⚙️ SUB Settings</b>' +
+        '<span style="flex:1;"></span>' +
+        '<button id="sub-settings-reset" style="border:1px solid #555; color:#ccc; cursor:pointer; background:rgba(255,255,255,0.1); font-size:9px; padding:1px 6px; border-radius:4px;">Reset 🔄</button>' +
+        '<span id="sub-settings-close" style="cursor:pointer; font-size:18px; line-height:20px; color:#aaa;">&times;</span>' +
+      '</div>' +
+      '<div id="sub-settings-inner" style="display:flex; flex:1; overflow:hidden; position:relative; min-height:320px;">' +
+        '<div id="sub-settings-left" style="flex:1; padding:10px; overflow-y:auto; min-width:130px;">' +
+          '<div style="display:flex; align-items:center; gap:4px; margin-bottom:4px; flex-wrap:wrap;">' +
+            '<b style="font-size:10px;">Font:</b>' + getSubFontOptionsHTML() +
+          '</div>' +
+          '<div style="display:flex; align-items:center; gap:4px; margin-bottom:6px; flex-wrap:wrap;">' +
+            '<button class="format-btn ' + (gs.isBold ? 'active' : '') + '" id="sub-btn-isBold" style="font-size:9px; padding:1px 5px;">B</button>' +
+            '<button class="format-btn ' + (gs.isItalic ? 'active' : '') + '" id="sub-btn-isItalic" style="font-size:9px; padding:1px 5px;">I</button>' +
+            '<button class="format-btn ' + (gs.isUnderline ? 'active' : '') + '" id="sub-btn-isUnderline" style="font-size:9px; padding:1px 5px;">U</button>' +
+            '<button class="format-btn ' + (gs.isStrike ? 'active' : '') + '" id="sub-btn-isStrike" style="font-size:9px; padding:1px 5px;">S</button>' +
+            '<span style="flex:1;"></span>' +
+            '<b style="font-size:8px; color:#ffaa00;">⏱ms</b>' +
+            '<button id="sub-ts-dec" style="background:rgba(255,255,255,0.1); border:1px solid #555; color:#ccc; cursor:pointer; border-radius:2px; padding:0 4px; font-size:9px;">-100</button>' +
+            '<input type="text" id="sub-ts-input" value="' + (State.timeShiftMs || 0) + '" style="background:rgba(255,255,255,0.1); border:1px solid #ffaa00; color:#ffaa00; font-size:10px; font-weight:bold; min-width:55px; width:55px; text-align:center; border-radius:3px; padding:1px 3px;">' +
+            '<button id="sub-ts-inc" style="background:rgba(255,255,255,0.1); border:1px solid #ffaa00; color:#ffaa00; cursor:pointer; border-radius:2px; padding:0 4px; font-size:9px;">+100</button>' +
+          '</div>' +
+          '<div class="pill-tabs">' +
+            '<div class="pill-tab active" data-pill="settings">⚙️ Settings</div>' +
+            '<div class="pill-tab" data-pill="karaoke">🎤 Karaoke</div>' +
+            '<div class="pill-tab" data-pill="advanced">🛠️ Advanced</div>' +
+          '</div>' +
+          '<div class="pill-panel open" data-pill="settings">' +
+            renderSubGlobalRow('Size', 'fontSize', 20, 300, 1) +
+            renderSubGlobalRow('Outline', 'outlineWidth', 0, 30, 0.1) +
+            renderSubGlobalRow('Blur', 'blur', 0, 100, 0.1) +
+            '<div class="g-row" style="background: rgba(255,255,255,0.05); padding: 3px 5px; border-radius: 4px;">' +
+              '<div style="display:flex; align-items:center; gap:4px; flex:1;">Text(1c) <input type="color" id="g-color1" value="' + (gs.color1 || '#ffffff') + '"></div>' +
+              '<div style="display:flex; align-items:center; gap:4px; flex:1; justify-content:flex-end;">Outline(3c) <input type="color" id="g-color3" value="' + (gs.color3 || '#000000') + '"></div>' +
+            '</div>' +
+            '<div class="g-row"><label>Fade</label><input type="number" id="g-fadIn" value="' + (gs.fadIn || 200) + '" class="num-in"><span style="font-size:8px;color:#888;">→</span><input type="number" id="g-fadOut" value="' + (gs.fadOut || 200) + '" class="num-in"></div>' +
+            '<div style="background:rgba(255,255,255,0.05); padding:3px 5px; border-radius:4px; display:flex; align-items:center; gap:4px;">' +
+              '<input type="checkbox" id="g-useBox" ' + (gs.useBox ? 'checked' : '') + '> <b style="font-size:9px;">Box</b>' +
+              '<div style="display:flex; align-items:center; gap:3px; flex:1; justify-content:flex-end;"><input type="color" id="g-boxColor" value="' + (gs.boxColor || '#000000') + '"><input type="range" id="g-boxOpacity" min="0" max="1" step="0.1" value="' + (gs.boxOpacity || 0.5) + '" style="flex:0.5;"></div>' +
+            '</div>' +
+          '</div>' +
+          '<div class="pill-panel" data-pill="karaoke">' +
+            '<div class="k-tabs">' +
+              '<button class="k-tab-btn active" data-tab="pre" style="font-size:10px;padding:3px;">Pre</button>' +
+              '<button class="k-tab-btn" data-tab="active" style="font-size:10px;padding:3px;">Active</button>' +
+              '<button class="k-tab-btn" data-tab="post" style="font-size:10px;padding:3px;">Post</button>' +
+            '</div>' +
+            '<div class="k-tab-panels" style="padding:4px;">' +
+              '<div id="sub-k-pre-panel" class="k-tab-content" style="display:block;">' + renderSubKTab('kPre') + '</div>' +
+              '<div id="sub-k-active-panel" class="k-tab-content" style="display:none;">' + renderSubKTab('kActive') + '</div>' +
+              '<div id="sub-k-post-panel" class="k-tab-content" style="display:none;">' + renderSubKTab('kPost') + '</div>' +
+            '</div>' +
+          '</div>' +
+          '<div class="pill-panel" data-pill="advanced">' +
+            '<div class="g-row" style="display:flex; align-items:center; gap:4px;">' +
+              '<label style="font-size:9px; white-space:nowrap;">Text Zoom</label>' +
+              '<input type="number" id="g-textZoom" value="' + Math.round((gs.textZoom || 0.8) * 100) + '" class="num-in" step="5" min="10" max="300" style="width:45px;"><span style="font-size:7px;color:#888;">%</span>' +
+              '<label style="font-size:9px; white-space:nowrap; margin-left:4px;">Letter Spacing</label>' +
+              '<input type="number" id="g-letterSpacing" value="' + (gs.letterSpacing || 0) + '" class="num-in" step="0.5" min="0" max="30" style="width:40px;">' +
+            '</div>' +
+            '<div class="g-row" style="display:flex; align-items:center; gap:4px; background:rgba(255,255,255,0.03); padding:2px 5px; border-radius:4px;">' +
+              '<input type="checkbox" id="g-useTextStroke" ' + (gs.useTextStroke ? 'checked' : '') + '> <b style="font-size:9px;">text-stroke</b>' +
+              '<span style="color:#555;">|</span>' +
+              '<input type="checkbox" id="g-deepGlow" ' + (gs.deepGlow ? 'checked' : '') + '> <b style="font-size:9px;">Deep Glow</b>' +
+            '</div>' +
+          '</div>' +
+        '</div>' +
+        '<div id="sub-settings-divider" style="width:4px; cursor:col-resize; background:rgba(255,255,255,0.05); flex-shrink:0; border-left:1px solid rgba(255,255,255,0.12); border-right:1px solid rgba(255,255,255,0.05); user-select:none;"></div>' +
+        '<div id="sub-style-list" style="flex:1.3; padding:8px; overflow-y:auto; min-width:130px;">' +
+          '<div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:4px;">' +
+            '<span style="color:#ffaa00; font-weight:bold; font-size:10px;">STYLES</span>' +
+            '<div style="display:flex; align-items:center; gap:4px;">' +
+              '<span id="sub-reset-all-styles" style="cursor:pointer; font-size:11px; color:#ffaa00; font-weight:bold; opacity:0.7;" title="Reset all styles">⟳ ALL</span>' +
+              '<label style="display:flex; align-items:center; gap:3px; font-size:9px; color:#aaa; cursor:pointer;">' +
+                '<input type="checkbox" id="sub-use-global-settings" ' + (gs.useGlobalStyles ? 'checked' : '') + '> Use Global Setting' +
+              '</label>' +
+            '</div>' +
+          '</div>' +
+          '<div id="sub-style-items"></div>' +
+        '</div>' +
+      '</div>' +
+      '<div id="sub-settings-footer" style="padding:4px 12px; background:rgba(255,255,255,0.03); border-top:1px solid rgba(255,255,255,0.1); display:flex; justify-content:space-between; align-items:center; font-size:9px; color:#888;">' +
+        '<label style="display:flex; align-items:center; gap:4px; cursor:pointer;">' +
+          '<input type="checkbox" id="sub-close-outside" ' + (gs.closeOnClickOutside ? 'checked' : '') + '> Close on click outside' +
+        '</label>' +
+        '<span style="color:#3ea6ff; font-weight:bold;">AEGISUB Settings by Kull</span>' +
+      '</div>';
+    document.body.appendChild(popup);
+    setupSubPopupEvents();
+    _subPopupEl = popup;
+    return popup;
+  }
+function toggleSubPopup() {
+    const p = createSubPopup();
+    const show = p.style.display === 'none' || p.style.display === '';
+    p.style.display = show ? 'flex' : 'none';
+    if (show) {
+      renderSubStyleItems();
+      if (State.subsEnabled) updateCurrentSubtitle();
+    }
+  }
+
+  // Render danh sách style + nút điều chỉnh từng style (port engine-css.js renderStyles)
+  function renderSubStyleItems() {
+    const container = $('#sub-style-items');
+    if (!container) return;
+    container.innerHTML = '';
+    const usedStyles = new Set();
+    (State.subtitles || []).forEach((sub) => { if (sub.style) usedStyles.add(sub.style); });
+    const priority = (n) => {
+      n = String(n).toLowerCase();
+      return n.includes('viet') ? 1 : n.includes('roma') ? 2 : n.includes('kanji') ? 3 : 99;
+    };
+    Object.keys(State.styleSettings || {}).sort((a, b) => priority(a) - priority(b)).forEach((sName) => {
+      if (!usedStyles.has(sName)) return;
+      const s = State.styleSettings[sName];
+      const item = document.createElement('div');
+      item.className = 'style-item';
+      item.innerHTML = '<div class="style-head"><span title="Font: ' + (s.fontName || 'default') + '">' + sName + '</span>' +
+        '<div style="display:flex; align-items:center; gap:6px;">' +
+          '<span class="sub-reset-style" data-style="' + sName + '" style="cursor:pointer;font-size:10px;color:#ffaa00;">⟳</span>' +
+          '<span class="sub-eye" data-style="' + sName + '" style="cursor:pointer;opacity:' + (s.visible ? 1 : 0.3) + '">' + (s.visible ? '👁️' : '🚫') + '</span>' +
+          '<label style="display:flex; align-items:center;height:16px;"><input type="checkbox" data-style="' + sName + '" data-type="override" ' + (s.override ? 'checked' : '') + ' style="margin:0;height:12px;"> <span style="font-size:12px;display:flex;align-items:center;">⚙️</span></label>' +
+          '<span>▼</span>' +
+        '</div></div>' +
+        '<div class="style-body" style="display:none;">' +
+          '<div class="g-row" style="margin-bottom:2px;">X <input type="range" data-style="' + sName + '" data-type="posX" min="0" max="' + (State.playResX * 2) + '" value="' + s.posX + '"> <input type="number" value="' + s.posX + '" class="num-in" data-style="' + sName + '" data-type="posX"></div>' +
+          '<div class="g-row" style="margin-bottom:2px;">Y <input type="range" data-style="' + sName + '" data-type="posY" min="0" max="' + (State.playResY * 2) + '" value="' + s.posY + '"> <input type="number" value="' + s.posY + '" class="num-in" data-style="' + sName + '" data-type="posY"></div>' +
+          '<div class="sub-adv-style" style="display:' + (s.override ? 'block' : 'none') + ';">' +
+            '<div class="g-row" style="margin-bottom:0px;">' +
+              '<span style="width:18px;color:#aaa;font-weight:bold;font-size:.75em;">1c</span><input type="color" data-style="' + sName + '" data-type="color1" value="' + (s.color1 || '#ffffff') + '" style="width:27px;height:23px;">' +
+              '<span style="width:18px;color:#aaa;font-weight:bold;font-size:.75em;text-align:center;">3c</span><input type="color" data-style="' + sName + '" data-type="color3" value="' + (s.color3 || '#000000') + '" style="width:27px;height:23px;">' +
+              '<span style="width:10px;color:#aaa;font-weight:bold;font-size:.75em;text-align:center;">S</span><input type="number" data-style="' + sName + '" data-type="fontSize" value="' + (s.fontSize || 25) + '" class="num-in" style="width:35px;max-width:35px;" step="1">' +
+              '<span style="width:10px;color:#aaa;font-weight:bold;font-size:.75em;text-align:center;">O</span><input type="number" data-style="' + sName + '" data-type="outlineWidth" value="' + (s.outlineWidth || 2) + '" class="num-in" style="width:35px;max-width:35px;" step="0.1">' +
+            '</div>' +
+          '</div>' +
+        '</div>';
+      item.querySelector('.sub-reset-style').onclick = (e) => {
+        e.stopPropagation();
+        const a = s.origAlign || s.align || 2;
+        const mL = (s.origMarginL !== undefined && s.origMarginL !== null) ? s.origMarginL : (s.marginL || 10);
+        const mR = (s.origMarginR !== undefined && s.origMarginR !== null) ? s.origMarginR : (s.marginR || 10);
+        const mV = (s.origMarginV !== undefined && s.origMarginV !== null) ? s.origMarginV : (s.marginV || 10);
+        if (a % 3 === 1) s.posX = mL + 10;
+        else if (a % 3 === 0) s.posX = State.playResX - mR - 10;
+        else s.posX = State.playResX / 2;
+        if (a >= 7) s.posY = mV + 10;
+        else if (a >= 4) s.posY = State.playResY / 2;
+        else s.posY = State.playResY - mV - 10;
+        s.color1 = s.origColor1 || '#ffffff';
+        s.color3 = s.origColor3 || '#000000';
+        s.fontSize = s.origFontSize || s.fontSize || 25;
+        s.outlineWidth = s.origOutlineWidth || s.outlineWidth || 2;
+        saveSubSettings();
+        renderSubStyleItems();
+        if (State.subsEnabled) updateCurrentSubtitle();
+      };
+      item.querySelector('.sub-eye').onclick = (e) => {
+        e.stopPropagation();
+        s.visible = !s.visible;
+        e.target.innerText = s.visible ? '👁️' : '🚫';
+        e.target.style.opacity = s.visible ? 1 : 0.3;
+        saveSubSettings();
+        if (State.subsEnabled) updateCurrentSubtitle();
+      };
+      item.querySelector('.style-head').onclick = (e) => {
+        if (e.target.tagName !== 'INPUT' && !e.target.classList.contains('sub-eye') && !e.target.closest('label')) {
+          const b = item.querySelector('.style-body');
+          b.style.display = b.style.display === 'none' ? 'block' : 'none';
+        }
+      };
+      container.appendChild(item);
+    });
+  }
+function setupSubPopupEvents() {
+    const popup = _subPopupEl;
+    if (!popup) return;
+
+    // Kéo popup bằng header
+    const header = popup.querySelector('#sub-settings-header');
+    header.onmousedown = (e) => {
+      if (e.target.tagName === 'BUTTON' || e.target.tagName === 'INPUT') return;
+      _subPopupDragging = true;
+      _subPopupDragOff = [popup.offsetLeft - e.clientX, popup.offsetTop - e.clientY];
+      e.preventDefault();
+    };
+    document.addEventListener('mousemove', (e) => {
+      if (!_subPopupDragging) return;
+      popup.style.left = (e.clientX + _subPopupDragOff[0]) + 'px';
+      popup.style.top = (e.clientY + _subPopupDragOff[1]) + 'px';
+    });
+    document.addEventListener('mouseup', () => { _subPopupDragging = false; });
+
+    // Chia kéo divider (left/styles)
+    const divider = popup.querySelector('#sub-settings-divider');
+    let isResizing = false;
+    if (divider) {
+      divider.addEventListener('mousedown', (e) => { isResizing = true; document.body.style.cursor = 'col-resize'; e.preventDefault(); });
+      document.addEventListener('mousemove', (e) => {
+        if (!isResizing) return;
+        const container = popup.querySelector('#sub-settings-inner');
+        const left = popup.querySelector('#sub-settings-left');
+        const right = popup.querySelector('#sub-style-list');
+        const cRect = container.getBoundingClientRect();
+        let leftW = e.clientX - cRect.left - (divider.offsetWidth / 2);
+        leftW = Math.max(150, Math.min(leftW, cRect.width - 150 - divider.offsetWidth));
+        left.style.flex = 'none';
+        left.style.width = leftW + 'px';
+        right.style.flex = '1';
+      });
+      document.addEventListener('mouseup', () => { if (isResizing) { isResizing = false; document.body.style.cursor = ''; } });
+    }
+
+    // Đóng popup khi bấm bên ngoài
+    document.addEventListener('mousedown', function __subCloseOutside(e) {
+      const p = _subPopupEl;
+      const btn = $('#subsSettingsBtn');
+      if (p && p.style.display !== 'none' && !p.contains(e.target) && !(btn && btn.contains(e.target)) &&
+          State.subSettings && State.subSettings.closeOnClickOutside) {
+        p.style.display = 'none';
+      }
+    });
+
+    // Pill tabs (Settings / Karaoke / Advanced)
+    popup.querySelectorAll('.pill-tab').forEach((t) => {
+      t.onclick = () => {
+        popup.querySelectorAll('.pill-tab').forEach((x) => x.classList.remove('active'));
+        popup.querySelectorAll('.pill-panel').forEach((x) => x.classList.remove('open'));
+        t.classList.add('active');
+        const panel = popup.querySelector('.pill-panel[data-pill="' + t.dataset.pill + '"]');
+        if (panel) panel.classList.add('open');
+      };
+    });
+
+    // Karaoke Pre/Active/Post tabs
+    popup.querySelectorAll('.k-tab-btn').forEach((btn) => {
+      btn.onclick = () => {
+        popup.querySelectorAll('.k-tab-btn').forEach((x) => x.classList.remove('active'));
+        popup.querySelectorAll('.k-tab-content').forEach((x) => x.style.display = 'none');
+        btn.classList.add('active');
+        const map = { pre: $('#sub-k-pre-panel'), active: $('#sub-k-active-panel'), post: $('#sub-k-post-panel') };
+        const t = map[btn.dataset.tab];
+        if (t) t.style.display = 'block';
+      };
+    });
+
+    // Đóng + Reset toàn bộ
+    popup.querySelector('#sub-settings-close').onclick = () => { popup.style.display = 'none'; };
+    popup.querySelector('#sub-settings-reset').onclick = () => {
+      State.subSettings = JSON.parse(JSON.stringify(SUB_SETTINGS_DEFAULTS));
+      State.timeShiftMs = 0;
+      saveSubSettings();
+      // nạp lại style gốc từ .ass hiện tại
+      if (State.subtitles.length && State.rawAssText) {
+        try {
+          const parsed = parseAssEngine(State.rawAssText);
+          State.subtitles = parsed.subtitles;
+          State.styleSettings = parsed.styleSettings;
+        } catch (_e) { }
+      }
+      // dựng lại popup với giá trị mới
+      if (_subPopupEl) { _subPopupEl.remove(); _subPopupEl = null; }
+      const fp = createSubPopup();
+      fp.style.display = 'flex';
+      renderSubStyleItems();
+      if (State.subsEnabled) updateCurrentSubtitle();
+      toast('Đã reset cài đặt phụ đề.', 'info', 1800);
+    };
+// Reset all styles
+    const resetAll = popup.querySelector('#sub-reset-all-styles');
+    if (resetAll) {
+      resetAll.onclick = () => {
+        Object.keys(State.styleSettings || {}).forEach((sName) => {
+          const s = State.styleSettings[sName];
+          const a = s.origAlign || s.align || 2;
+          const mL = (s.origMarginL !== undefined && s.origMarginL !== null) ? s.origMarginL : (s.marginL || 10);
+          const mR = (s.origMarginR !== undefined && s.origMarginR !== null) ? s.origMarginR : (s.marginR || 10);
+          const mV = (s.origMarginV !== undefined && s.origMarginV !== null) ? s.origMarginV : (s.marginV || 10);
+          if (a % 3 === 1) s.posX = mL + 10;
+          else if (a % 3 === 0) s.posX = State.playResX - mR - 10;
+          else s.posX = State.playResX / 2;
+          if (a >= 7) s.posY = mV + 10;
+          else if (a >= 4) s.posY = State.playResY / 2;
+          else s.posY = State.playResY - mV - 10;
+          s.color1 = s.origColor1 || '#ffffff';
+          s.color3 = s.origColor3 || '#000000';
+          s.fontSize = s.origFontSize || s.fontSize || 25;
+          s.outlineWidth = s.origOutlineWidth || s.outlineWidth || 2;
+        });
+        saveSubSettings();
+        renderSubStyleItems();
+        if (State.subsEnabled) updateCurrentSubtitle();
+      };
+    }
+
+    // Use Global Setting checkbox
+    const gChk = popup.querySelector('#sub-use-global-settings');
+    if (gChk) {
+      gChk.addEventListener('change', () => {
+        State.subSettings.useGlobalStyles = gChk.checked;
+        Object.keys(State.styleSettings || {}).forEach((name) => {
+          State.styleSettings[name].override = !gChk.checked;
+        });
+        saveSubSettings();
+        renderSubStyleItems();
+        if (State.subsEnabled) updateCurrentSubtitle();
+      });
+    }
+
+    // Format B/I/U/S
+    ['isBold', 'isItalic', 'isUnderline', 'isStrike'].forEach((key) => {
+      const btn = popup.querySelector('#sub-btn-' + key);
+      if (btn) btn.onclick = () => {
+        State.subSettings[key] = !State.subSettings[key];
+        btn.classList.toggle('active');
+        saveSubSettings();
+        if (State.subsEnabled) updateCurrentSubtitle();
+      };
+    });
+
+    // Timeshift
+    const tsInput = popup.querySelector('#sub-ts-input');
+    if (tsInput) {
+      popup.querySelector('#sub-ts-dec').onclick = () => {
+        State.timeShiftMs = (parseInt(tsInput.value, 10) || 0) - 100;
+        tsInput.value = State.timeShiftMs;
+        if (State.subsEnabled) updateCurrentSubtitle();
+      };
+      popup.querySelector('#sub-ts-inc').onclick = () => {
+        State.timeShiftMs = (parseInt(tsInput.value, 10) || 0) + 100;
+        tsInput.value = State.timeShiftMs;
+        if (State.subsEnabled) updateCurrentSubtitle();
+      };
+      tsInput.addEventListener('change', () => {
+        State.timeShiftMs = parseInt(tsInput.value, 10) || 0;
+        if (State.subsEnabled) updateCurrentSubtitle();
+      });
+    }
+
+    // Font select
+    const fontSel = popup.querySelector('#sub-fontSelect');
+    if (fontSel) {
+      fontSel.addEventListener('change', () => {
+        if (fontSel.value === 'custom') {
+          const pick = prompt('Nhập tên font đã cài trên máy:', State.subSettings.fontFamily);
+          if (pick && pick.trim()) {
+            fontSel.insertAdjacentHTML('beforeend', '<option value="' + pick.trim() + '">' + pick.trim() + '</option>');
+            State.subSettings.fontFamily = pick.trim();
+            fontSel.value = pick.trim();
+          }
+        } else {
+          State.subSettings.fontFamily = fontSel.value;
+        }
+        saveSubSettings();
+        if (State.subsEnabled) updateCurrentSubtitle();
+      });
+    }
+
+    // Input chính: global g-*, karaoke data-k, style data-style
+    popup.addEventListener('input', (e) => {
+      const t = e.target;
+      const id = t.id, style = t.getAttribute('data-style'), type = t.getAttribute('data-type'), kTab = t.getAttribute('data-k');
+      const val = t.type === 'checkbox' ? t.checked : t.value;
+      if (kTab) {
+        if (!State.subSettings[kTab]) State.subSettings[kTab] = Object.assign({}, SUB_SETTINGS_DEFAULTS[kTab]);
+        State.subSettings[kTab][type] = (t.type === 'number' || t.type === 'range') ? parseFloat(val) : val;
+        const row = t.closest('.g-row');
+        if (row) {
+          const pair = row.querySelector('input[data-k="' + kTab + '"][data-type="' + type + '"][type="' + (t.type === 'range' ? 'number' : 'range') + '"]');
+          if (pair) pair.value = val;
+        }
+      } else if (style) {
+        const s = State.styleSettings[style];
+        if (!s) return;
+        s[type] = (t.type === 'number' || t.type === 'range') ? parseFloat(val) : val;
+        if (type === 'posX' || type === 'posY') {
+          const row = t.closest('.g-row');
+          if (row) {
+            const sibling = row.querySelector('input[data-type="' + type + '"][type="' + (t.type === 'range' ? 'number' : 'range') + '"]');
+            if (sibling) sibling.value = val;
+          }
+        }
+        if (type === 'override') {
+          const adv = t.closest('.style-item').querySelector('.sub-adv-style');
+          if (adv) adv.style.display = val ? 'block' : 'none';
+        }
+      } else if (id) {
+        let key = id.replace('g-', '').replace('Val', '');
+        if (key === 'textZoom') {
+          State.subSettings.textZoom = parseFloat(val) / 100;
+        } else if (key === 'color1' || key === 'color3' || key === 'boxColor' || key === 'fontFamily') {
+          State.subSettings[key] = val;
+        } else if (t.type === 'checkbox') {
+          State.subSettings[key] = t.checked;
+        } else {
+          State.subSettings[key] = parseFloat(val);
+        }
+        const pair = document.getElementById(id.includes('Val') ? id.replace('Val', '') : id + 'Val');
+        if (pair && pair.id !== id) pair.value = val;
+      }
+      saveSubSettings();
+      if (State.subsEnabled) updateCurrentSubtitle();
+    });
+
+    // Close on click outside checkbox
+    const clo = popup.querySelector('#sub-close-outside');
+    if (clo) {
+      clo.addEventListener('change', () => {
+        State.subSettings.closeOnClickOutside = clo.checked;
+        saveSubSettings();
+      });
+    }
+  }
 
   /* ──────────────────────────────────────────────────────
      8. RENDER ANIME GRID + FILTER
@@ -2787,6 +3439,14 @@
       });
     }
 
+    // SUB ⚙️ — mở popup cài đặt phụ đề
+    const subsSettingsBtn = $('#subsSettingsBtn');
+    if (subsSettingsBtn) {
+      subsSettingsBtn.addEventListener('click', () => {
+        toggleSubPopup();
+      });
+    }
+
     // Bình luận: gửi & captcha & toolbar (bold/italic/.../) + paste tự xử lý link/ảnh
     $('#submitCommentBtn').addEventListener('click', submitComment);
     $('#captchaRefresh').addEventListener('click', newCaptcha);
@@ -3160,6 +3820,7 @@
      ────────────────────────────────────────────────────── */
   async function init() {
     await initSupabase();
+    ensureSubSettings(); // nạp cài đặt phụ đề toàn cục từ localStorage
     bindEvents();
     // Khôi phục tab đang active (mặc định anime)
     switchTab('anime');
