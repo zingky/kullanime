@@ -51,6 +51,7 @@
     pendingVideoId: null,  // videoId cho nap khi player onReady
     autoNext: true,        // tự động chuyển bài kế tiếp khi bài hiện tại kết thúc
     shuffle: false,        // phát ngẫu nhiên khi kết thúc / bấm next
+    repeat: false,         // lặp lại 1 bài: khi hết bài thì phát lại chính bài đó
     // Rate limit comment
     lastCommentAt: 0,
     lastChatAt: 0,
@@ -1205,6 +1206,11 @@
       if (e.data === YT.PlayerState.PAUSED) hideSubtitleOverlay();
     } else if (e.data === YT.PlayerState.ENDED) {
       hideSubtitleOverlay();
+      // Lặp lại 1 bài: phát lại chính bài đang phát
+      if (State.repeat && State.currentSong) {
+        setTimeout(() => playSong(State.currentSong), 600);
+        return;
+      }
       // Tự phát bài kế tiếp (nếu bật) — ngẫu nhiên nếu bật shuffle
       if (State.autoNext) {
         const next = pickNextSong();
@@ -1306,6 +1312,8 @@
   function updatePlayerControlsUI() {
     const autoBtn = $('#pcAuto');
     if (autoBtn) autoBtn.classList.toggle('active', !!State.autoNext);
+    const repBtn = $('#pcRepeat');
+    if (repBtn) repBtn.classList.toggle('active', !!State.repeat);
     const shfBtn = $('#pcShuffle');
     if (shfBtn) shfBtn.classList.toggle('active', !!State.shuffle);
     const playIcon = $('#pcPlayIcon');
@@ -1574,10 +1582,11 @@
       const p = JSON.parse(raw);
       if (typeof p.autoNext === 'boolean') State.autoNext = p.autoNext;
       if (typeof p.shuffle === 'boolean') State.shuffle = p.shuffle;
+      if (typeof p.repeat === 'boolean') State.repeat = p.repeat;
     } catch (_e) { /* ignore */ }
   }
   function savePlayerPrefs() {
-    try { localStorage.setItem(PLAYER_PREFS_KEY, JSON.stringify({ autoNext: State.autoNext, shuffle: State.shuffle })); } catch (_e) { /* ignore */ }
+    try { localStorage.setItem(PLAYER_PREFS_KEY, JSON.stringify({ autoNext: State.autoNext, shuffle: State.shuffle, repeat: State.repeat })); } catch (_e) { /* ignore */ }
   }
 
   // ===================== PANEL SUB SETTINGS (giống chat) =====================
@@ -3897,6 +3906,8 @@ function setupSubPopupEvents() {
     if (pcNext) pcNext.addEventListener('click', playNextSong);
     const pcAuto = $('#pcAuto');
     if (pcAuto) pcAuto.addEventListener('click', () => { State.autoNext = !State.autoNext; savePlayerPrefs(); updatePlayerControlsUI(); });
+    const pcRepeat = $('#pcRepeat');
+    if (pcRepeat) pcRepeat.addEventListener('click', () => { State.repeat = !State.repeat; savePlayerPrefs(); updatePlayerControlsUI(); });
     const pcShuffle = $('#pcShuffle');
     if (pcShuffle) pcShuffle.addEventListener('click', () => { State.shuffle = !State.shuffle; savePlayerPrefs(); updatePlayerControlsUI(); });
 
