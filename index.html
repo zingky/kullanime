@@ -195,6 +195,17 @@
             <input type="search" id="assSearch" class="ass-search" placeholder="🔍 Tìm file .ass theo tên..." autocomplete="off" />
             <div class="ass-files" id="assFileList"></div>
           </div>
+
+          <!-- Phụ đề Cache (lưu trên máy người dùng, không đồng bộ) -->
+          <div class="ass-status-card ass-cache-card">
+            <p class="ass-status-title">💾 Phụ đề Cache <em class="ass-cache-tag">máy của bạn</em></p>
+            <p class="ass-status-text">Tải file .ass lên để lưu vào cache máy này và sử dụng. Khi muốn đưa lên kho phụ đề, bạn gửi mail file .ass cho admin.</p>
+            <input type="text" id="assCacheYt" class="ass-search" placeholder="🔗 Paste link YouTube (tuỳ chọn) để đặt tên đúng..." autocomplete="off" />
+            <input type="text" id="assCacheTitle" class="ass-search" placeholder="🏷 Tiêu đề video (tuỳ chọn, dùng cho tên file)..." autocomplete="off" />
+            <label class="ass-cache-upload" for="assCacheFile">📤 Chọn / load file .ass lên</label>
+            <input type="file" id="assCacheFile" class="hidden" accept=".ass,text/plain,application/octet-stream" />
+            <div class="ass-files" id="assCacheList"></div>
+          </div>
         </aside>
       </div>
     </section>
@@ -381,6 +392,14 @@
             <button class="btn btn-primary" id="addAnimeBtn">＋ Thêm anime mới</button>
           </div>
         </div>
+        <div class="admin-filter-bar">
+          <input type="search" id="adminAnimeSearch" class="input admin-search-input" placeholder="🔍 Tìm anime theo tên..." autocomplete="off" />
+          <select id="adminAnimeSort" class="input admin-sort-select">
+            <option value="newest">🆕 Mới nhất</option>
+            <option value="oldest">🗓 Cũ nhất</option>
+            <option value="title">🔤 Theo tên (A-Z)</option>
+          </select>
+        </div>
         <div class="admin-list" id="adminAnimeList"></div>
       </div>
 
@@ -405,7 +424,15 @@
       <!-- ── Quản lý Bình luận ── -->
       <div class="admin-pane" data-apane="comments">
         <div class="admin-pane-toolbar">
-          <h4 class="admin-pane-title">Toàn bộ bình luận (mới nhất)</h4>
+          <h4 class="admin-pane-title">Toàn bộ bình luận</h4>
+        </div>
+        <div class="admin-filter-bar">
+          <input type="search" id="adminCommentSearch" class="input admin-search-input" placeholder="🔍 Tìm bình luận (tên / nội dung / anime)..." autocomplete="off" />
+          <select id="adminCommentSort" class="input admin-sort-select">
+            <option value="newest">🆕 Mới nhất</option>
+            <option value="oldest">🗓 Cũ nhất</option>
+            <option value="title">🔤 Theo tên người gửi</option>
+          </select>
         </div>
         <div class="admin-list" id="adminCommentList"></div>
       </div>
@@ -561,7 +588,7 @@
   <div class="mini-pop hidden" id="epPop"></div>
   <div class="mini-pop hidden" id="heartPop"></div>
 
-  <script src="./app.js?v=27"></script>
+  <script src="./app.js?v=28"></script>
 </body>
 </html>
 

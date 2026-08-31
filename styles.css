@@ -500,6 +500,34 @@ select.input { appearance: none; -webkit-appearance: none; background-image: url
 .ass-file-item.clickable:hover .ass-file-play-btn { opacity: 1; }
 .ass-file-bad { font-size: 10.5px; color: #f59e0b; flex-shrink: 0; font-weight: 600; opacity: 0.8; }
 
+/* ── Phụ đề Cache (lưu trên máy) ── */
+.ass-cache-card { border-style: solid; border-color: rgba(34, 211, 238, 0.35); }
+.ass-cache-tag { font-style: normal; font-size: 10px; color: var(--accent); font-weight: 700; margin-left: 4px; }
+.ass-cache-card .ass-search { margin-top: 6px; }
+.ass-cache-upload {
+  display: flex; align-items: center; justify-content: center; gap: 6px;
+  margin-top: 8px; padding: 8px 10px; border: 1px dashed rgba(34,211,238,0.5);
+  border-radius: 8px; font-size: 12.5px; font-weight: 600; color: var(--accent);
+  background: rgba(34,211,238,0.08); cursor: pointer; transition: background 0.15s ease;
+}
+.ass-cache-upload:hover { background: rgba(34,211,238,0.16); }
+.ass-cache-row {
+  display: flex; align-items: center; gap: 8px; padding: 7px 8px; border-radius: 6px;
+  font-size: 12px; color: var(--text); transition: background 0.12s ease;
+}
+.ass-cache-row:hover { background: rgba(255,255,255,0.05); }
+.ass-cache-row .ass-file-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ass-cache-row.active { background: color-mix(in srgb, var(--primary) 14%, transparent); }
+.ass-cache-actions { display: flex; gap: 4px; flex-shrink: 0; }
+.ass-cache-actions button {
+  border: none; background: transparent; color: var(--text-dim); cursor: pointer;
+  font-size: 13px; padding: 2px 4px; border-radius: 4px; line-height: 1;
+}
+.ass-cache-actions button:hover { background: rgba(255,255,255,0.1); color: var(--text); }
+.ass-cache-actions button.danger:hover { color: var(--danger); }
+.ass-cache-empty { font-size: 12px; color: var(--text-faint); padding: 8px; }
+
+
 /* ============ CHAT CHUNG ============ */
 .chat-layout { max-width: 900px; margin: 0 auto; }
 .chat-layout .composer { margin-bottom: 20px; }
@@ -856,6 +884,11 @@ html[data-theme="light"] .modal { background: rgba(255, 255, 255, 0.72); }
 .admin-row-actions { display: flex; gap: 6px; margin-left: auto; }
 .mini-btn { border: var(--glass-border); background: var(--bg-elev); border-radius: 7px; padding: 5px 9px; font-size: 12px; cursor: pointer; color: var(--text); transition: all 0.12s ease; backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); }
 .mini-btn:hover { border-color: var(--border-strong); }
+
+/* Toolbar lọc + sắp xếp admin (anime / bình luận) */
+.admin-filter-bar { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+.admin-search-input { flex: 1 1 220px; min-width: 150px; }
+.admin-sort-select { flex: 0 1 auto; width: auto; min-width: 160px; cursor: pointer; }
 
 /* Quản lý nguồn repo .ass (admin) */
 .admin-repo-manager { margin-top: 18px; padding-top: 14px; border-top: 1px dashed var(--border-strong); }
