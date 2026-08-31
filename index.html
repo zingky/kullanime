@@ -32,7 +32,7 @@
   <!-- File cấu hình (đọc .env.local / fallback) -->
   <script src="./config.js"></script>
 
-  <link rel="stylesheet" href="./styles.css?v=28" />
+  <link rel="stylesheet" href="./styles.css?v=30" />
 </head>
 <body>
   <!-- Nền aurora động (liquid glass background) -->
@@ -140,9 +140,18 @@
               <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M21 8V5a2 2 0 0 0-2-2h-3"/><path d="M3 16v3a2 2 0 0 0 2 2h3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/></svg>
             </button>
           </div>
-          <!-- Thanh điều khiển player: lùi / phát-tạm dừng / kế tiếp + lặp-1 / tự chuyển bài / ngẫu nhiên + phụ đề -->
+          <!-- Thanh điều khiển player: lặp lại / ngẫu nhiên (trái) · lùi / phát / kế tiếp (giữa) · phụ đề (phải) -->
           <div class="player-controls" role="group" aria-label="Điều khiển phát nhạc">
-            <div class="pc-group">
+            <div class="pc-group pc-left">
+              <!-- Nút chung: Tắt → Chỉ lặp 1 → Chỉ tự động chuyển bài → Tắt -->
+              <button type="button" class="pc-btn pc-toggle" id="pcAutoRepeat" title="Tự động chuyển bài / Lặp lại bài hiện tại" aria-label="Tự động chuyển bài / Lặp lại bài hiện tại">
+                <svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" id="pcAutoRepeatIcon"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>
+              </button>
+              <button type="button" class="pc-btn pc-toggle" id="pcShuffle" title="Phát ngẫu nhiên" aria-label="Phát ngẫu nhiên">
+                <svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 3 21 3 21 8"/><line x1="4" y1="20" x2="21" y2="3"/><polyline points="21 16 21 21 16 21"/><line x1="15" y1="15" x2="21" y2="21"/><line x1="4" y1="4" x2="9" y2="9"/></svg>
+              </button>
+            </div>
+            <div class="pc-group pc-center">
               <button type="button" class="pc-btn" id="pcPrev" title="Bài trước" aria-label="Bài trước">
                 <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M6 6h2v12H6zM9.5 12l8.5 6V6z"/></svg>
               </button>
@@ -153,16 +162,7 @@
                 <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M16 6h2v12h-2zM6 18l8.5-6L6 6z"/></svg>
               </button>
             </div>
-            <div class="pc-group">
-              <!-- Nút chung: Tắt → Chỉ lặp 1 → Chỉ tự động chuyển bài → Tắt -->
-              <button type="button" class="pc-btn pc-toggle" id="pcAutoRepeat" title="Tự động chuyển bài / Lặp lại bài hiện tại" aria-label="Tự động chuyển bài / Lặp lại bài hiện tại">
-                <svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" id="pcAutoRepeatIcon"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>
-              </button>
-              <button type="button" class="pc-btn pc-toggle" id="pcShuffle" title="Phát ngẫu nhiên" aria-label="Phát ngẫu nhiên">
-                <svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 3 21 3 21 8"/><line x1="4" y1="20" x2="21" y2="3"/><polyline points="21 16 21 21 16 21"/><line x1="15" y1="15" x2="21" y2="21"/><line x1="4" y1="4" x2="9" y2="9"/></svg>
-              </button>
-            </div>
-            <div class="pc-subs">
+            <div class="pc-subs pc-right">
               <button type="button" class="pc-btn pc-toggle subs-toggle" id="subsToggle" title="Bật/tắt phụ đề" aria-label="Bật/tắt phụ đề">
                 <span id="subsToggleIcon">💬</span>
                 <span class="sr-only" id="subsToggleLabel">Phụ đề: Tắt</span>
@@ -172,7 +172,15 @@
             <!-- Panel SUB Settings — popup sổ xuống che phần phía dưới, rộng bằng khung video player -->
             <aside class="sub-panel hidden" id="subPanel" aria-label="Cài đặt phụ đề">
               <div class="sub-panel-header">
-                <span class="sub-panel-title">⚙️ SUB Settings <em class="sub-panel-ctx" id="subPanelCtx"></em></span>
+                <div class="sub-ts-bar sub-ts-in-header">
+                  <span class="sub-ts-ico" title="Timeshift">⏱</span>
+                  <button type="button" id="sub-ts-dec" title="Lùi 100ms">−</button>
+                  <input type="text" id="sub-ts-input" value="0" inputmode="numeric" aria-label="Timeshift (ms)">
+                  <button type="button" id="sub-ts-inc" title="Tiến 100ms">+</button>
+                  <button type="button" id="sub-ts-zero" title="Đặt lại về 0">⟳</button>
+                  <span class="sub-ts-ms">ms</span>
+                </div>
+                <em class="sub-panel-ctx" id="subPanelCtx"></em>
                 <button type="button" class="sub-panel-close" id="subPanelClose" aria-label="Đóng cài đặt phụ đề" title="Đóng (Esc)">✕</button>
               </div>
               <div class="sub-panel-body" id="subPanelBody"><!-- JS render --></div>
@@ -588,7 +596,7 @@
   <div class="mini-pop hidden" id="epPop"></div>
   <div class="mini-pop hidden" id="heartPop"></div>
 
-  <script src="./app.js?v=28"></script>
+  <script src="./app.js?v=30"></script>
 </body>
 </html>
 

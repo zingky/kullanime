@@ -432,14 +432,18 @@ select.input { appearance: none; -webkit-appearance: none; background-image: url
 /* ============ THANH ĐIỀU KHIỂN PLAYER (dưới khung video) ============ */
 .player-controls {
   position: relative; z-index: 30;
-  display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 12px;
+  display: grid; grid-template-columns: auto 1fr auto; align-items: center;
+  gap: 8px; margin-top: 12px;
   padding: 10px 14px; background: var(--bg-card); border: var(--glass-border);
-  border-radius: var(--radius); flex-wrap: wrap;
+  border-radius: var(--radius);
   backdrop-filter: blur(14px) saturate(150%); -webkit-backdrop-filter: blur(14px) saturate(150%);
   box-shadow: var(--shadow-soft);
 }
 /* Nhóm nút con: dàn ngang, không co hẹp để giữ căn đều theo chiều rộng khung video */
 .pc-group { display: inline-flex; align-items: center; gap: 8px; flex-shrink: 0; }
+.pc-left { justify-self: start; }
+.pc-center { justify-self: center; }
+.pc-right { justify-self: end; }
 .pc-btn {
   display: inline-flex; align-items: center; justify-content: center; gap: 6px;
   min-width: 38px; height: 38px; padding: 0 10px; border-radius: 10px;
@@ -466,7 +470,7 @@ select.input { appearance: none; -webkit-appearance: none; background-image: url
   overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; clip-path: inset(50%);
 }
 @media (max-width: 480px) {
-  .player-controls { justify-content: center; gap: 6px; padding: 8px 10px; }
+  .player-controls { gap: 6px; padding: 8px 10px; }
   .pc-btn { min-width: 34px; height: 34px; padding: 0 8px; }
   .pc-btn.pc-play { min-width: 44px; height: 44px; }
 }
@@ -1071,8 +1075,8 @@ html[data-theme="light"] .modal { background: rgba(255, 255, 255, 0.72); }
   to { transform: translateY(10px) scale(0.98); opacity: 0; }
 }
 .sub-panel-header {
-  display: flex; align-items: center; justify-content: space-between; gap: 10px;
-  padding: 12px 14px; border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  display: flex; align-items: center; flex-wrap: wrap; justify-content: space-between; gap: 8px;
+  padding: 10px 12px; border-bottom: 1px solid rgba(255, 255, 255, 0.1);
   background: rgba(255, 255, 255, 0.03);
   flex-shrink: 0;
 }
@@ -1081,10 +1085,11 @@ html[data-theme="light"] .modal { background: rgba(255, 255, 255, 0.72); }
   display: flex; align-items: center; gap: 8px; white-space: nowrap; overflow: hidden;
 }
 .sub-panel-ctx {
-  font-style: normal; font-size: 10px; color: #ffd54a; max-width: 50%;
+  font-style: normal; font-size: 10px; color: #ffd54a;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   background: rgba(255, 213, 74, 0.12); border: 1px solid rgba(255, 213, 74, 0.35);
   padding: 1px 7px; border-radius: 999px;
+  min-width: 0; flex-shrink: 1;
 }
 .sub-panel-close {
   border: 1px solid rgba(255, 255, 255, 0.12); background: rgba(255, 255, 255, 0.06); color: #bbb;
@@ -1113,7 +1118,7 @@ html[data-theme="light"] .modal { background: rgba(255, 255, 255, 0.72); }
 }
 .sub-style-actions {
   display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap;
-  padding-top: 8px; border-top: 1px solid rgba(255, 255, 255, 0.08);
+  padding: 8px 8px 0; margin-top: 4px; border-top: 1px solid rgba(255, 255, 255, 0.08);
 }
 @media (max-width: 480px) {
   .sub-panel-body { max-height: 58vh; }
@@ -1271,21 +1276,24 @@ select.input option { background: #141a2d; color: var(--text); }
 
 /* ============ SUB SETTINGS UI HIỆN ĐẠI (timeshift chung + 2 tab lớn) ============ */
 .sub-ts-bar {
-  display: flex; align-items: center; gap: 5px;
-  padding: 7px 10px; margin-bottom: 10px;
+  display: flex; align-items: center; gap: 4px;
+  padding: 6px 8px;
   background: linear-gradient(135deg, rgba(62,166,255,0.16), rgba(168,85,247,0.16));
   border: 1px solid rgba(62,166,255,0.35);
   border-radius: 12px;
 }
+/* Bản đặt trên header sub-panel: bỏ margin đáy, co nhỏ để vừa kế bên id/tên file */
+.sub-ts-bar.sub-ts-in-header { margin-bottom: 0; flex-shrink: 1; min-width: 0; }
 .sub-ts-bar .sub-ts-lab { font-size: 10px; font-weight: 800; color: #3ea6ff; letter-spacing: .3px; white-space: nowrap; margin-right: 2px; }
+.sub-ts-bar .sub-ts-ico { font-size: 13px; line-height: 1; color: #3ea6ff; flex-shrink: 0; cursor: default; }
 .sub-ts-bar .sub-ts-ms { font-size: 9px; color: #8ab4cc; white-space: nowrap; }
 .sub-ts-bar #sub-ts-input {
   background: rgba(0,0,0,0.35); border: 1px solid rgba(62,166,255,0.5); color: #ffd54a;
-  font-size: 11px; font-weight: 700; width: 66px; min-width: 66px; text-align: center; border-radius: 7px; padding: 3px 4px;
+  font-size: 11px; font-weight: 700; width: 60px; min-width: 60px; max-width: 90px; text-align: center; border-radius: 7px; padding: 3px 4px;
 }
 .sub-ts-bar button {
   background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.18); color: #ddd;
-  cursor: pointer; border-radius: 7px; padding: 3px 8px; font-size: 10px; font-weight: 700;
+  cursor: pointer; border-radius: 7px; padding: 3px 8px; font-size: 11px; font-weight: 700; line-height: 1;
   transition: background .15s ease, transform .1s ease;
 }
 .sub-ts-bar button:hover { background: rgba(62,166,255,0.28); color: #fff; }
@@ -1308,11 +1316,14 @@ select.input option { background: #141a2d; color: var(--text); }
   box-shadow: 0 4px 14px rgba(62,166,255,0.35);
 }
 .sub-mtab-panel { animation: subFadeIn .2s ease; }
+/* Căn đều nội dung cả 2 tab: thêm padding ngang để nội dung align với timeshift bar + tab header */
+.sub-mtab-panel[data-m="styles"] { padding: 4px 2px 0; }
+#sub-style-items { display: flex; flex-direction: column; gap: 8px; }
 
 /* Style headbar + empty state */
 .sub-style-headbar {
   display: flex; align-items: center; justify-content: space-between; gap: 8px;
-  padding-bottom: 8px; margin-bottom: 8px; border-bottom: 1px dashed rgba(255,255,255,0.12);
+  padding: 4px 8px 8px; margin-bottom: 8px; border-bottom: 1px solid rgba(255,255,255,0.08);
 }
 .sub-style-headbar .sub-styles-title { color: #ffaa00; font-weight: 800; font-size: 11px; display: flex; align-items: center; gap: 6px; }
 .sub-style-headbar #sub-reset-all-styles { cursor: pointer; font-size: 11px; color: #ffaa00; font-weight: 700; opacity: .85; transition: opacity .15s; white-space: nowrap; }
@@ -1370,3 +1381,32 @@ select.input option { background: #141a2d; color: var(--text); }
 /* Format row: B I U S trải đều */
 .sub-panel .sub-fmt-row { gap: 4px; }
 .sub-panel .sub-fmt-row .format-btn { flex: 1; padding: 5px 0; font-size: 11px; border-radius: 8px; }
+
+/* ============ Thanh công cụ CHUNG phụ đề (Font + B/I/U/S + Cỡ chữ % + reset) ============
+   Luôn hiển thị phía trên hàng chọn Cài đặt chung / Cài đặt từng style và hoạt động
+   kể cả khi đang ở Cài đặt từng style. */
+.sub-global-toolbar {
+  display: flex; flex-direction: column; gap: 8px;
+  padding: 10px;
+  background: linear-gradient(135deg, rgba(62,166,255,0.10), rgba(168,85,247,0.10));
+  border: 1px solid rgba(255,255,255,0.10);
+  border-radius: 14px;
+}
+.sub-global-toolbar .sub-gtb-lab { font-size: 11px; font-weight: 800; color: #9aa3b8; white-space: nowrap; }
+.sub-global-toolbar .sub-tool-row { margin-bottom: 0; }
+.sub-global-toolbar .sub-gtb-row select { flex: 1; min-width: 0; }
+.sub-global-toolbar .sub-gtb-fmt { display: flex; gap: 5px; }
+.sub-global-toolbar .sub-gtb-fmt .format-btn { flex: 1; padding: 6px 0; font-size: 12px; border-radius: 8px; }
+.sub-gtb-scale {
+  display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
+  border-top: 1px dashed rgba(255,255,255,0.10); padding-top: 8px;
+}
+.sub-gtb-scale #g-fontScale { flex: 1; min-width: 80px; }
+.sub-gtb-scale .num-in { width: 58px; }
+.sub-gtb-reset {
+  background: rgba(255,255,255,0.10); border: 1px solid rgba(255,255,255,0.18); color: #ffaa00;
+  cursor: pointer; border-radius: 8px; padding: 5px 10px; font-size: 13px; font-weight: 800; line-height: 1;
+  transition: background .15s ease, transform .1s ease; flex-shrink: 0;
+}
+.sub-gtb-reset:hover { background: rgba(255,170,0,0.22); color: #fff; }
+.sub-gtb-reset:active { transform: scale(.94); }
