@@ -1468,6 +1468,8 @@ select.input option { background: #141a2d; color: var(--text); }
 .sub-panel input[type="range"]::-moz-range-track { height: 6px; background: rgba(255,255,255,0.16); border-radius: 999px; }
 .sub-panel input[type="range"]::-moz-range-thumb { width: 16px; height: 16px; border: none; border-radius: 50%; background: radial-gradient(circle at 35% 35%, #fff, #3ea6ff 75%); box-shadow: 0 0 0 3px rgba(62,166,255,0.28); cursor: grab; }
 .sub-panel .g-row input[type="range"], .sub-panel .pos-row input[type="range"] { height: 6px; margin: 0 6px; }
+/* Slider X/Y giãn hết chiều ngang (không còn khoảng trống bên phải) */
+.sub-panel .pos-row input[type="range"] { flex: 1; min-width: 0; width: auto; }
 
 /* Format row: B I U S trải đều */
 .sub-panel .sub-fmt-row { gap: 4px; }
