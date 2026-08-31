@@ -269,7 +269,7 @@ select.input { appearance: none; -webkit-appearance: none; background-image: url
 .player-placeholder { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; background: radial-gradient(circle at 30% 30%, rgba(168,85,247,0.22), transparent 55%), radial-gradient(circle at 70% 70%, rgba(6,182,212,0.22), transparent 55%), rgba(17,24,39,0.6); color: var(--text-dim); text-align: center; padding: 20px; backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); }
 .ph-icon { font-size: 52px; margin-bottom: 8px; }
 
-.subtitle-overlay { position: absolute; left: 0; right: 0; bottom: 44px; top: auto; pointer-events: none; z-index: 5; opacity: 0; transition: opacity 0.2s ease; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; text-align: center; padding: 0 8px 4px; }
+.subtitle-overlay { position: absolute; left: 0; right: 0; top: 0; bottom: 44px; pointer-events: none; z-index: 5; opacity: 0; transition: opacity 0.2s ease; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; text-align: center; padding: 0 8px 4px; }
 .subtitle-overlay.show { opacity: 1; }
 /* Nút phóng to video full màn hình (nổi góc phải khung video) */
 .video-fs-btn {
@@ -1446,9 +1446,11 @@ select.input option { background: #141a2d; color: var(--text); }
   font-size: 10px; font-weight: 800; color: #3ea6ff;
   background: rgba(62,166,255,0.15); border-radius: 5px;
 }
-.sub-panel .adv-grid { display: flex; gap: 8px; margin-bottom: 6px; }
-.sub-panel .adv-grid .adv-cell { display: flex; align-items: center; gap: 4px; flex: 1; }
-.sub-panel .adv-lab { font-size: 9px; font-weight: 700; color: #9aa3b8; width: 14px; }
+.sub-panel .adv-grid { display: flex; gap: 4px; margin-bottom: 6px; flex-wrap: nowrap; }
+.sub-panel .adv-grid .adv-cell { display: flex; align-items: center; gap: 2px; flex: 1; min-width: 0; }
+.sub-panel .adv-lab { font-size: 9px; font-weight: 700; color: #9aa3b8; width: 14px; flex-shrink: 0; }
+.sub-panel .adv-grid input[type="color"] { width: 24px; height: 22px; padding: 0; border: 1px solid rgba(255,255,255,0.15); border-radius: 4px; cursor: pointer; flex-shrink: 0; }
+.sub-panel .adv-grid input[type="number"] { width: 42px; min-width: 0; padding: 2px 3px; font-size: 10px; text-align: center; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.15); border-radius: 5px; color: #eef2ff; flex-shrink: 0; }
 /* Slider mảnh → to & bắt mắt hơn */
 .sub-panel input[type="range"] {
   -webkit-appearance: none; appearance: none; height: 6px;
