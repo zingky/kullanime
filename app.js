@@ -1870,7 +1870,7 @@
     header.className = 'sub-panel-header';
     header.innerHTML =
       // 1 hàng: [tên file chạy marquee] [⏱ − input + ⟳ ms] [✕]
-      '<em class="sub-panel-ctx" id="subPanelCtx" title="' + esc(ctxLabel) + '"><span class="sub-ctx-scroll">' + esc(ctxLabel) + '</span></em>' +
+      '<em class="sub-panel-ctx" id="subPanelCtx" title="' + esc(ctxLabel) + '"><span class="sub-ctx-scroll"><span class="sub-ctx-text">' + esc(ctxLabel) + '</span><span class="sub-ctx-text">' + esc(ctxLabel) + '</span></span></em>' +
       '<div class="sub-ts-bar sub-ts-in-header">' +
         '<span class="sub-ts-ico" title="Timeshift">⏱</span>' +
         '<button type="button" id="sub-ts-dec" title="Lùi 100ms">−</button>' +
