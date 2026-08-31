@@ -16,6 +16,7 @@ drop table if exists public.songs    cascade;
 drop table if exists public.animes   cascade;
 drop function if exists public.set_updated_at() cascade;
 drop function if exists public.is_admin() cascade;
+drop function if exists public.prevent_comment_spam() cascade;
 
 -- ===== 2) TẠO LẠI =====
 create extension if not exists "pgcrypto";
@@ -62,6 +63,8 @@ create table public.comments (
   content      text not null default '',
   author_name  text not null default '',
   is_pinned    boolean not null default false,
+  -- Người gửi (auto lấy từ auth) — phục vụ rate-limit & quản lý
+  user_id      uuid default auth.uid(),
   created_at   timestamptz not null default now()
 );
 comment on table public.comments is 'Bình luận dạng forum, có thể ghim';
@@ -163,9 +166,52 @@ create policy "comments_public_insert" on public.comments
 drop policy if exists "comments_admin_update" on public.comments;
 create policy "comments_admin_update" on public.comments
   for update to authenticated using (public.is_admin());
+
 drop policy if exists "comments_admin_delete" on public.comments;
 create policy "comments_admin_delete" on public.comments
   for delete to authenticated using (public.is_admin());
+
+-- ===== 6b) CHỐNG SPAM SERVER-SIDE (rate-limit bình luận) =====
+-- Tối đa 1 bình luận / 45 giây / người. Dùng auth.uid() (server) — client không bypass được.
+create or replace function public.prevent_comment_spam()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  _uid       uuid := auth.uid();
+  _last_ts   timestamptz;
+  _min_gap   interval := interval '45 seconds';
+begin
+  -- Chỉ áp dụng cho bình luận forum (anime_id có giá trị).
+  -- Chat (anime_id null) là realtime, không giới hạn 45s — chỉ có client-side throttle.
+  if new.anime_id is null then
+    return new;
+  end if;
+
+  if _uid is not null then
+    select max(created_at) into _last_ts
+      from public.comments where user_id = _uid;
+  else
+    -- Khách: giới hạn theo author_name
+    select max(created_at) into _last_ts
+      from public.comments
+      where user_id is null and author_name = new.author_name;
+  end if;
+
+  if _last_ts is not null and (now() - _last_ts) < _min_gap then
+    raise exception 'Bạn đang gửi bình luận quá nhanh, vui lòng chờ 45 giây.';
+  end if;
+
+  new.user_id := _uid;  -- server gán, không tin client
+  return new;
+end;
+$$;
+
+create trigger trg_prevent_comment_spam
+  before insert on public.comments
+  for each row execute function public.prevent_comment_spam();
 
 -- ===== 7) INDEX =====
 create index if not exists idx_animes_title        on public.animes (title);
@@ -175,6 +221,7 @@ create index if not exists idx_songs_title         on public.songs (title);
 create index if not exists idx_comments_anime_id   on public.comments (anime_id);
 create index if not exists idx_comments_created_at on public.comments (created_at desc);
 create index if not exists idx_comments_pinned     on public.comments (is_pinned) where is_pinned = true;
+create index if not exists idx_comments_user_id    on public.comments (user_id);
 alter table public.animes add column if not exists title_tsv tsvector
   generated always as (to_tsvector('simple', coalesce(title,''))) stored;
 create index if not exists idx_animes_title_tsv on public.animes using gin (title_tsv);

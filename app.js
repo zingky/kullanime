@@ -28,9 +28,15 @@
     assQuery: '',          // từ khoá tìm kiếm file .ass
     currentAnime: null,    // anime đang xem trong modal
     currentSong: null,     // bài hát đang phát
-    subtitles: [],         // [ {start,end,romaji,vietsub} ] parse từ .ass
+    subtitles: [],         // mảng cue phụ đề ASS đã parse (engine)
     subsEnabled: false,
     subsTick: null,
+    // Dữ liệu engine phụ đề ASS (port từ YouTube-Aegisub-Loader)
+    styleSettings: {},     // { styleName: {color1,color3,fontSize,outlineWidth,blur,spacing,fontName,align,posX,posY,...} }
+    playResX: 384,
+    playResY: 288,
+    rawAssText: '',
+    lastRenderTime: 0,
     isAdmin: false,
     isLoggedIn: false,   // đã đăng nhập (thành viên hoặc admin)
     adminEmail: '',
@@ -502,67 +508,356 @@
   }
 
   /* ──────────────────────────────────────────────────────
-     6. ASS PARSER → Mảng phụ đề
-     Chỉ giữ Style "vietsub" (đã có sẵn tiếng Việt trong
-     file Kull-Vietsub) + thêm dòng romaji nếu cùng khung giờ.
+     6. ASS ENGINE — PARSER + RENDERER
+     Port nguyên lý render phụ đề ASS từ
+     YouTube-Aegisub-Loader (parser.js + engine-css.js + globals.js):
+     parseAssEngine() + assembleCue() + renderAssSubtitle() dưới đây thay
+     thế parseAss() cũ — hỗ trợ Style, {\pos}, {\an}, karaoke {\k},
+     màu/outline/shadow, xuống dòng {\N}.
      ────────────────────────────────────────────────────── */
-  function parseAss(content) {
+  // (parseAss() cũ đã được thay bằng parseAssEngine() — xem bên dưới)
+  // "h:mm:ss.cc" -> seconds (float)
+  function parseAssTime(str) {
+    const m = String(str).trim().match(/^(\d+):(\d{1,2}):(\d{1,2})[.:](\d{1,3})$/);
+    if (!m) return null;
+    const h = parseInt(m[1], 10);
+    const min = parseInt(m[2], 10);
+    const sec = parseInt(m[3], 10);
+    const cs = parseInt(m[4].padEnd(3, '0').slice(0, 3), 10);
+    return h * 3600 + min * 60 + sec + cs / 1000;
+  }
+
+  // &HAABBGGRR (ASS) -> #RRGGBB (CSS)
+  function assToHex(assStr) {
+    let clean = String(assStr || '').replace(/&H|&/gi, '');
+    if (clean.length > 6) clean = clean.substring(2); // bỏ alpha
+    while (clean.length < 6) clean = '0' + clean;
+    return '#' + clean.substring(4, 6) + clean.substring(2, 4) + clean.substring(0, 2);
+  }
+
+  // #RRGGBB + alpha -> rgba()
+  function hexToRgba(hex, alpha) {
+    const r = parseInt(hex.slice(1, 3), 16);
+    const g = parseInt(hex.slice(3, 5), 16);
+    const b = parseInt(hex.slice(5, 7), 16);
+    return 'rgba(' + r + ',' + g + ',' + b + ',' + alpha + ')';
+  }
+
+  // Aegisub-style outline: vòng 8 hướng text-shadow + blur.
+  function buildShadow(ow, bl, oc) {
+    const ow2 = Math.max(0, Number(ow) || 0);
+    const bl2 = Math.max(0, Number(bl) || 0);
+    if (ow2 <= 0 && bl2 <= 0) return 'none';
+    const shadows = [];
+    const ring = Math.max(1, Math.ceil(ow2));
+    for (let x = -ring; x <= ring; x++) {
+      for (let y = -ring; y <= ring; y++) {
+        const d = Math.sqrt(x * x + y * y);
+        if (d <= ow2 + 0.01) shadows.push(x + 'px ' + y + 'px 0 ' + oc);
+      }
+    }
+    for (let i = 1; i <= Math.max(1, Math.ceil(bl2)); i++) {
+      shadows.push('0 0 ' + (i * 2) + 'px ' + oc);
+    }
+    return shadows.length ? shadows.join(',') : 'none';
+  }
+
+  // Aegisub 1-9 -> {h,v}
+  function alignToHV(a) {
+    a = Number(a) || 2;
+    const h = (a % 3 === 1) ? 'left' : (a % 3 === 0) ? 'right' : 'center';
+    let v;
+    if (a >= 7) v = 'top';
+    else if (a >= 4) v = 'mid';
+    else v = 'bottom';
+    return { h, v };
+  }
+
+  // Tách chuỗi ASS thành mảng đoạn karaoke: [{text,time}], time=ms từ đầu dòng.
+  function splitAssKaraoke(rawText) {
+    const segments = [];
+    let leadingTime = 0;
+    let current = '';
+    let pendingTime = null;
+    const flush = () => {
+      if (current) { segments.push({ text: current, time: pendingTime }); current = ''; pendingTime = null; }
+    };
+    for (let i = 0; i < rawText.length; i++) {
+      const ch = rawText[i];
+      if (ch === '{') {
+        flush();
+        const end = rawText.indexOf('}', i);
+        const tag = end === -1 ? rawText.slice(i) : rawText.slice(i, end + 1);
+        const km = tag.match(/\\([kKf])([\d.]+)/);
+        if (km) {
+          pendingTime = leadingTime;
+          leadingTime += (parseFloat(km[2]) || 0) * 10; // centiseconds -> ms
+        }
+        i = end === -1 ? rawText.length - 1 : end;
+        continue;
+      }
+      current += ch;
+    }
+    flush();
+    return { segments, totalMs: leadingTime };
+  }
+
+  // Parse toàn bộ .ass -> { subtitles, styleSettings, playResX, playResY }
+  function parseAssEngine(content) {
     const subtitles = [];
-    const cues = []; // {start, end, romaji, vietsub, style, text}
+    const styleSettings = {};
+    let playResX = 384, playResY = 288;
+    const mx = String(content).match(/PlayResX:\s*(\d+)/i);
+    const my = String(content).match(/PlayResY:\s*(\d+)/i);
+    if (mx) playResX = parseInt(mx[1], 10);
+    if (my) playResY = parseInt(my[1], 10);
+
     const lines = String(content || '').split(/\r?\n/);
+    let section = '';
     for (const raw of lines) {
       const line = raw.trim();
-      if (!line.startsWith('Dialogue:')) continue;
-      // Cắt bỏ "Dialogue:" rồi tách theo dấu phẩy nhưng giữ phần Text còn lại
-      const rest = line.slice('Dialogue:'.length).trim();
-      const parts = rest.split(',');
-      if (parts.length < 10) continue;
-      const startStr = parts[1].trim();
-      const endStr = parts[2].trim();
-      const style = parts[3].trim();
-      // Text có thể chứa dấu phẩy -> nối lại từ phần tử 9
-      const text = parts.slice(9).join(',').trim();
-      const start = parseAssTime(startStr);
-      const end = parseAssTime(endStr);
-      if (start == null || end == null || !text) continue;
-      cues.push({ start, end, style, text });
-    }
-    // Gom nhóm theo từng style
-    for (const cue of cues) {
-      if (/vietsub/i.test(cue.style)) {
-        const vietsub = cleanAssText(cue.text);
-        // Tìm romaji cùng khung giờ
-        const romajiCue = cues.find((c) =>
-          /romaji/i.test(c.style) &&
-          Math.abs(c.start - cue.start) < 0.35
-        );
-        const romaji = romajiCue ? cleanAssText(romajiCue.text) : '';
-        subtitles.push({ start: cue.start, end: cue.end, romaji, vietsub });
+      if (!line || line.startsWith(';') || line.startsWith('!')) continue;
+      if (line.startsWith('[')) { section = line.toLowerCase(); continue; }
+      if (section.includes('styles') && line.startsWith('Style:')) {
+        const p = line.substring(6).split(',');
+        if (p.length < 10) continue;
+        const name = (p[0] || '').trim();
+        if (!name) continue;
+        const marginL = p[19] ? (parseInt(p[19].trim(), 10) || 10) : 10;
+        const marginR = p[20] ? (parseInt(p[20].trim(), 10) || 10) : 10;
+        const marginV = p[21] ? (parseInt(p[21].trim(), 10) || 10) : 10;
+        const align = p[18] ? (parseInt(p[18].trim(), 10) || 2) : 2;
+        const hv = alignToHV(align);
+        let defX = playResX / 2, defY = playResY - marginV - 20;
+        if (hv.h === 'left') defX = marginL + 20;
+        else if (hv.h === 'right') defX = playResX - marginR - 20;
+        if (hv.v === 'top') defY = marginV + 20;
+        else if (hv.v === 'mid') defY = playResY / 2;
+        styleSettings[name] = {
+          color1: assToHex(p[3]), color3: assToHex(p[5]),
+          fontSize: p[2] ? (parseFloat(p[2].trim()) || 20) : 20,
+          outlineWidth: p[16] ? (parseFloat(p[16].trim()) || 2) : 2,
+          shadow: p[17] ? (parseFloat(p[17].trim()) || 0) : 0,
+          spacing: p[13] ? (parseFloat(p[13].trim()) || 0) : 0,
+          fontName: (p[1] || '').trim(),
+          align: align, marginL: marginL, marginR: marginR, marginV: marginV,
+          posX: defX, posY: defY, blur: 2
+        };
+        continue;
+      }
+      if (section.includes('events') && line.startsWith('Dialogue:')) {
+        const p = line.substring(9).split(',');
+        if (p.length < 10) continue;
+        const start = parseAssTime((p[1] || '').trim());
+        const end = parseAssTime((p[2] || '').trim());
+        if (start == null || end == null) continue;
+        const style = (p[3] || '').trim();
+        const rawText = p.slice(9).join(',').trim();
+        if (!rawText) continue;
+        subtitles.push(assembleCue(rawText, style, styleSettings, playResX, playResY, start, end));
       }
     }
-    // fallback: nếu không có vietsub, dùng romaji/engsub
-    if (subtitles.length === 0) {
-      for (const cue of cues) {
-        const text = cleanAssText(cue.text);
-        if (!text) continue;
-        const existing = subtitles.find((s) => s.start === cue.start);
-        if (existing) {
-          if (/romaji/i.test(cue.style)) existing.romaji = text;
-          if (/engsub/i.test(cue.style) && !existing.vietsub) existing.vietsub = text;
-        } else {
-          subtitles.push({
-            start: cue.start,
-            end: cue.end,
-            romaji: /romaji/i.test(cue.style) ? text : '',
-            vietsub: /engsub/i.test(cue.style) ? text : ''
-          });
-        }
-      }
-    }
-    // Sắp xếp theo thời gian
     subtitles.sort((a, b) => a.start - b.start);
-    return subtitles;
+    return { subtitles, styleSettings, playResX, playResY };
   }
+  // Ghép 1 dialogue thành đối tượng cue cấu trúc cho renderer.
+  function assembleCue(rawText, style, styleSettings, playResX, playResY, start, end) {
+    const st = styleSettings[style] || {
+      color1: '#ffffff', color3: '#000000',
+      fontSize: 20, outlineWidth: 2, shadow: 0, spacing: 0,
+      fontName: '', align: 2, marginL: 10, marginR: 10, marginV: 10,
+      posX: playResX / 2, posY: playResY - 30, blur: 2
+    };
+    // ---- Parse các override chính ----
+    let pos = null, an = null, a = null, ovFs = null, ovC1 = null, ovC3 = null;
+    let ovBord = null, ovBlur = null, ovSpacing = null, ovBold = null, ovItalic = null;
+    let ovScaleX = 100, ovScaleY = 100;
+    const tagRe = /\{([^}]*)\}/g;
+    let m;
+    while ((m = tagRe.exec(rawText)) !== null) {
+      const inner = m[1];
+      const pm = inner.match(/\\pos\s*\(([^,)]+),([^)]+)\)/i);
+      if (pm) { pos = { x: parseFloat(pm[1]), y: parseFloat(pm[2]) }; continue; }
+      const anm = inner.match(/\\an(\d)/i);
+      if (anm) { an = parseInt(anm[1], 10); continue; }
+      const am = inner.match(/\\a(\d)/i);
+      if (am) { a = parseInt(am[1], 10); continue; }
+      const fsm = inner.match(/\\fs(-?[\d.]+)/i);
+      if (fsm) { ovFs = parseFloat(fsm[1]); continue; }
+      const c1m = inner.match(/\\1c&?H?([0-9A-Fa-f]{6})/i);
+      if (c1m) { ovC1 = assToHex(c1m[1]); continue; }
+      const c3m = inner.match(/\\3c&?H?([0-9A-Fa-f]{6})/i);
+      if (c3m) { ovC3 = assToHex(c3m[1]); continue; }
+      const bm = inner.match(/\\bord([\d.]+)/i);
+      if (bm) { ovBord = parseFloat(bm[1]); continue; }
+      const blm = inner.match(/\\blur([\d.]+)/i);
+      if (blm) { ovBlur = parseFloat(blm[1]); continue; }
+      const spm = inner.match(/\\fsp([\d.]+)/i);
+      if (spm) { ovSpacing = parseFloat(spm[1]); continue; }
+      const bxm = inner.match(/\\fscx([\d.]+)/i);
+      if (bxm) { ovScaleX = parseFloat(bxm[1]); continue; }
+      const bym = inner.match(/\\fscy([\d.]+)/i);
+      if (bym) { ovScaleY = parseFloat(bym[1]); continue; }
+      const b1m = inner.match(/\\bi?\s*(\d)/i);
+      if (b1m && /\\b/.test(inner)) { ovBold = b1m[1] === '1'; continue; }
+      const i1m = inner.match(/\\i\s*(\d)/i);
+      if (i1m) { ovItalic = i1m[1] === '1'; continue; }
+    }
+    // ---- Alignment & vị trí hiệu lực ----
+    let effAlign = st.align;
+    if (an) effAlign = an;
+    else if (a) effAlign = a;
+    const hv = alignToHV(effAlign);
+    let posX = st.posX, posY = st.posY;
+    if (pos) { posX = pos.x; posY = pos.y; }
+    else if (an || a) {
+      if (hv.h === 'left') posX = st.marginL + 20;
+      else if (hv.h === 'right') posX = playResX - st.marginR - 20;
+      else posX = playResX / 2;
+      if (hv.v === 'top') posY = st.marginV + 20;
+      else if (hv.v === 'mid') posY = playResY / 2;
+      else posY = playResY - st.marginV - 20;
+    }
+    // ---- Dòng + văn bản sạch ----
+    const rawLines = rawText.split(/\\N/gi);
+    const hasKara = /\\[kKf][\d.]+/i.test(rawText);
+    const idx = rawText.indexOf('\u0000');
+    let cleanText = String(rawText).replace(/\{[^}]*\}/g, ' ').replace(/\\[Nn]/g, ' ');
+    if (idx !== -1) cleanText = cleanText.substring(0, idx);
+    return {
+      start, end, style,
+      cleanText: cleanText.replace(/\s+/g, ' ').trim(),
+      rawLines: rawLines,
+      align: effAlign, posX, posY, hasKara: hasKara,
+      ovFs, ovC1, ovC3, ovBord, ovBlur, ovSpacing, ovBold, ovItalic,
+      ovScaleX, ovScaleY
+    };
+  }
+  /* ---- RENDER ASS CUE (engine) ----
+     Chuyển 1 cue (đã parse bởi assembleCue) thành phần tử DOM với đúng
+     style/vị trí/màu/viền/glow + karaoke {\\k} + xuống dòng {\\N}.          */
+  // Parse karaoke của 1 cue: trả về [{line, syllables:[{text,start,dur}]}], ms tính từ đầu cue.
+  function parseKaraokeCue(rawLines) {
+    const groups = [];
+    let cumulative = 0;
+    (rawLines || []).forEach((rawPart) => {
+      const re = /\{(?:\\[kKf]o?)(\d+)\}([^{]*)/g;
+      const syls = [];
+      let lineDur = 0;
+      let m;
+      while ((m = re.exec(String(rawPart))) !== null) {
+        const d = (parseInt(m[1], 10) || 0) * 10; // centiseconds -> ms
+        syls.push({ text: m[2], start: cumulative + lineDur, dur: d });
+        lineDur += d;
+      }
+      cumulative += lineDur;
+      groups.push({ line: String(rawPart).replace(/\{[^}]*\}/g, ''), syllables: syls });
+    });
+    return groups;
+  }
+
+  // Xây 1 div chứa toàn bộ cue với style/vị trí + karaoke.
+  function renderAssCue(cue) {
+    const st = (State.styleSettings && State.styleSettings[cue.style]) || {};
+    const pX = State.playResX || 384;
+    const pY = State.playResY || 288;
+    const align = cue.align || 2;
+    const hv = alignToHV(align);
+
+    // ---- Font / màu / viền / glow (style + override từng dòng) ----
+    const fs = ((cue.ovFs != null ? cue.ovFs : (st.fontSize || 20)) * ((cue.ovScaleY || 100) / 100));
+    const c1 = cue.ovC1 || st.color1 || '#ffffff';
+    const c3 = cue.ovC3 || st.color3 || '#000000';
+    const ow = ((cue.ovBord != null ? cue.ovBord : (st.outlineWidth != null ? st.outlineWidth : 2)) * ((cue.ovScaleX || 100) / 100));
+    const bl = (cue.ovBlur != null ? cue.ovBlur : (st.blur != null ? st.blur : 0));
+    const spacing = (cue.ovSpacing != null ? cue.ovSpacing : (st.spacing || 0));
+    const bold = (cue.ovBold != null ? cue.ovBold : true);
+    const italic = (cue.ovItalic != null ? cue.ovItalic : false);
+    const fontName = (st.fontName || '').replace(/["']/g, '');
+    const shadow = buildShadow(ow, bl, c3);
+
+    const div = document.createElement('div');
+    div.className = 'ass-cue';
+    const useFont = fontName ? '\'' + fontName + '\', sans-serif' : 'inherit';
+
+    // ---- Vị trí theo tỷ lệ PlayRes ----
+    const leftPct = (cue.posX / pX * 100);
+    const topPct = (cue.posY / pY * 100);
+    let tx = '-50%', ty = '-50%';
+    if (hv.h === 'left') tx = '0%';
+    else if (hv.h === 'right') tx = '-100%';
+    if (hv.v === 'top') ty = '0%';
+    else if (hv.v === 'mid') ty = '-50%';
+    else ty = '-100%';
+    const textAlign = hv.h === 'left' ? 'left' : hv.h === 'right' ? 'right' : 'center';
+
+    div.style.cssText =
+      'position:absolute; left:' + leftPct + '%; top:' + topPct + '%;' +
+      'transform:translate(' + tx + ',' + ty + ');' +
+      'font-size:' + fs + 'px;' +
+      'font-family:' + useFont + ';' +
+      'font-weight:' + (bold ? '700' : '400') + ';' +
+      'font-style:' + (italic ? 'italic' : 'normal') + ';' +
+      'letter-spacing:' + spacing + 'px;' +
+      'text-align:' + textAlign + ';' +
+      'color:' + c1 + ';' +
+      'text-shadow:' + shadow + ';' +
+      'white-space:nowrap; pointer-events:none; z-index:20;';
+
+    // ---- Hiển thị từng dòng (hỗ trợ \\N + karaoke) ----
+    const groups = cue.hasKara ? parseKaraokeCue(cue.rawLines) : null;
+    const nowMs = (State.lastRenderTime - cue.start) * 1000;
+    const lineSpacing = fs * 1.35;
+    const totalLines = groups ? groups.length : (cue.rawLines || []).length;
+    const baseY = hv.v === 'top' ? 0 : hv.v === 'mid'
+      ? -((totalLines - 1) * lineSpacing) / 2
+      : -((totalLines - 1) * lineSpacing);
+
+    const makeLineDiv = (top) => {
+      const d = document.createElement('div');
+      d.style.cssText = 'position:relative; top:' + top + 'px; white-space:nowrap;';
+      div.appendChild(d);
+      return d;
+    };
+
+    if (groups) {
+      groups.forEach((g, li) => {
+        const lineDiv = makeLineDiv(baseY + li * lineSpacing);
+        if (g.syllables && g.syllables.length) {
+          g.syllables.forEach((syl) => {
+            const span = document.createElement('span');
+            span.textContent = syl.text;
+            span.style.whiteSpace = 'nowrap';
+            if (nowMs >= syl.start && nowMs < syl.start + syl.dur) {
+              // Âm tiết đang hát -> màu trắng + viền đỏ nổi bật
+              span.style.color = '#ffffff';
+              span.style.textShadow = buildShadow(ow + 1, bl + 2, '#ff2d55');
+            } else if (nowMs >= syl.start + syl.dur) {
+              // Đã hát xong -> mờ đi
+              span.style.color = 'rgba(255,255,255,0.5)';
+              span.style.textShadow = shadow;
+            } else {
+              // Chưa hát -> màu bình thường
+              span.style.color = c1;
+              span.style.textShadow = shadow;
+            }
+            lineDiv.appendChild(span);
+          });
+        } else {
+          lineDiv.textContent = g.line;
+        }
+      });
+    } else {
+      (cue.rawLines || []).forEach((ln, li) => {
+        makeLineDiv(baseY + li * lineSpacing).textContent = String(ln).replace(/\{[^}]*\}/g, '');
+      });
+    }
+    return div;
+  }
+
+
+
+
 
   // "h:mm:ss.cc" -> seconds (float)
   function parseAssTime(str) {
@@ -607,7 +902,8 @@
           rel: 0,
           playsinline: 1,
           controls: 1,
-          enablejsapi: 1
+          enablejsapi: 1,
+          fs: 0 // ẩn nút fullscreen của YouTube; dùng nút fullscreen riêng của app
         },
         events: {
           onReady: () => { startSubtitleTicker(); },
@@ -671,7 +967,12 @@
         const res = await fetch(subFile.download_url);
         if (res.ok) {
           const text = await res.text();
-          State.subtitles = parseAss(text);
+          const parsed = parseAssEngine(text);
+          State.subtitles = parsed.subtitles;
+          State.styleSettings = parsed.styleSettings;
+          State.playResX = parsed.playResX;
+          State.playResY = parsed.playResY;
+          State.subsEnabled = parsed.subtitles.length > 0; // tự bật phụ đề khi có file .ass
         }
       } catch (e) {
         console.warn('Lỗi tải .ass:', e);
@@ -704,39 +1005,42 @@
     if (!overlay || !State.ytPlayer || !State.youtubeReady) return;
     let current;
     try { current = State.ytPlayer.getCurrentTime(); } catch (_e) { return; }
+    State.lastRenderTime = current;
     const active = State.subtitles.filter((s) => current >= s.start && current <= s.end);
     if (!State.subsEnabled || active.length === 0) {
       hideSubtitleOverlay();
       return;
     }
-    // Gom các dòng cùng hiển thị
-    const lines = active.map((s) => {
-      let html = '';
-      if (s.romaji) html += '<span class="sub-line sub-romaji">' + esc(s.romaji) + '</span>';
-      if (s.vietsub) html += '<span class="sub-line sub-vietsub">' + esc(s.vietsub) + '</span>';
-      return html;
-    });
-    overlay.innerHTML = lines.join('');
+    // Render từng cue ASS (engine) — style/vị trí/karaoke
+    overlay.innerHTML = '';
+    active.forEach((cue) => overlay.appendChild(renderAssCue(cue)));
     overlay.classList.add('show');
   }
   function hideSubtitleOverlay() {
     const overlay = $('#subtitleOverlay');
-    if (overlay) overlay.classList.remove('show');
+    if (overlay) {
+      overlay.classList.remove('show');
+      if (overlay.firstChild) overlay.innerHTML = '';
+    }
   }
 
   function updateSubsToggleUI() {
     const label = $('#subsToggleLabel');
     const icon = $('#subsToggleIcon');
     const hasSubs = State.subtitles.length > 0;
-    $('#subsToggle').disabled = !hasSubs;
+    const btn = $('#subsToggle');
+    if (btn) btn.disabled = !hasSubs;
     if (!hasSubs) {
       State.subsEnabled = false;
-      label.textContent = 'Không có phụ đề';
-      icon.textContent = '🚫';
+      if (label) label.textContent = 'Không có phụ đề';
+      if (icon) icon.textContent = '🚫';
+      hideSubtitleOverlay();
       return;
     }
-    icon.textContent = State.subsEnabled ? '💬' : '🔇';
-    label.textContent = State.subsEnabled ? 'Phụ đề: Bật' : 'Phụ đề: Tắt';
+    if (icon) icon.textContent = State.subsEnabled ? '💬' : '🔇';
+    if (label) label.textContent = State.subsEnabled ? 'Phụ đề: Bật' : 'Phụ đề: Tắt';
+    if (State.subsEnabled) updateCurrentSubtitle();
+    else hideSubtitleOverlay();
   }
 
 
@@ -2468,6 +2772,18 @@
         e.preventDefault();
         const file = State.subsFiles.find((f) => f.name === item.dataset.ass);
         if (file) playAssSub(file);
+      });
+    }
+
+    // Bật/tắt phụ đề .ass
+    const subsToggle = $('#subsToggle');
+    if (subsToggle) {
+      subsToggle.addEventListener('click', () => {
+        if (State.subtitles.length === 0) return;
+        State.subsEnabled = !State.subsEnabled;
+        if (State.subsEnabled) startSubtitleTicker();
+        else stopSubtitleTicker();
+        updateSubsToggleUI();
       });
     }
 

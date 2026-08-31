@@ -22,3 +22,6 @@ Clipboard*.txt
 _repro_*.html
 _shot_*.png
 *wide_*.png
+# Thu muc nguon engine extension (Aegisub) - KHONG push len repo
+exxtension youtube aegisub/
+

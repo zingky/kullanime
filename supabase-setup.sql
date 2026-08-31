@@ -73,6 +73,8 @@ create table if not exists public.comments (
   content         text not null default '',
   author_name     text not null default '',
   is_pinned       boolean not null default false,
+  -- Người gửi (auto lấy từ auth) — phục vụ rate-limit & quản lý
+  user_id         uuid default auth.uid(),
   created_at      timestamptz not null default now()
 );
 
@@ -247,6 +249,60 @@ create policy "comments_admin_delete"
   to authenticated
   using (public.is_admin());
 
+
+-- ============================================================
+-- 9b) CHỐNG SPAM SERVER-SIDE (rate-limit bình luận)
+--     Không phụ thuộc client — kẻ gọi thẳng API cũng bị chặn.
+--     Quy tắc: tối đa 1 bình luận / 45 giây / người.
+--       + Đã đăng nhập: tính theo user_id (do server gán, không thể giả).
+--       + Khách: tính theo author_name (giảm thiểu hơn là chặn tuyệt đối).
+-- ============================================================
+-- Đảm bảo cột user_id tồn tại (an toàn chạy lại nhiều lần):
+alter table public.comments add column if not exists user_id uuid default auth.uid();
+
+create or replace function public.prevent_comment_spam()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  _uid       uuid := auth.uid();   -- server-side identity, client không giả mạo được
+  _last_ts   timestamptz;
+  _min_gap   interval := interval '45 seconds';
+begin
+  -- Chỉ áp dụng cho bình luận forum (anime_id có giá trị).
+  -- Chat (anime_id null) là realtime, không giới hạn 45s — chỉ có client-side throttle.
+  if new.anime_id is null then
+    return new;
+  end if;
+
+  if _uid is not null then
+    select max(created_at) into _last_ts
+      from public.comments where user_id = _uid;
+  else
+    -- Khách chưa đăng nhập: giới hạn theo author_name
+    select max(created_at) into _last_ts
+      from public.comments
+      where user_id is null and author_name = new.author_name;
+  end if;
+
+  if _last_ts is not null and (now() - _last_ts) < _min_gap then
+    raise exception 'Bạn đang gửi bình luận quá nhanh, vui lòng chờ 45 giây.';
+  end if;
+
+  -- Gán lại user_id theo auth thay vì tin giá trị client gửi lên
+  new.user_id := _uid;
+  return new;
+end;
+$$;
+
+drop trigger if exists trg_prevent_comment_spam on public.comments;
+create trigger trg_prevent_comment_spam
+  before insert on public.comments
+  for each row execute function public.prevent_comment_spam();
+
+create index if not exists idx_comments_user_id on public.comments (user_id);
 
 -- ============================================================
 -- 10) INDEX TĂNG TỐC TRUY VẤN
