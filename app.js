@@ -1134,7 +1134,7 @@
     // Dùng floor TỶ LỆ theo chiều cao khung video (~4.5%) thay vì floor px cố định:
     // giữ proportional giữa fullscreen/non-fullscreen (chữ co/giãn đều) mà vẫn đảm bảo
     // đọc được. Nếu fsRaw tự nhiên đã to hơn ngưỡng thì giữ nguyên (không phình).
-    const minFs = Math.max(9, (State.subOverlayHeight || 0) * 0.045);
+    const minFs = Math.max(6, (State.subOverlayHeight || 0) * 0.045);
     const fs = Math.max(minFs, fsRaw);
 
     // DEBUG (tạm): in giá trị thực tế để kiểm tra tỷ lệ chữ so với khung video
@@ -1233,6 +1233,20 @@
     // ---- Hiển thị từng dòng (hỗ trợ \\N + karaoke) ----
     const groups = cue.hasKara ? parseKaraokeCue(cue.rawLines) : null;
     const nowMs = (State.lastRenderTime - cue.start) * 1000;
+    // ---- Fade In / Out: áp dụng opacity theo fadIn (ms) / fadOut (ms) ----
+    const fadInMs = gs.fadIn || 0;
+    const fadOutMs = gs.fadOut || 0;
+    const cueDurMs = (cue.end - cue.start) * 1000;
+    if (fadInMs > 0 || fadOutMs > 0) {
+      let opacity = 1;
+      if (fadInMs > 0 && nowMs >= 0 && nowMs < fadInMs) {
+        opacity = Math.min(opacity, nowMs / fadInMs);
+      }
+      if (fadOutMs > 0 && nowMs > cueDurMs - fadOutMs && nowMs <= cueDurMs) {
+        opacity = Math.min(opacity, Math.max(0, (cueDurMs - nowMs) / fadOutMs));
+      }
+      if (opacity < 1) div.style.opacity = Math.max(0, Math.min(1, opacity));
+    }
     const lineSpacing = fs * 1.35;
     const totalLines = groups ? groups.length : (cue.rawLines || []).length;
     const baseY = hv.v === 'top' ? 0 : hv.v === 'mid'
@@ -1266,7 +1280,7 @@
       const raw = (gs.fontSize != null && gs.fontSize > 0) ? gs.fontSize : (fallback || 70);
       // Cùng floor TỶ LỆ theo chiều cao khung video như fs chính (xem renderAssCue) để
       // chữ karaoke proportional + đọc được với .ass 4K (không bé xíu, không phình).
-      const minFs = Math.max(9, (State.subOverlayHeight || 0) * 0.045);
+      const minFs = Math.max(6, (State.subOverlayHeight || 0) * 0.045);
       return Math.max(minFs, raw * scaleH * customResize * textZoom * ((gs.fontScale != null ? gs.fontScale : 100) / 100));
     };
     const karaOutl = (k, fallback) => Math.max(0, ((k && k.outl != null) ? Number(k.outl) : fallback)) * scaleH;
@@ -1327,10 +1341,29 @@
         }
       });
     } else {
+      // ---- Non-karaoke: áp dụng kPre style nếu Use Global ----
+      const kPre = useGlobal ? kTab('kPre') : null;
       (cue.rawLines || []).forEach((ln, li) => {
         const lineDiv = makeLineDiv(baseY + li * lineSpacing);
         applyBox(lineDiv);
         lineDiv.textContent = String(ln).replace(/\{[^}]*\}/g, '');
+        // Khi Use Global, kPre là "trạng thái chữ" mặc định — áp dụng màu/viền/blur/cỡ
+        if (kPre) {
+          const kC1 = kPre.c1 || c1;
+          const kC3 = kPre.c3 || c3;
+          const kOutl = karaOutl(kPre, ow);
+          const kBl = (Number(kPre.blur) != null ? Number(kPre.blur) : bl / scaleH) * scaleH;
+          lineDiv.style.color = kC1;
+          lineDiv.style.textShadow = deepGlow
+            ? buildDeepGlow(kOutl, kBl, kC3, useStroke)
+            : buildShadow(kOutl, kBl, kC3, useStroke);
+          if (useStroke && kOutl > 0) {
+            lineDiv.style.webkitTextStroke = Math.max(kOutl, 1) + 'px ' + kC3;
+            lineDiv.style.paintOrder = 'stroke fill';
+          }
+          const kFs = karaFs(kPre, baseFs);
+          if (kFs !== fs) lineDiv.style.fontSize = kFs + 'px';
+        }
       });
     }
     return div;
@@ -1804,7 +1837,7 @@
   const SUB_STORE_KEY = 'kullanime_sub_store_v2';     // lưu cài đặt theo từng video / file .ass
   const SUB_SETTINGS_DEFAULTS = {
     fontSize: 90, outlineWidth: 3, blur: 6, color1: '#ffffff', color3: '#000000',
-    spacing: 0, letterSpacing: 0, textZoom: 1.4, fontScale: 100,
+    spacing: 0, letterSpacing: 0.9, textZoom: 1.4, fontScale: 100,
     useBox: false, deepGlow: false, boxColor: '#000000', boxOpacity: 0.5, boxBlur: 0, fontFamily: 'VNF-Comic Sans',
     fadIn: 200, fadOut: 200, popupOpacity: 0.95, popupZoom: 1.0,
     posX: 350, posY: 100, width: 820, height: 600,
@@ -2100,6 +2133,9 @@
           '<label class="sub-box-lab"><input type="checkbox" id="g-useBox" ' + (gs.useBox ? 'checked' : '') + '> Hộp</label>' +
           '<input type="color" id="g-boxColor" value="' + (gs.boxColor || '#000000') + '">' +
           '<input type="range" id="g-boxBlur" min="0" max="50" step="1" value="' + (gs.boxBlur != null ? gs.boxBlur : 0) + '" class="sub-box-blur">' +
+          '<span class="sub-foot-sep"></span>' +
+          '<label class="sub-lsp-lab">K/C chữ</label>' +
+          '<input type="range" id="g-letterSpacing" min="-5" max="20" step="0.1" value="' + (gs.letterSpacing != null ? gs.letterSpacing : 0.9) + '" class="sub-letter-spacing">' +
         '</div>' +
         // ---- Hàng 2: Actions ----
         '<div class="sub-foot-actions">' +

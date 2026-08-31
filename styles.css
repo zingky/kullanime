@@ -1187,6 +1187,8 @@ html[data-theme="light"] .modal { background: rgba(255, 255, 255, 0.72); }
 .sub-panel-footer .sub-foot-sep { width: 1px; height: 16px; background: rgba(255,255,255,0.15); margin: 0 3px; flex-shrink: 0; }
 .sub-panel-footer .sub-box-lab { border-left: 1px solid rgba(255,255,255,0.15); padding-left: 6px; }
 .sub-panel-footer .sub-box-blur { flex: 1; height: 3px; }
+.sub-panel .sub-lsp-lab { color: #aaa; font-weight: bold; font-size: .75em; white-space: nowrap; border-left: 1px solid rgba(255,255,255,0.15); padding-left: 6px; }
+.sub-panel .sub-letter-spacing { flex: 1; height: 3px; }
 .sub-panel-footer .sub-foot-actions { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
 .sub-panel-footer .sub-foot-actions button {
   border: 1px solid #4a5568; color: #ddd; cursor: pointer; background: rgba(255,255,255,0.08);
@@ -1195,6 +1197,8 @@ html[data-theme="light"] .modal { background: rgba(255, 255, 255, 0.72); }
 .sub-panel-footer .sub-foot-actions button:hover { background: rgba(255,255,255,0.16); }
 .sub-panel .sub-fade-lab { white-space: nowrap; }
 .sub-panel .sub-fade-out-lab { white-space: nowrap; }
+/* Fade mượt cho từng cue phụ đề (fade in/out) */
+.ass-cue { transition: opacity 0.15s ease; }
 /* Hàng Cỡ chữ CHUNG (trên 3 tab karaoke) */
 .sub-panel .k-fs-row input[type="range"] { flex: 1; }
 /* Karaoke sections: stack 3 panels dọc, không còn inner tabs */
