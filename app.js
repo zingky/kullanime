@@ -1514,153 +1514,161 @@
     try { localStorage.setItem(PLAYER_PREFS_KEY, JSON.stringify({ autoNext: State.autoNext, shuffle: State.shuffle })); } catch (_e) { /* ignore */ }
   }
 
-  // Tạo HTML popup cài đặt phụ đề — responsive (desktop 2 cột / mobile 1 cột bottom sheet).
+  // ===================== PANEL SUB SETTINGS (giống chat) =====================
+  // Panel cố định (#subPanel) trong index.html, mở kiểu chat: header + nút ✕ đóng,
+  // đóng bằng Esc / bấm ngoài / nút ✕. Nội dung 2 khối dọc cuộn liên tục:
+  // "Cài đặt chung" + "Cài đặt từng style".
   // Giữ nguyên mọi ID/class mà setupSubPopupEvents + renderSubStyleItems dựa vào.
-  function buildSubPopupHTML(gs, ctxLabel) {
-    const safeCtx = String(ctxLabel || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-    return '' +
-      '<div id="sub-settings-header">' +
-        '<b class="sub-hd-title">⚙️ SUB Settings</b>' +
-        '<span class="sub-hd-ctx" id="sub-ctx-name" title="Cài đặt này được lưu riêng cho video / file .ass đang phát">' + safeCtx + '</span>' +
-        '<span class="sub-hd-spacer"></span>' +
-        '<button id="sub-settings-reset" title="Khôi phục về cài đặt gốc">Reset↺</button>' +
-        '<span id="sub-settings-close" title="Đóng (Esc)">&times;</span>' +
-      '</div>' +
-      '<div id="sub-settings-inner">' +
-        '<div id="sub-settings-left">' +
-          '<div class="sub-tool-row">' +
-            '<b>Font:</b>' + getSubFontOptionsHTML() +
-          '</div>' +
-          '<div class="sub-tool-row">' +
-            '<button class="format-btn ' + (gs.isBold ? 'active' : '') + '" id="sub-btn-isBold">B</button>' +
-            '<button class="format-btn ' + (gs.isItalic ? 'active' : '') + '" id="sub-btn-isItalic">I</button>' +
-            '<button class="format-btn ' + (gs.isUnderline ? 'active' : '') + '" id="sub-btn-isUnderline">U</button>' +
-            '<button class="format-btn ' + (gs.isStrike ? 'active' : '') + '" id="sub-btn-isStrike">S</button>' +
-            '<span class="sub-hd-spacer"></span>' +
-            '<b class="sub-ts-lab">⏱ms</b>' +
-            '<button id="sub-ts-dec">-100</button>' +
-            '<input type="text" id="sub-ts-input" value="' + (State.timeShiftMs || 0) + '">' +
-            '<button id="sub-ts-inc">+100</button>' +
-          '</div>' +
-          '<div class="pill-tabs">' +
-            '<div class="pill-tab active" data-pill="settings">⚙️ Settings</div>' +
-            '<div class="pill-tab" data-pill="karaoke">🎤 Karaoke</div>' +
-            '<div class="pill-tab" data-pill="advanced">🛠️ Advanced</div>' +
-          '</div>' +
-          '<div class="pill-panel open" data-pill="settings">' +
-            renderSubGlobalRow('Size', 'fontSize', 20, 300, 1) +
-            renderSubGlobalRow('Outline', 'outlineWidth', 0, 30, 0.1) +
-            renderSubGlobalRow('Blur', 'blur', 0, 100, 0.1) +
-            '<div class="g-row sub-color-row">' +
-              '<div>Text(1c) <input type="color" id="g-color1" value="' + (gs.color1 || '#ffffff') + '"></div>' +
-              '<div>Outline(3c) <input type="color" id="g-color3" value="' + (gs.color3 || '#000000') + '"></div>' +
-            '</div>' +
-            '<div class="g-row"><label>Fade</label><input type="number" id="g-fadIn" value="' + (gs.fadIn || 200) + '" class="num-in"><span class="sub-fade-arr">→</span><input type="number" id="g-fadOut" value="' + (gs.fadOut || 200) + '" class="num-in"></div>' +
-            '<div class="sub-box-row">' +
-              '<input type="checkbox" id="g-useBox" ' + (gs.useBox ? 'checked' : '') + '> <b>Box</b>' +
-              '<input type="color" id="g-boxColor" value="' + (gs.boxColor || '#000000') + '">' +
-              '<input type="range" id="g-boxOpacity" min="0" max="1" step="0.1" value="' + (gs.boxOpacity || 0.5) + '">' +
-            '</div>' +
-          '</div>' +
-          '<div class="pill-panel" data-pill="karaoke">' +
-            '<div class="k-tabs">' +
-              '<button class="k-tab-btn active" data-tab="pre">Pre</button>' +
-              '<button class="k-tab-btn" data-tab="active">Active</button>' +
-              '<button class="k-tab-btn" data-tab="post">Post</button>' +
-            '</div>' +
-            '<div class="k-tab-panels">' +
-              '<div id="sub-k-pre-panel" class="k-tab-content" style="display:block;">' + renderSubKTab('kPre') + '</div>' +
-              '<div id="sub-k-active-panel" class="k-tab-content" style="display:none;">' + renderSubKTab('kActive') + '</div>' +
-              '<div id="sub-k-post-panel" class="k-tab-content" style="display:none;">' + renderSubKTab('kPost') + '</div>' +
-            '</div>' +
-          '</div>' +
-          '<div class="pill-panel" data-pill="advanced">' +
-            '<div class="g-row">' +
-              '<label style="white-space:nowrap;">Text Zoom</label>' +
-              '<input type="number" id="g-textZoom" value="' + Math.round((gs.textZoom || 0.8) * 100) + '" class="num-in" step="5" min="10" max="300"><span class="sub-pct">%</span>' +
-              '<label style="white-space:nowrap; margin-left:4px;">Letter Spacing</label>' +
-              '<input type="number" id="g-letterSpacing" value="' + (gs.letterSpacing || 0) + '" class="num-in" step="0.5" min="0" max="30">' +
-            '</div>' +
-            '<div class="g-row sub-check-row">' +
-              '<input type="checkbox" id="g-useTextStroke" ' + (gs.useTextStroke ? 'checked' : '') + '> <b>text-stroke</b>' +
-              '<span class="sub-sep">|</span>' +
-              '<input type="checkbox" id="g-deepGlow" ' + (gs.deepGlow ? 'checked' : '') + '> <b>Deep Glow</b>' +
-            '</div>' +
-          '</div>' +
-        '</div>' +
-
-        '<div id="sub-settings-divider"></div>' +
-        '<div id="sub-style-list">' +
-          '<div class="sub-style-head">' +
-            '<span class="sub-styles-title">STYLES <em class="sub-filter-hint">(tự lọc style không có dòng)</em></span>' +
-            '<div class="sub-style-tools">' +
-              '<span id="sub-reset-all-styles" title="Reset tất cả style">↺ ALL</span>' +
-              '<label class="sub-global-lab"><input type="checkbox" id="sub-use-global-settings" ' + (gs.useGlobalStyles ? 'checked' : '') + '> Global</label>' +
-            '</div>' +
-          '</div>' +
-          '<div id="sub-style-items"></div>' +
-        '</div>' +
-      '</div>' +
-      '<div id="sub-settings-footer">' +
-        '<label class="sub-foot-lab"><input type="checkbox" id="sub-close-outside" ' + (gs.closeOnClickOutside ? 'checked' : '') + '> Đóng khi bấm ngoài</label>' +
-        '<div class="sub-foot-actions">' +
-          '<button type="button" id="sub-backup" title="Tải cài đặt phụ đề của máy này về máy (JSON)">💾 Backup</button>' +
-          '<button type="button" id="sub-restore" title="Khôi phục cài đặt phụ đề từ file JSON">📥 Restore</button>' +
-        '</div>' +
-        '<span class="sub-foot-brand">AEGISUB by Kull</span>' +
-      '</div>';
+  function isSubPanelOpen() {
+    return !!(_subPopupEl && !_subPopupEl.classList.contains('hidden') && !_subPopupEl.classList.contains('is-closing'));
   }
-
-function createSubPopup() {
-    if (_subPopupEl && document.body.contains(_subPopupEl)) return _subPopupEl;
-    const gs = ensureSubSettings();
-    const popup = document.createElement('div');
-    popup.id = 'sub-settings-popup';
-    Object.assign(popup.style, {
-      position: 'fixed', width: 'min(' + (gs.width || 860) + 'px, 96vw)',
-      height: 'auto', maxHeight: '92vh',
-      background: 'rgba(15,15,15,' + (gs.popupOpacity || 0.95) + ')',
-      backdropFilter: 'blur(15px)', color: '#fff', zIndex: '2147483647',
-      borderRadius: '14px', border: '1px solid #444', display: 'none',
-      flexDirection: 'column', overflow: 'hidden',
-      boxShadow: '0 20px 50px rgba(0,0,0,0.8)'
-    });
-    // Äáº·t popup ngay cáº¡nh nĂºt SUB (gĂ³c dÆ°á»›i-pháº£i), khĂ´ng Ä‘Ă¨ lĂªn khung video.
-    // On mobile: full-width bottom sheet.
-    const fabRect = $('#subsSettingsBtn') ? $('#subsSettingsBtn').getBoundingClientRect() : null;
-    const isMobile = window.innerWidth <= 640;
-    if (isMobile) {
-      popup.style.left = '8px'; popup.style.right = '8px'; popup.style.bottom = (window.innerHeight - (fabRect ? fabRect.top : window.innerHeight)) + 74 + 'px';
-      popup.style.top = 'auto';
-    } else {
-      const vw = window.innerWidth;
-      const pw = Math.min((gs.width || 860), vw * 0.96);
-      const right = fabRect ? Math.max(8, window.innerWidth - fabRect.right + 4) : 24;
-      popup.style.right = right + 'px';
-      popup.style.left = 'auto';
-      const bottom = fabRect ? (window.innerHeight - fabRect.top) + 74 : 24;
-      popup.style.bottom = Math.max(8, bottom) + 'px';
-      popup.style.top = 'auto';
-      popup.style.width = pw + 'px';
-    }
-    // Context hiá»‡n Ä‘ang chá»‰nh (video / file .ass)
-    const ctxLabel = (State.currentSong && (State.currentSong.ass_file || State.currentSong.title)) || 'Máº·c Ä‘á»‹nh';
-    popup.innerHTML = buildSubPopupHTML(gs, ctxLabel);
-    document.body.appendChild(popup);
-    setupSubPopupEvents();
-    _subPopupEl = popup;
-    return popup;
-  }
-function toggleSubPopup() {
-    const p = createSubPopup();
-    const show = p.style.display === 'none' || p.style.display === '';
-    p.style.display = show ? 'flex' : 'none';
+  function showSubPanel() {
+    if (_subPopupEl) _subPopupEl.classList.remove('hidden', 'is-closing');
     const fab = $('#subsSettingsBtn');
-    if (fab) fab.setAttribute('aria-expanded', String(show));
-    if (show) {
+    if (fab) fab.setAttribute('aria-expanded', 'true');
+  }
+  function hideSubPanel() {
+    if (_subPopupEl) _subPopupEl.classList.add('is-closing');
+    setTimeout(() => { if (_subPopupEl) _subPopupEl.classList.add('hidden'); }, 160);
+    const fab = $('#subsSettingsBtn');
+    if (fab) fab.setAttribute('aria-expanded', 'false');
+  }
+  function createSubPopup() {
+    if (_subPopupEl && document.body.contains(_subPopupEl) && ($('#subPanelBody') && $('#subPanelBody').children.length)) return _subPopupEl;
+    const gs = ensureSubSettings();
+    const panel = _subPopupEl || $('#subPanel');
+    if (!panel) return null;
+    const ctxLabel = (State.currentSong && (State.currentSong.ass_file || State.currentSong.title)) || 'Mặc định';
+    panel.innerHTML = '';
+    const header = document.createElement('div');
+    header.className = 'sub-panel-header';
+    header.innerHTML =
+      '<span class="sub-panel-title">⚙️ SUB Settings <em class="sub-panel-ctx" id="subPanelCtx" title="Cài đặt này được lưu riêng cho video / file .ass đang phát">' + esc(ctxLabel) + '</em></span>' +
+      '<button type="button" class="sub-panel-close" id="subPanelClose" aria-label="Đóng cài đặt phụ đề" title="Đóng (Esc)">✕</button>';
+    const body = document.createElement('div');
+    body.className = 'sub-panel-body';
+    body.id = 'subPanelBody';
+    body.innerHTML = buildSubPopupHTML(gs);
+    panel.appendChild(header);
+    panel.appendChild(body);
+    _subPopupEl = panel;
+    setupSubPopupEvents();
+    return panel;
+  }
+  function toggleSubPopup() {
+    createSubPopup();
+    if (!_subPopupEl) return;
+    if (isSubPanelOpen()) { hideSubPanel(); }
+    else {
+      showSubPanel();
       renderSubStyleItems();
       if (State.subsEnabled) updateCurrentSubtitle();
     }
+  }
+
+  // Re-render nội dung khối body của panel ngay tại chỗ (không gỡ aside khỏi DOM),
+  // dùng khi reset / restore để làm mới toàn bộ giá trị cài đặt.
+  function rerenderSubPanel() {
+    const panel = _subPopupEl || $('#subPanel');
+    if (!panel) return;
+    const body = $('#subPanelBody');
+    if (body) body.innerHTML = buildSubPopupHTML(ensureSubSettings());
+    _subPopupEl = panel;
+    setupSubPopupEvents();
+  }
+
+  // Tạo HTML nội dung panel — 2 khối dọc cuộn liên tục: Cài đặt chung + Cài đặt từng style.
+  function buildSubPopupHTML(gs) {
+    return '' +
+      // ---------- Khối 1: Cài đặt chung ----------
+      '<div class="sub-section">' +
+        '<div class="sub-section-title">⚙️ Cài đặt chung</div>' +
+
+        '<div class="sub-tool-row">' +
+          '<b>Font:</b>' + getSubFontOptionsHTML() +
+        '</div>' +
+        '<div class="sub-tool-row">' +
+          '<button class="format-btn ' + (gs.isBold ? 'active' : '') + '" id="sub-btn-isBold">B</button>' +
+          '<button class="format-btn ' + (gs.isItalic ? 'active' : '') + '" id="sub-btn-isItalic">I</button>' +
+          '<button class="format-btn ' + (gs.isUnderline ? 'active' : '') + '" id="sub-btn-isUnderline">U</button>' +
+          '<button class="format-btn ' + (gs.isStrike ? 'active' : '') + '" id="sub-btn-isStrike">S</button>' +
+          '<span class="sub-hd-spacer"></span>' +
+          '<b class="sub-ts-lab">⏱ms</b>' +
+          '<button id="sub-ts-dec">-100</button>' +
+          '<input type="text" id="sub-ts-input" value="' + (State.timeShiftMs || 0) + '">' +
+          '<button id="sub-ts-inc">+100</button>' +
+        '</div>' +
+
+        '<div class="pill-tabs">' +
+          '<div class="pill-tab active" data-pill="settings">🎨 Ngoại hình</div>' +
+          '<div class="pill-tab" data-pill="karaoke">🎤 Karaoke</div>' +
+          '<div class="pill-tab" data-pill="advanced">🛠️ Nâng cao</div>' +
+        '</div>' +
+
+        '<div class="pill-panel open" data-pill="settings">' +
+          renderSubGlobalRow('Cỡ chữ', 'fontSize', 20, 300, 1) +
+          renderSubGlobalRow('Viền', 'outlineWidth', 0, 30, 0.1) +
+          renderSubGlobalRow('Blur', 'blur', 0, 100, 0.1) +
+          '<div class="g-row sub-color-row">' +
+            '<div>Chữ(1c) <input type="color" id="g-color1" value="' + (gs.color1 || '#ffffff') + '"></div>' +
+            '<div>Viền(3c) <input type="color" id="g-color3" value="' + (gs.color3 || '#000000') + '"></div>' +
+          '</div>' +
+          '<div class="g-row"><label>Fade</label><input type="number" id="g-fadIn" value="' + (gs.fadIn || 200) + '" class="num-in"><span class="sub-fade-arr">→</span><input type="number" id="g-fadOut" value="' + (gs.fadOut || 200) + '" class="num-in"></div>' +
+          '<div class="sub-box-row">' +
+            '<input type="checkbox" id="g-useBox" ' + (gs.useBox ? 'checked' : '') + '> <b>Hộp nền</b>' +
+            '<input type="color" id="g-boxColor" value="' + (gs.boxColor || '#000000') + '">' +
+            '<input type="range" id="g-boxOpacity" min="0" max="1" step="0.1" value="' + (gs.boxOpacity || 0.5) + '">' +
+          '</div>' +
+        '</div>' +
+
+
+        '<div class="pill-panel" data-pill="karaoke">' +
+          '<div class="k-tabs">' +
+            '<button class="k-tab-btn active" data-tab="pre">Pre</button>' +
+            '<button class="k-tab-btn" data-tab="active">Active</button>' +
+            '<button class="k-tab-btn" data-tab="post">Post</button>' +
+          '</div>' +
+          '<div class="k-tab-panels">' +
+            '<div id="sub-k-pre-panel" class="k-tab-content" style="display:block;">' + renderSubKTab('kPre') + '</div>' +
+            '<div id="sub-k-active-panel" class="k-tab-content" style="display:none;">' + renderSubKTab('kActive') + '</div>' +
+            '<div id="sub-k-post-panel" class="k-tab-content" style="display:none;">' + renderSubKTab('kPost') + '</div>' +
+          '</div>' +
+        '</div>' +
+
+        '<div class="pill-panel" data-pill="advanced">' +
+          '<div class="g-row">' +
+            '<label style="white-space:nowrap;">Zoom chữ</label>' +
+            '<input type="number" id="g-textZoom" value="' + Math.round((gs.textZoom || 0.8) * 100) + '" class="num-in" step="5" min="10" max="300"><span class="sub-pct">%</span>' +
+            '<label style="white-space:nowrap; margin-left:4px;">Dãn chữ</label>' +
+            '<input type="number" id="g-letterSpacing" value="' + (gs.letterSpacing || 0) + '" class="num-in" step="0.5" min="0" max="30">' +
+          '</div>' +
+          '<div class="g-row sub-check-row">' +
+            '<input type="checkbox" id="g-useTextStroke" ' + (gs.useTextStroke ? 'checked' : '') + '> <b>text-stroke</b>' +
+            '<span class="sub-sep">|</span>' +
+            '<input type="checkbox" id="g-deepGlow" ' + (gs.deepGlow ? 'checked' : '') + '> <b>Deep Glow</b>' +
+          '</div>' +
+        '</div>' +
+      '</div>' +
+
+      // ---------- Khối 2: Cài đặt từng style ----------
+      '<div class="sub-section sub-section-styles">' +
+        '<div class="sub-section-title sub-styles-head">' +
+          '<span class="sub-styles-title">🎨 Cài đặt từng style <em class="sub-filter-hint">(tự lọc style không có dòng)</em></span>' +
+          '<div class="sub-style-tools">' +
+            '<span id="sub-reset-all-styles" title="Reset tất cả style">↺ ALL</span>' +
+            '<label class="sub-global-lab"><input type="checkbox" id="sub-use-global-settings" ' + (gs.useGlobalStyles ? 'checked' : '') + '> Global</label>' +
+          '</div>' +
+        '</div>' +
+        '<div id="sub-style-items"></div>' +
+        '<div class="sub-style-actions">' +
+          '<label class="sub-foot-lab"><input type="checkbox" id="sub-close-outside" ' + (gs.closeOnClickOutside ? 'checked' : '') + '> Đóng khi bấm ngoài</label>' +
+          '<div class="sub-foot-actions">' +
+            '<button type="button" id="sub-settings-reset" title="Khôi phục toàn bộ về cài đặt gốc">↺ Reset chung</button>' +
+            '<button type="button" id="sub-backup" title="Tải cài đặt phụ đề của máy này về máy (JSON)">💾 Backup</button>' +
+            '<button type="button" id="sub-restore" title="Khôi phục cài đặt phụ đề từ file JSON">📥 Restore</button>' +
+          '</div>' +
+        '</div>' +
+      '</div>';
   }
 
   // Render danh sĂ¡ch style + nĂºt Ä‘iá»u chá»‰nh tá»«ng style (port engine-css.js renderStyles)
@@ -1747,53 +1755,27 @@ function setupSubPopupEvents() {
     const popup = _subPopupEl;
     if (!popup) return;
 
-    // KĂ©o popup báº±ng header
-    const header = popup.querySelector('#sub-settings-header');
-    header.onmousedown = (e) => {
-      if (e.target.tagName === 'BUTTON' || e.target.tagName === 'INPUT') return;
-      _subPopupDragging = true;
-      _subPopupDragOff = [popup.offsetLeft - e.clientX, popup.offsetTop - e.clientY];
-      e.preventDefault();
-    };
-    document.addEventListener('mousemove', (e) => {
-      if (!_subPopupDragging) return;
-      popup.style.right = 'auto';
-      popup.style.bottom = 'auto';
-      popup.style.left = (e.clientX + _subPopupDragOff[0]) + 'px';
-      popup.style.top = (e.clientY + _subPopupDragOff[1]) + 'px';
-    });
-    document.addEventListener('mouseup', () => { _subPopupDragging = false; });
+    // Panel co dinh kieu chat: khong keo, khong keo-chia cot. Dong bang X / Esc / bam ngoai.
 
-    // Chia kĂ©o divider (left/styles)
-    const divider = popup.querySelector('#sub-settings-divider');
-    let isResizing = false;
-    if (divider) {
-      divider.addEventListener('mousedown', (e) => { isResizing = true; document.body.style.cursor = 'col-resize'; e.preventDefault(); });
-      document.addEventListener('mousemove', (e) => {
-        if (!isResizing) return;
-        const container = popup.querySelector('#sub-settings-inner');
-        const left = popup.querySelector('#sub-settings-left');
-        const right = popup.querySelector('#sub-style-list');
-        const cRect = container.getBoundingClientRect();
-        let leftW = e.clientX - cRect.left - (divider.offsetWidth / 2);
-        leftW = Math.max(150, Math.min(leftW, cRect.width - 150 - divider.offsetWidth));
-        left.style.flex = 'none';
-        left.style.width = leftW + 'px';
-        right.style.flex = '1';
+    // Dong panel khi bam ben ngoai (dang ky 1 lan de tranh trung lap khi setupSubPopupEvents goi lai)
+    if (!window.__subCloseOutBound) {
+      window.__subCloseOutBound = true;
+      document.addEventListener('mousedown', function __subCloseOutside(e) {
+        if (!isSubPanelOpen()) return;
+        const btn = $('#subsSettingsBtn');
+        if (_subPopupEl.contains(e.target) || (btn && btn.contains(e.target))) return;
+        if (!State.subSettings || !State.subSettings.closeOnClickOutside) return;
+        hideSubPanel();
       });
-      document.addEventListener('mouseup', () => { if (isResizing) { isResizing = false; document.body.style.cursor = ''; } });
     }
 
-    // ÄĂ³ng popup khi báº¥m bĂªn ngoĂ i
-    document.addEventListener('mousedown', function __subCloseOutside(e) {
-      const p = _subPopupEl;
-      const btn = $('#subsSettingsBtn');
-      if (p && p.style.display !== 'none' && !p.contains(e.target) && !(btn && btn.contains(e.target)) &&
-          State.subSettings && State.subSettings.closeOnClickOutside) {
-        p.style.display = 'none';
-        if (btn) btn.setAttribute('aria-expanded', 'false');
-      }
-    });
+    // Dong panel khi bam phim Esc (dang ky 1 lan)
+    if (!window.__subEscapeBound) {
+      window.__subEscapeBound = true;
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && isSubPanelOpen()) hideSubPanel();
+      });
+    }
 
     // Pill tabs (Settings / Karaoke / Advanced)
     popup.querySelectorAll('.pill-tab').forEach((t) => {
@@ -1819,7 +1801,8 @@ function setupSubPopupEvents() {
     });
 
     // ÄĂ³ng + Reset toĂ n bá»™
-    popup.querySelector('#sub-settings-close').onclick = () => { popup.style.display = 'none'; };
+    const closeBtn = popup.querySelector('#subPanelClose') || popup.querySelector('#sub-settings-close');
+    if (closeBtn) closeBtn.onclick = () => hideSubPanel();
     popup.querySelector('#sub-settings-reset').onclick = () => {
       State.subSettings = JSON.parse(JSON.stringify(SUB_SETTINGS_DEFAULTS));
       State.timeShiftMs = 0;
@@ -1833,9 +1816,8 @@ function setupSubPopupEvents() {
         } catch (_e) { }
       }
       // dá»±ng láº¡i popup vá»›i giĂ¡ trá»‹ má»›i
-      if (_subPopupEl) { _subPopupEl.remove(); _subPopupEl = null; }
-      const fp = createSubPopup();
-      fp.style.display = 'flex';
+      rerenderSubPanel();
+      showSubPanel();
       renderSubStyleItems();
       if (State.subsEnabled) updateCurrentSubtitle();
       toast('ÄĂ£ reset cĂ i Ä‘áº·t phá»¥ Ä‘á».', 'info', 1800);
@@ -2022,9 +2004,8 @@ function setupSubPopupEvents() {
             // Nạp lại cài đặt context hiện tại
             State.subSettings = loadSubSettings();
             activateSubContext();
-            if (_subPopupEl) { _subPopupEl.remove(); _subPopupEl = null; }
-            const fp = createSubPopup();
-            fp.style.display = 'flex';
+            rerenderSubPanel();
+            showSubPanel();
             renderSubStyleItems();
             updateSubsToggleUI();
             if (State.subsEnabled) updateCurrentSubtitle();
@@ -2037,7 +2018,6 @@ function setupSubPopupEvents() {
       });
     }
   }
-
   /* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
      8. RENDER ANIME GRID + FILTER
      â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
@@ -4163,8 +4143,8 @@ function setupSubPopupEvents() {
     if (tabName !== 'music') {
       const sp = _subPopupEl;
       const fab = $('#subsSettingsBtn');
-      if (sp && sp.style.display !== 'none') {
-        sp.style.display = 'none';
+      if (sp && isSubPanelOpen()) {
+        hideSubPanel();
         if (fab) fab.setAttribute('aria-expanded', 'false');
       }
       // ThoĂ¡t fullscreen video náº¿u Ä‘ang báº­t

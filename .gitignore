@@ -25,3 +25,7 @@ _shot_*.png
 # Thu muc nguon engine extension (Aegisub) - KHONG push len repo
 exxtension youtube aegisub/
 
+
+# Script tam trong qua trinh sua file (KHONG commit)
+_*.py
+_subblock.txt

@@ -212,6 +212,15 @@
     <span class="subs-fab-text">SUB</span>
     <span class="subs-fab-gear">⚙️</span>
   </button>
+
+  <!-- Panel SUB Settings — menu mở từ nút SUB (giống chat), 2 khối dọc: cài đặt chung + cài đặt từng style -->
+  <aside class="sub-panel hidden" id="subPanel" aria-label="Cài đặt phụ đề">
+    <div class="sub-panel-header">
+      <span class="sub-panel-title">⚙️ SUB Settings <em class="sub-panel-ctx" id="subPanelCtx"></em></span>
+      <button type="button" class="sub-panel-close" id="subPanelClose" aria-label="Đóng cài đặt phụ đề" title="Đóng (Esc)">✕</button>
+    </div>
+    <div class="sub-panel-body" id="subPanelBody"><!-- JS render --></div>
+  </aside>
   <aside class="chat-panel hidden" id="chatDock" aria-label="Chat All">
     <!-- Tiêu đề panel + nút đóng -->
     <div class="chat-panel-header">
