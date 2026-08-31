@@ -1149,10 +1149,10 @@
     // Cỡ chữ tỷ lệ với khung video. Nếu file .ass là 4K (PlayResY=2160) thì scaleH
     // rất nhỏ trên khung nhỏ → chữ bé xíu. floor TỶ LỆ (xem bên dưới) khắc phục.
     const fsRaw = baseFs * scaleH * customResize * textZoom * ((gs.fontScale != null ? gs.fontScale : 100) / 100);
-    // Dùng floor TỶ LỆ theo chiều cao khung video (~4.5%) thay vì floor px cố định:
+    // Dùng floor TỶ LỆ theo chiều cao khung video (~2.5%) thay vì floor px cố định:
     // giữ proportional giữa fullscreen/non-fullscreen (chữ co/giãn đều) mà vẫn đảm bảo
     // đọc được. Nếu fsRaw tự nhiên đã to hơn ngưỡng thì giữ nguyên (không phình).
-    const minFs = Math.max(6, (State.subOverlayHeight || 0) * 0.045);
+    const minFs = Math.max(6, (State.subOverlayHeight || 0) * 0.025);
     const fs = Math.max(minFs, fsRaw);
 
     // DEBUG (tạm): in giá trị thực tế để kiểm tra tỷ lệ chữ so với khung video
@@ -1284,7 +1284,9 @@
       }
       if (opacity < 1) div.style.opacity = Math.max(0, Math.min(1, opacity));
     }
-    const lineSpacing = fs * 1.35;
+    // Khoảng cách giữa các dòng: hệ số nhân theo cỡ chữ (100 = cách đúng 1 hàng chữ).
+    const lsMult = (gs.lineSpacing != null && gs.lineSpacing > 0) ? gs.lineSpacing : 135;
+    const lineSpacing = fs * (lsMult / 100);
     const totalLines = groups ? groups.length : (cue.rawLines || []).length;
     const baseY = hv.v === 'top' ? 0 : hv.v === 'mid'
       ? -((totalLines - 1) * lineSpacing) / 2
@@ -1992,7 +1994,7 @@
   const SUB_STORE_KEY = 'kullanime_sub_store_v2';     // lưu cài đặt theo từng video / file .ass
   const SUB_SETTINGS_DEFAULTS = {
     fontSize: 90, outlineWidth: 3, blur: 6, color1: '#ffffff', color3: '#000000',
-    spacing: 0, letterSpacing: 0.9, textZoom: 1.4, fontScale: 100,
+    spacing: 0, letterSpacing: 0.9, textZoom: 1.4, fontScale: 100, lineSpacing: 135,
     useBox: false, deepGlow: false, boxColor: '#000000', boxOpacity: 0.5, boxBlur: 0, fontFamily: 'VNF-Comic Sans',
     fadIn: 200, fadOut: 200, popupOpacity: 0.95, popupZoom: 1.0,
     posX: 350, posY: 100, width: 820, height: 600,
@@ -2063,12 +2065,10 @@
     const store = readSubStore();
     const ctx = currentSubContext();
     const entry = store[ctx];
-    if (entry && entry.subSettings) {
-      State.subSettings = Object.assign({}, JSON.parse(JSON.stringify(SUB_SETTINGS_DEFAULTS)), entry.subSettings);
-    } else {
-      // chưa có riêng cho video này → kế thừa cài đặt của context gần nhất (hoặc mặc định)
-      State.subSettings = Object.assign({}, JSON.parse(JSON.stringify(SUB_SETTINGS_DEFAULTS)), State.subSettings || {});
-    }
+    // Mỗi video ID / file .ass có config riêng trong cache. Nếu chưa từng lưu cho video
+    // này → dùng MẶC ĐỊNH, KHÔNG kế thừa cài đặt của video trước (không đem qua video khác).
+    State.subSettings = Object.assign({}, JSON.parse(JSON.stringify(SUB_SETTINGS_DEFAULTS)),
+      (entry && entry.subSettings) || {});
     // Áp per-style override đã lưu lên styleSettings vừa parse
     if (entry && entry.styleSettings) {
       const saved = entry.styleSettings;
@@ -2178,7 +2178,10 @@
         '<button type="button" id="sub-ts-zero" title="Đặt lại về 0">⟳</button>' +
         '<button type="button" id="sub-ts-dl" title="Tải file .ass đã shift time" style="color:#5eead4">💾</button>' +
       '</div>' +
-      '<button type="button" class="sub-panel-close" id="subPanelClose" aria-label="Đóng cài đặt phụ đề" title="Đóng (Esc)">✕</button>';
+      '<div class="sub-header-actions">' +
+        '<button type="button" class="sub-reset-ctx" id="subResetCtx" title="Reset tất cả cài đặt + cache của video này (xóa mọi cấu hình đã chọn)">🔄 Reset</button>' +
+        '<button type="button" class="sub-panel-close" id="subPanelClose" aria-label="Đóng cài đặt phụ đề" title="Đóng (Esc)">✕</button>' +
+      '</div>';
     const body = document.createElement('div');
     body.className = 'sub-panel-body';
     body.id = 'subPanelBody';
@@ -2247,6 +2250,11 @@
         '<div class="g-row k-fs-row"><label style="white-space:nowrap;">Cỡ chữ</label>' +
           '<input type="range" data-k="fs" data-type="fs" min="20" max="300" step="1" value="' + (gs.fontSize != null ? gs.fontSize : 70) + '">' +
           '<input type="number" data-k="fs" data-type="fs" value="' + (gs.fontSize != null ? gs.fontSize : 70) + '" class="num-in" step="1">' +
+        '</div>' +
+        // ---- Khoảng cách dòng: chỉ ô nhập số (%), không thanh trượt ----
+        '<div class="g-row k-ls-row"><label style="white-space:nowrap;" title="Khoảng cách giữa các dòng, tính theo % cỡ chữ (100 = cách đúng 1 hàng chữ)">Dòng cách</label>' +
+          '<input type="number" data-k="lineSpacing" data-type="lineSpacing" min="50" max="400" step="1" value="' + (gs.lineSpacing != null ? gs.lineSpacing : 135) + '" class="num-in" step="1">' +
+          '<span class="ls-unit">%</span>' +
         '</div>' +
 
         '<div class="pill-tabs">' +
@@ -2465,6 +2473,34 @@ function setupSubPopupEvents() {
     // Đóng + Reset toàn bộ
     const closeBtn = popup.querySelector('#subPanelClose') || popup.querySelector('#sub-settings-close');
     if (closeBtn) closeBtn.onclick = () => hideSubPanel();
+    // Nút Reset (gần ✕ trên header): xoá toàn bộ cài đặt + cache của video/file .ass hiện tại
+    const resetCtxBtn = popup.querySelector('#subResetCtx');
+    if (resetCtxBtn) resetCtxBtn.onclick = () => {
+      if (!confirm('Xoá toàn bộ cài đặt + cache của video này?\n(Sẽ trả về mặc định, không ảnh hưởng video khác)')) return;
+      const store = readSubStore();
+      const ctx = currentSubContext();
+      delete store[ctx];
+      writeSubStore(store);
+      // Về mặc định
+      State.subSettings = JSON.parse(JSON.stringify(SUB_SETTINGS_DEFAULTS));
+      State.timeShiftMs = 0;
+      const tsIn = popup.querySelector('#sub-ts-input');
+      if (tsIn) tsIn.value = '0';
+      // nạp lại style gốc từ .ass hiện tại
+      if (State.subtitles.length && State.rawAssText) {
+        try {
+          const parsed = parseAssEngine(State.rawAssText);
+          State.subtitles = parsed.subtitles;
+          State.styleSettings = parsed.styleSettings;
+        } catch (_e) { }
+      }
+      // dựng lại popup với giá trị mới
+      rerenderSubPanel();
+      showSubPanel();
+      renderSubStyleItems();
+      if (State.subsEnabled) updateCurrentSubtitle();
+      toast('Đã xoá toàn bộ cài đặt video này.', 'info', 1800);
+    };
     const resetBtn = popup.querySelector('#sub-settings-reset');
     if (resetBtn) resetBtn.onclick = () => {
       State.subSettings = JSON.parse(JSON.stringify(SUB_SETTINGS_DEFAULTS));
@@ -2626,6 +2662,11 @@ function setupSubPopupEvents() {
             const pair = row.querySelector('input[data-k="fs"][data-type="fs"][type="' + (t.type === 'range' ? 'number' : 'range') + '"]');
             if (pair) pair.value = val;
           }
+        } else if (kTab === 'lineSpacing') {
+          // Khoảng cách dòng (chỉ ô nhập số): lưu thẳng vào cài đặt chung
+          State.subSettings.lineSpacing = (t.type === 'number' || t.type === 'range') ? parseFloat(val) : val;
+          saveSubSettings();
+          if (State.subsEnabled) updateCurrentSubtitle();
         } else {
         if (!State.subSettings[kTab]) State.subSettings[kTab] = Object.assign({}, SUB_SETTINGS_DEFAULTS[kTab]);
         let stored = val;
