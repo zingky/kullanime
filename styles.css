@@ -1084,8 +1084,8 @@ html[data-theme="light"] .modal { background: rgba(255, 255, 255, 0.72); }
   font-style: normal; font-size: 10px; color: #ffd54a;
   white-space: nowrap; overflow: hidden;
   background: rgba(255, 213, 74, 0.12); border: 1px solid rgba(255, 213, 74, 0.35);
-  padding: 2px 8px; border-radius: 999px;
-  min-width: 60px; flex: 1 1 0;
+  padding: 2px 6px; border-radius: 999px;
+  width: 20ch; flex-shrink: 0;
   cursor: default;
 }
 .sub-ctx-scroll {
@@ -1093,11 +1093,11 @@ html[data-theme="light"] .modal { background: rgba(255, 255, 255, 0.72); }
   animation: sub-marquee 10s linear infinite;
 }
 .sub-ctx-text {
-  padding-right: 40px;
+  padding-right: 30px;
 }
 @keyframes sub-marquee {
-  from { transform: translateX(0); }
-  to { transform: translateX(-50%); }
+  from { transform: translateX(-50%); }
+  to { transform: translateX(0); }
 }
 .sub-panel-close {
   border: 1px solid rgba(255, 255, 255, 0.12); background: rgba(255, 255, 255, 0.06); color: #bbb;
