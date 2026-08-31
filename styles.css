@@ -1206,9 +1206,11 @@ html[data-theme="light"] .modal { background: rgba(255, 255, 255, 0.72); }
 .sub-panel-footer .sub-foot-row label { color: #aaa; font-weight: bold; font-size: .75em; white-space: nowrap; }
 .sub-panel-footer .sub-foot-sep { width: 1px; height: 16px; background: rgba(255,255,255,0.15); margin: 0 3px; flex-shrink: 0; }
 .sub-panel-footer .sub-box-lab { border-left: 1px solid rgba(255,255,255,0.15); padding-left: 6px; }
-.sub-panel-footer .sub-box-blur { flex: 1; height: 3px; }
+.sub-panel-footer .sub-foot-row { max-width: 100%; }
+.sub-panel-footer .sub-box-blur { flex: 0 1 90px; height: 6px; }
 .sub-panel .sub-lsp-lab { color: #aaa; font-weight: bold; font-size: .75em; white-space: nowrap; border-left: 1px solid rgba(255,255,255,0.15); padding-left: 6px; }
-.sub-panel .sub-letter-spacing { flex: 1; height: 3px; }
+.sub-panel .sub-letter-spacing { flex: 0 1 90px; height: 6px; }
+.sub-panel .sub-lsp-val { width: 46px; min-width: 46px; flex-shrink: 0; }
 .sub-panel-footer .sub-foot-actions { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
 .sub-panel-footer .sub-foot-actions button {
   border: 1px solid #4a5568; color: #ddd; cursor: pointer; background: rgba(255,255,255,0.08);
@@ -1221,11 +1223,6 @@ html[data-theme="light"] .modal { background: rgba(255, 255, 255, 0.72); }
 .ass-cue { transition: opacity 0.15s ease; }
 /* Hàng Cỡ chữ CHUNG (trên 3 tab karaoke) */
 .sub-panel .k-fs-row input[type="range"] { flex: 1; }
-/* Hàng "Dòng cách" (chỉ ô nhập số, không thanh trượt) — đẩy ô số sát phải, thêm % */
-.sub-panel .k-ls-row { display: flex; align-items: center; justify-content: flex-end; gap: 6px; margin-bottom: 6px; }
-.sub-panel .k-ls-row label { width: auto; margin-right: auto; }
-.sub-panel .k-ls-row .num-in { width: 56px; max-width: 56px; }
-.sub-panel .k-ls-row .ls-unit { color: #aaa; font-size: .75em; font-weight: 700; width: 14px; }
 /* Karaoke sections: stack 3 panels dọc, không còn inner tabs */
 .k-section { margin-bottom: 6px; }
 .k-section-label {
@@ -1481,11 +1478,13 @@ select.input option { background: #141a2d; color: var(--text); }
 .sub-panel .adv-grid input[type="color"] { width: 24px; height: 22px; padding: 0; border: 1px solid rgba(255,255,255,0.15); border-radius: 4px; cursor: pointer; flex-shrink: 0; }
 .sub-panel .adv-grid input[type="number"] { width: 42px; min-width: 0; padding: 2px 3px; font-size: 10px; text-align: center; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.15); border-radius: 5px; color: #eef2ff; flex-shrink: 0; }
 /* Slider mảnh → to & bắt mắt hơn */
+/* Thanh ngang nằm ở pseudo ::-webkit-slider-runnable-track (đảm bảo hiện thanh trượt rõ,
+   không chỉ mỗi quả núm — tránh lỗi thanh nền bị mất trên Chrome/Edge */ 
 .sub-panel input[type="range"] {
   -webkit-appearance: none; appearance: none; height: 6px;
-  background: rgba(255,255,255,0.16); border-radius: 999px; outline: none; cursor: pointer;
+  background: transparent; border-radius: 999px; outline: none; cursor: pointer;
 }
-.sub-panel input[type="range"]::-webkit-slider-runnable-track { height: 6px; background: rgba(255,255,255,0.16); border-radius: 999px; }
+.sub-panel input[type="range"]::-webkit-slider-runnable-track { height: 6px; background: rgba(255,255,255,0.20); border-radius: 999px; }
 .sub-panel input[type="range"]::-webkit-slider-thumb {
   -webkit-appearance: none; appearance: none; width: 16px; height: 16px; margin-top: -5px;
   border-radius: 50%; border: none;
@@ -1494,7 +1493,7 @@ select.input option { background: #141a2d; color: var(--text); }
   cursor: grab; transition: transform .12s ease;
 }
 .sub-panel input[type="range"]::-webkit-slider-thumb:hover { transform: scale(1.18); box-shadow: 0 0 0 5px rgba(62,166,255,0.35), 0 2px 8px rgba(0,0,0,0.5); }
-.sub-panel input[type="range"]::-moz-range-track { height: 6px; background: rgba(255,255,255,0.16); border-radius: 999px; }
+.sub-panel input[type="range"]::-moz-range-track { height: 6px; background: rgba(255,255,255,0.20); border-radius: 999px; }
 .sub-panel input[type="range"]::-moz-range-thumb { width: 16px; height: 16px; border: none; border-radius: 50%; background: radial-gradient(circle at 35% 35%, #fff, #3ea6ff 75%); box-shadow: 0 0 0 3px rgba(62,166,255,0.28); cursor: grab; }
 .sub-panel .g-row input[type="range"], .sub-panel .pos-row input[type="range"] { height: 6px; margin: 0 6px; }
 /* Slider X/Y giãn hết chiều ngang (không còn khoảng trống bên phải) */

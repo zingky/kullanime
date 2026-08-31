@@ -978,8 +978,8 @@
         const anX = assAnchorX(align, marginL, marginR, playResX);
         const anY = assAnchorY(align, marginV, playResY);
         styleSettings[name] = {
-          color1: assToHex(p[3]), color3: assToHex(p[5]),
-          origColor1: assToHex(p[3]), origColor3: assToHex(p[5]),
+          color1: assToHex(p[3]), color2: assToHex(p[4]), color3: assToHex(p[5]),
+          origColor1: assToHex(p[3]), origColor2: assToHex(p[4]), origColor3: assToHex(p[5]),
           fontSize: p[2] ? (parseFloat(p[2].trim()) || 20) : 20,
           origFontSize: p[2] ? (parseFloat(p[2].trim()) || 20) : 20,
           outlineWidth: p[16] ? (parseFloat(p[16].trim()) || 2) : 2,
@@ -1319,10 +1319,28 @@
       const raw = (gs.fontSize != null && gs.fontSize > 0) ? gs.fontSize : (fallback || 70);
       // Cùng floor TỶ LỆ theo chiều cao khung video như fs chính (xem renderAssCue) để
       // chữ karaoke proportional + đọc được với .ass 4K (không bé xíu, không phình).
-      const minFs = Math.max(6, (State.subOverlayHeight || 0) * 0.045);
+      const minFs = Math.max(6, (State.subOverlayHeight || 0) * 0.025);
       return Math.max(minFs, raw * scaleH * customResize * textZoom * ((gs.fontScale != null ? gs.fontScale : 100) / 100));
     };
     const karaOutl = (k, fallback) => Math.max(0, ((k && k.outl != null) ? Number(k.outl) : fallback)) * scaleH;
+    // Khi ở tab "Use Style": karaoke lấy cỡ chữ theo từng style trong file (baseFs đã nhân
+    // tỷ lệ st.fontSize/origFontSize) thay vì cỡ chữ chung, đúng ý "cỡ chữ theo style trong file".
+    const useStyleKaraFs = (k, fallback) => {
+      const raw = (isO && st.origFontSize) ? (baseFs || masterFs) : ((gs.fontSize != null && gs.fontSize > 0) ? gs.fontSize : (fallback || 70));
+      const minFs = Math.max(6, (State.subOverlayHeight || 0) * 0.025);
+      return Math.max(minFs, raw * scaleH * customResize * textZoom * ((gs.fontScale != null ? gs.fontScale : 100) / 100));
+    };
+    // Giá trị màu/viền của style trong file (.ass) — dùng cho karaoke ở tab "Use Style".
+    const stC1 = (isO && st.color1) || c1;
+    const stC2 = (isO && st.color2) || stC1;
+    const stC3 = (isO && st.color3) || c3;
+    const stOutl = (st.outlineWidth != null ? Number(st.outlineWidth) : 0) * scaleH;
+    const stBlur = ((st.blur != null ? Number(st.blur) : 0) || 2) * scaleH;
+    const kActiveC1 = (gs.kActive && gs.kActive.c1) || '#ffffff';
+    const kActiveC3 = (gs.kActive && gs.kActive.c3) || '#ff2d55';
+    const kActiveOutl = karaOutl(gs.kActive, 3);
+    const kActiveBlur = ((gs.kActive && gs.kActive.blur != null) ? Number(gs.kActive.blur) : 6) * scaleH;
+    const kActiveZoom = (gs.kActive && gs.kActive.zoom != null) ? Number(gs.kActive.zoom) : 1.1;
 
     if (groups) {
       groups.forEach((g, li) => {
@@ -1339,38 +1357,74 @@
             const active = nowMs >= syl.start && nowMs < syl.start + syl.dur;
             if (active) {
               // Âm tiết đang hát -> tab kActive
-              const k = kTab('kActive');
-              useC1 = k.c1 || '#ffffff';
-              useC3 = k.c3 || '#ff2d55';
-              useOutl = karaOutl(k, 3);
-              useBl = (Number(k.blur) != null ? Number(k.blur) : 6) * scaleH;
-              useFs = karaFs(k, baseFs);
-              const sEl = nowMs - syl.start;
-              const sRem = (syl.start + syl.dur) - nowMs;
-              const zDur = Number(k.zDur) || 100;
-              const zoomMax = Number(k.zoom) || 1.1;
-              if (sEl < zDur) useZoom = 1 + (zoomMax - 1) * (sEl / zDur);
-              else if (sRem < zDur) useZoom = 1 + (zoomMax - 1) * (sRem / zDur);
-              else useZoom = zoomMax;
+              if (isO) {
+                // Use Style: màu chữ, màu viền + độ zoom theo tab Active bên Use Global;
+                // cỡ chữ vẫn theo style trong file.
+                useC1 = kActiveC1;
+                useC3 = kActiveC3;
+                useOutl = kActiveOutl;
+                useBl = kActiveBlur;
+                useFs = useStyleKaraFs(null, baseFs);
+                const sEl = nowMs - syl.start;
+                const sRem = (syl.start + syl.dur) - nowMs;
+                const zDur = Number((gs.kActive && gs.kActive.zDur) || 100);
+                const zoomMax = kActiveZoom;
+                if (sEl < zDur) useZoom = 1 + (zoomMax - 1) * (sEl / zDur);
+                else if (sRem < zDur) useZoom = 1 + (zoomMax - 1) * (sRem / zDur);
+                else useZoom = zoomMax;
+              } else {
+                const k = kTab('kActive');
+                useC1 = k.c1 || '#ffffff';
+                useC3 = k.c3 || '#ff2d55';
+                useOutl = karaOutl(k, 3);
+                useBl = (Number(k.blur) != null ? Number(k.blur) : 6) * scaleH;
+                useFs = karaFs(k, baseFs);
+                const sEl = nowMs - syl.start;
+                const sRem = (syl.start + syl.dur) - nowMs;
+                const zDur = Number(k.zDur) || 100;
+                const zoomMax = Number(k.zoom) || 1.1;
+                if (sEl < zDur) useZoom = 1 + (zoomMax - 1) * (sEl / zDur);
+                else if (sRem < zDur) useZoom = 1 + (zoomMax - 1) * (sRem / zDur);
+                else useZoom = zoomMax;
+              }
             } else if (nowMs >= syl.start + syl.dur) {
-              // Đã hát xong -> tab kPost (mờ dần)
-              const k = kTab('kPost');
-              useC1 = k.c1 || (isO ? (st.color1 || c1) : c1);
-              useC3 = k.c3 || (isO ? (st.color3 || c3) : c3);
-              useOutl = karaOutl(k, ow);
-              useBl = (Number(k.blur) != null ? Number(k.blur) : 6) * scaleH;
-              useFs = karaFs(k, baseFs);
-              const zoomPost = Number(k.zoom) || 1.0;
-              useZoom = zoomPost < 1 ? zoomPost : 0.92;
+              // Đã hát xong -> kPost (mờ dần)
+              if (isO) {
+                // Use Style: màu chữ/viền + cỡ chữ lấy theo style trong file
+                useC1 = stC1;
+                useC3 = stC3;
+                useOutl = stOutl;
+                useBl = stBlur;
+                useFs = useStyleKaraFs(null, baseFs);
+                useZoom = 0.92;
+              } else {
+                const k = kTab('kPost');
+                useC1 = k.c1 || c1;
+                useC3 = k.c3 || c3;
+                useOutl = karaOutl(k, ow);
+                useBl = (Number(k.blur) != null ? Number(k.blur) : 6) * scaleH;
+                useFs = karaFs(k, baseFs);
+                const zoomPost = Number(k.zoom) || 1.0;
+                useZoom = zoomPost < 1 ? zoomPost : 0.92;
+              }
             } else {
-              // Chưa hát -> tab kPre (màu bình thường)
-              const k = kTab('kPre');
-              useC1 = k.c1 || (isO ? (st.color1 || c1) : c1);
-              useC3 = k.c3 || (isO ? (st.color3 || c3) : c3);
-              useOutl = karaOutl(k, ow);
-              useBl = (Number(k.blur) != null ? Number(k.blur) : 6) * scaleH;
-              useFs = karaFs(k, baseFs);
-              useZoom = Number(k.zoom) || 1.0;
+              // Chưa hát -> kPre: Use Style dùng màu thứ cấp 2c của style (karaoke chưa hát)
+              if (isO) {
+                useC1 = stC2;
+                useC3 = stC3;
+                useOutl = stOutl;
+                useBl = stBlur;
+                useFs = useStyleKaraFs(null, baseFs);
+                useZoom = 1.0;
+              } else {
+                const k = kTab('kPre');
+                useC1 = k.c1 || c1;
+                useC3 = k.c3 || c3;
+                useOutl = karaOutl(k, ow);
+                useBl = (Number(k.blur) != null ? Number(k.blur) : 6) * scaleH;
+                useFs = karaFs(k, baseFs);
+                useZoom = Number(k.zoom) || 1.0;
+              }
             }
             applySylStyle(span, useC1, useC3, useOutl, useBl, useZoom, useFs);
             lineDiv.appendChild(span);
@@ -1994,7 +2048,7 @@
   const SUB_STORE_KEY = 'kullanime_sub_store_v2';     // lưu cài đặt theo từng video / file .ass
   const SUB_SETTINGS_DEFAULTS = {
     fontSize: 90, outlineWidth: 3, blur: 6, color1: '#ffffff', color3: '#000000',
-    spacing: 0, letterSpacing: 0.9, textZoom: 1.4, fontScale: 100, lineSpacing: 135,
+    spacing: 0, letterSpacing: 0.9, textZoom: 1.0, fontScale: 100, lineSpacing: 135,
     useBox: false, deepGlow: false, boxColor: '#000000', boxOpacity: 0.5, boxBlur: 0, fontFamily: 'VNF-Comic Sans',
     fadIn: 200, fadOut: 200, popupOpacity: 0.95, popupZoom: 1.0,
     posX: 350, posY: 100, width: 820, height: 600,
@@ -2251,11 +2305,6 @@
           '<input type="range" data-k="fs" data-type="fs" min="20" max="300" step="1" value="' + (gs.fontSize != null ? gs.fontSize : 70) + '">' +
           '<input type="number" data-k="fs" data-type="fs" value="' + (gs.fontSize != null ? gs.fontSize : 70) + '" class="num-in" step="1">' +
         '</div>' +
-        // ---- Khoảng cách dòng: chỉ ô nhập số (%), không thanh trượt ----
-        '<div class="g-row k-ls-row"><label style="white-space:nowrap;" title="Khoảng cách giữa các dòng, tính theo % cỡ chữ (100 = cách đúng 1 hàng chữ)">Dòng cách</label>' +
-          '<input type="number" data-k="lineSpacing" data-type="lineSpacing" min="50" max="400" step="1" value="' + (gs.lineSpacing != null ? gs.lineSpacing : 135) + '" class="num-in" step="1">' +
-          '<span class="ls-unit">%</span>' +
-        '</div>' +
 
         '<div class="pill-tabs">' +
           '<div class="pill-tab active" data-pill="settings">🥽 Pre</div>' +
@@ -2299,6 +2348,7 @@
           '<span class="sub-foot-sep"></span>' +
           '<label class="sub-lsp-lab">K/C chữ</label>' +
           '<input type="range" id="g-letterSpacing" min="-5" max="20" step="0.1" value="' + (gs.letterSpacing != null ? gs.letterSpacing : 0.9) + '" class="sub-letter-spacing">' +
+          '<input type="number" id="g-letterSpacingVal" min="-5" max="20" step="0.1" value="' + (gs.letterSpacing != null ? gs.letterSpacing : 0.9) + '" class="num-in sub-lsp-val">' +
         '</div>' +
         // ---- Hàng 2: Actions ----
         '<div class="sub-foot-actions">' +
@@ -2337,6 +2387,7 @@
         '<div class="sub-style-meta">' +
           '<span>XY:' + (s.posX || 0) + ',' + (s.posY || 0) + '</span>' +
           '<span>1c ' + (s.color1 || '') + '</span>' +
+          '<span>2c ' + (s.color2 || '') + '</span>' +
           '<span>3c ' + (s.color3 || '') + '</span>' +
           '<span>Cỡ:' + (s.fontSize || 25) + '</span>' +
           '<span>Viền:' + (s.outlineWidth || 2) + '</span>' +
@@ -2353,6 +2404,7 @@
           '</div>' +
           '<div class="adv-grid">' +
             '<div class="adv-cell"><span class="adv-lab">1C</span><input type="color" data-style="' + sName + '" data-type="color1" value="' + (s.color1 || '#ffffff') + '"></div>' +
+            '<div class="adv-cell"><span class="adv-lab">2C</span><input type="color" data-style="' + sName + '" data-type="color2" value="' + (s.color2 || '#ffffff') + '"></div>' +
             '<div class="adv-cell"><span class="adv-lab">3C</span><input type="color" data-style="' + sName + '" data-type="color3" value="' + (s.color3 || '#000000') + '"></div>' +
             '<div class="adv-cell"><span class="adv-lab">S</span><input type="number" data-style="' + sName + '" data-type="fontSize" min="10" max="200" step="1" value="' + (s.fontSize || s.origFontSize || 25) + '"></div>' +
             '<div class="adv-cell"><span class="adv-lab">O</span><input type="number" data-style="' + sName + '" data-type="outlineWidth" min="0" max="30" step="0.5" value="' + (s.outlineWidth || 2) + '"></div>' +
@@ -2369,6 +2421,7 @@
         s.posY = assAnchorY(a, mV, State.playResY);
         s.posOverridden = false;   // trả về toạ độ tự động theo Alignment + Margin
         s.color1 = s.origColor1 || '#ffffff';
+        s.color2 = s.origColor2 || s.color1 || '#ffffff';
         s.color3 = s.origColor3 || '#000000';
         s.fontSize = s.origFontSize || s.fontSize || 25;
         s.outlineWidth = s.origOutlineWidth || s.outlineWidth || 2;
@@ -2538,6 +2591,7 @@ function setupSubPopupEvents() {
           s.posY = assAnchorY(a, mV, State.playResY);
           s.posOverridden = false;
           s.color1 = s.origColor1 || '#ffffff';
+          s.color2 = s.origColor2 || s.color1 || '#ffffff';
           s.color3 = s.origColor3 || '#000000';
           s.fontSize = s.origFontSize || s.fontSize || 25;
           s.outlineWidth = s.origOutlineWidth || s.outlineWidth || 2;
@@ -2662,11 +2716,6 @@ function setupSubPopupEvents() {
             const pair = row.querySelector('input[data-k="fs"][data-type="fs"][type="' + (t.type === 'range' ? 'number' : 'range') + '"]');
             if (pair) pair.value = val;
           }
-        } else if (kTab === 'lineSpacing') {
-          // Khoảng cách dòng (chỉ ô nhập số): lưu thẳng vào cài đặt chung
-          State.subSettings.lineSpacing = (t.type === 'number' || t.type === 'range') ? parseFloat(val) : val;
-          saveSubSettings();
-          if (State.subsEnabled) updateCurrentSubtitle();
         } else {
         if (!State.subSettings[kTab]) State.subSettings[kTab] = Object.assign({}, SUB_SETTINGS_DEFAULTS[kTab]);
         let stored = val;
