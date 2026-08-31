@@ -269,7 +269,7 @@ select.input { appearance: none; -webkit-appearance: none; background-image: url
 .player-placeholder { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; background: radial-gradient(circle at 30% 30%, rgba(168,85,247,0.22), transparent 55%), radial-gradient(circle at 70% 70%, rgba(6,182,212,0.22), transparent 55%), rgba(17,24,39,0.6); color: var(--text-dim); text-align: center; padding: 20px; backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); }
 .ph-icon { font-size: 52px; margin-bottom: 8px; }
 
-.subtitle-overlay { position: absolute; left: 0; right: 0; top: 0; bottom: 44px; pointer-events: none; z-index: 5; opacity: 0; transition: opacity 0.2s ease; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; text-align: center; padding: 0 8px 4px; }
+.subtitle-overlay { position: absolute; left: 0; right: 0; top: 0; bottom: 0; pointer-events: none; z-index: 5; opacity: 0; transition: opacity 0.2s ease; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; text-align: center; padding: 0 8px 4px; }
 .subtitle-overlay.show { opacity: 1; }
 /* Nút phóng to video full màn hình (nổi góc phải khung video) */
 .video-fs-btn {
@@ -301,12 +301,12 @@ select.input { appearance: none; -webkit-appearance: none; background-image: url
   width: min(100vw, calc(100vh * 16 / 9));
   height: min(100vh, calc(100vw * 9 / 16));
 }
-/* Overlay phụ đề fullscreen: giữ vùng dưới, không đè lên nút điều khiển YT */
+/* Overlay phụ đề fullscreen: căn giữa khớp với iframe video (letterbox) — giống extension getActiveVideoRect */
 .video-wrap:fullscreen .subtitle-overlay {
-  position: absolute; left: 0; right: 0; bottom: 48px; top: auto;
+  position: absolute; inset: 0; margin: auto;
   width: min(100vw, calc(100vh * 16 / 9));
   height: min(100vh, calc(100vw * 9 / 16));
-  margin: 0 auto;
+  pointer-events: none; z-index: 5;
 }
 @media (max-width: 480px) {
   .video-fs-btn { width: 34px; height: 34px; top: 8px; right: 8px; }

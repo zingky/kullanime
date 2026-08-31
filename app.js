@@ -1106,12 +1106,13 @@
     const useGlobal = !!(State.subSettings && State.subSettings.useGlobalStyles);
     const isO = useGlobal ? false : (st.override !== false);
 
-    // ---- Scale theo chiều cao overlay (y như extension engine-css.js) ----
+    // ---- Scale theo chiều cao vùng video (y như extension engine-css.js) ----
+    // scaleH = chiều cao khung video / PlayResY. KHÔNG đặt floor cao vì sẽ phá vỡ
+    // tỷ lệ: muốn chữ co/giãn đúng tỷ lệ với khung video (cả fullscreen lẫn không).
     let scaleH = (State.subOverlayHeight > 0 && pY > 0)
       ? (State.subOverlayHeight / pY) : 1;
-    // Chặn dưới để phụ đề không bao giờ bị co xuống mức không đọc được
-    // khi overlay chưa đo đúng chiều cao (scaleH ~0) lúc vừa phát.
-    if (scaleH < 0.45) scaleH = 0.45;
+    // Chỉ giữ floor rất thấp chống trường hợp overlay chưa đo được (~0) lúc vừa phát
+    if (scaleH < 0.1) scaleH = 0.1;
     const customResize = getFontResize(gs.fontFamily || '') || 1;
     const textZoom = (gs.textZoom > 0 && gs.textZoom <= 3) ? gs.textZoom : 0.9;
 
@@ -1127,7 +1128,21 @@
     }
     if (cue.ovFs != null) baseFs = cue.ovFs;
     baseFs = baseFs * ((cue.ovScaleY || 100) / 100);
-    const fs = Math.max(6, baseFs * scaleH * customResize * textZoom * ((gs.fontScale != null ? gs.fontScale : 100) / 100));
+    // Cỡ chữ tỷ lệ với khung video. Nếu file .ass là 4K (PlayResY=2160) thì scaleH
+    // rất nhỏ trên khung nhỏ → chữ bé xíu. Giữ proportional nhưng chặn ngưỡng đọc
+    // được tối thiểu (~18px) để không bao giờ vô dụng; vẫn co/giãn đều từ ngưỡng này
+    // khi chuyển fullscreen/non-fullscreen (cả hai đều trên floor).
+    const fsRaw = baseFs * scaleH * customResize * textZoom * ((gs.fontScale != null ? gs.fontScale : 100) / 100);
+    const fs = Math.max(18, fsRaw);
+
+    // DEBUG (tạm): in giá trị thực tế để kiểm tra tỷ lệ chữ so với khung video
+    if (typeof console !== 'undefined') {
+      if (Date.now() - (State._dbgT || 0) > 1000) {
+        State._dbgT = Date.now();
+        console.log('[ass] scaleH=%s masterFs=%s baseFs=%s textZoom=%s customResize=%s → fs=%s subH=%s pY=%s',
+          scaleH.toFixed(3), masterFs, baseFs.toFixed(1), textZoom, customResize, fs.toFixed(1), State.subOverlayHeight, pY);
+      }
+    }
 
     // ---- Màu / viền / glow (style override hoặc global setting) ----
     let c1 = isO ? (st.color1 || '#ffffff') : (gs.color1 || '#ffffff');
@@ -1247,7 +1262,8 @@
     // Cỡ chữ hiệu dụng CHUNG cho cả 3 tab karaoke (luôn dùng gs.fontSize vì đã gộp về cỡ chữ chung)
     const karaFs = (k, fallback) => {
       const raw = (gs.fontSize != null && gs.fontSize > 0) ? gs.fontSize : (fallback || 70);
-      return Math.max(6, raw * scaleH * customResize * textZoom * ((gs.fontScale != null ? gs.fontScale : 100) / 100));
+      // Cùng ngưỡng đọc được tối thiểu như fs chính (xem renderAssCue) để chữ karaoke không bé xíu với .ass 4K.
+      return Math.max(18, raw * scaleH * customResize * textZoom * ((gs.fontScale != null ? gs.fontScale : 100) / 100));
     };
     const karaOutl = (k, fallback) => Math.max(0, ((k && k.outl != null) ? Number(k.outl) : fallback)) * scaleH;
 
@@ -1720,11 +1736,18 @@
     if (!overlay || !State.ytPlayer || !State.youtubeReady) return;
     let current;
     try { current = State.ytPlayer.getCurrentTime(); } catch (_e) { return; }
-    // Áp dụng timeshift (ms) + lưu chiều cao overlay để tính scaleH
+    // Áp dụng timeshift (ms) + lưu chiều cao vùng hiển thị video để tính scaleH.
+    // Đo từ .video-wrap (khung 16:9 thật) — giống extension đo layer khớp video
+    // (engine-css.js: layerRect.height / playResY). Overlay span toàn khung nên
+    // scaleH = kích thước khung video / PlayResY, đồng nhất fullscreen & non-fullscreen.
     const shiftSec = (State.timeShiftMs || 0) / 1000;
     const t = current + shiftSec;
     State.lastRenderTime = t;
-    State.subOverlayHeight = overlay.clientHeight || overlay.offsetHeight || 0;
+    const videoFrame = overlay.closest('.video-wrap') || overlay.parentElement;
+    const frameH = videoFrame
+      ? (videoFrame.clientHeight || videoFrame.offsetHeight || overlay.clientHeight || 0)
+      : 0;
+    State.subOverlayHeight = frameH;
     const active = State.subtitles.filter((s) => t >= s.start && t <= s.end);
     if (!State.subsEnabled || active.length === 0) {
       hideSubtitleOverlay();
