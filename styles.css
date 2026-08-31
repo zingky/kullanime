@@ -277,7 +277,7 @@ select.input { appearance: none; -webkit-appearance: none; background-image: url
 .fs-hover-zone {
   position: absolute; top: 0; left: 0; right: 0;
   height: clamp(48px, 14%, 96px);
-  z-index: 28; pointer-events: auto; background: transparent;
+  z-index: 28; pointer-events: none; background: transparent;
 }
 /* Nút phóng to video full màn hình (nổi góc phải khung video) */
 .video-fs-btn {
@@ -1002,6 +1002,28 @@ html[data-theme="light"] .modal { background: rgba(255, 255, 255, 0.72); }
 .toast.warning { border-left-color: var(--warning); }
 @keyframes toastIn { from { transform: translateX(30px); opacity: 0; } to { transform: none; opacity: 1; } }
 .toast.hide { opacity: 0; transform: translateX(30px); transition: all 0.3s ease; }
+
+/* ── Inline Confirm bubble: hiện xác nhận ngay tại nút ── */
+.ic-confirm-bubble {
+  position: absolute; z-index: 400; max-width: min(320px, 90vw);
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  padding: 8px 10px; border-radius: 10px; font-size: 11px; line-height: 1.35;
+  color: #fff; background: rgba(20, 26, 45, 0.96);
+  border: 1px solid rgba(255, 107, 107, 0.45); box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+  animation: icPop .16s ease;
+}
+@keyframes icPop { from { transform: translateY(6px); opacity: 0; } to { transform: none; opacity: 1; } }
+.ic-confirm-bubble .ic-msg { flex: 1 1 auto; min-width: 150px; color: #ffd9d9; }
+.ic-confirm-bubble .ic-yes,
+.ic-confirm-bubble .ic-no {
+  border: 1px solid rgba(255,255,255,0.2); cursor: pointer; font-size: 10px; font-weight: 700;
+  padding: 3px 9px; border-radius: 6px; white-space: nowrap; flex-shrink: 0;
+}
+.ic-confirm-bubble .ic-yes { background: rgba(239, 68, 68, 0.9); border-color: rgba(255,255,255,0.25); color: #fff; }
+.ic-confirm-bubble .ic-yes:hover { background: rgba(220, 38, 38, 1); }
+.ic-confirm-bubble .ic-no { background: rgba(255,255,255,0.12); color: #ddd; }
+.ic-confirm-bubble .ic-no:hover { background: rgba(255,255,255,0.22); color: #fff; }
+
 .global-backdrop { position: fixed; inset: 0; z-index: 300; background: rgba(4,7,15,0.5); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); display: flex; align-items: center; justify-content: center; }
 
 /* ============ FORM ERROR ============ */
@@ -1171,6 +1193,14 @@ html[data-theme="light"] .modal { background: rgba(255, 255, 255, 0.72); }
   display: inline-flex; align-items: center; gap: 3px; flex-shrink: 0; transition: all 0.15s ease;
 }
 .sub-reset-ctx:hover { background: rgba(255, 213, 74, 0.22); border-color: rgba(255, 213, 74, 0.65); }
+/* Nút 🗑️ ALL (đầu header): xoá toàn bộ config tất cả video */
+.sub-reset-all-btn {
+  border: 1px solid rgba(255, 107, 107, 0.5); background: rgba(255, 68, 68, 0.14); color: #ff8e8e;
+  height: 24px; padding: 0 8px; border-radius: 7px; cursor: pointer;
+  font-size: 10px; font-weight: 800; line-height: 1; white-space: nowrap;
+  display: inline-flex; align-items: center; gap: 3px; flex-shrink: 0; transition: all 0.15s ease;
+}
+.sub-reset-all-btn:hover { background: rgba(255, 68, 68, 0.3); color: #fff; border-color: rgba(255, 107, 107, 0.8); }
 .sub-panel-body {
   flex: 0 1 auto; min-height: 0;
   max-height: min(56vh, 460px);
@@ -1200,16 +1230,17 @@ html[data-theme="light"] .modal { background: rgba(255, 255, 255, 0.72); }
   background: rgba(255, 255, 255, 0.03); flex-shrink: 0; font-size: 10px;
 }
 .sub-panel-footer .sub-foot-row {
-  display: flex; align-items: center; gap: 5px; flex-wrap: wrap;
+  display: flex; align-items: center; gap: 5px; flex-wrap: nowrap;
   background: rgba(255,255,255,0.05); padding: 4px 6px; border-radius: 5px;
 }
 .sub-panel-footer .sub-foot-row label { color: #aaa; font-weight: bold; font-size: .75em; white-space: nowrap; }
 .sub-panel-footer .sub-foot-sep { width: 1px; height: 16px; background: rgba(255,255,255,0.15); margin: 0 3px; flex-shrink: 0; }
 .sub-panel-footer .sub-box-lab { border-left: 1px solid rgba(255,255,255,0.15); padding-left: 6px; }
 .sub-panel-footer .sub-foot-row { max-width: 100%; }
-.sub-panel-footer .sub-box-blur { flex: 0 1 90px; height: 6px; }
-.sub-panel .sub-lsp-lab { color: #aaa; font-weight: bold; font-size: .75em; white-space: nowrap; border-left: 1px solid rgba(255,255,255,0.15); padding-left: 6px; }
-.sub-panel .sub-letter-spacing { flex: 0 1 90px; height: 6px; }
+.sub-panel-footer .sub-box-blur { flex: 0 1 90px; min-width: 40px; height: 6px; }
+.sub-panel .sub-lsp-lab { color: #aaa; font-weight: bold; font-size: .75em; white-space: nowrap; border-left: 1px solid rgba(255,255,255,0.15); padding-left: 6px; flex-shrink: 0; }
+/* Slider khoảng cách chữ: co/giãn theo dòng để ô giá trị KHÔNG xuống hàng 2 */
+.sub-panel .sub-letter-spacing { flex: 1 1 auto; min-width: 30px; height: 6px; }
 .sub-panel .sub-lsp-val { width: 46px; min-width: 46px; flex-shrink: 0; }
 .sub-panel-footer .sub-foot-actions { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
 .sub-panel-footer .sub-foot-actions button {
@@ -1217,6 +1248,17 @@ html[data-theme="light"] .modal { background: rgba(255, 255, 255, 0.72); }
   font-size: 10px; padding: 3px 8px; border-radius: 6px; white-space: nowrap;
 }
 .sub-panel-footer .sub-foot-actions button:hover { background: rgba(255,255,255,0.16); }
+/* Hàng Reset chung + Timeshift: cho phép tràn sang hàng kế khi panel hẹp */
+.sub-panel-footer .sub-foot-row.sub-ts-row { flex-wrap: wrap; justify-content: flex-start; gap: 6px; align-items: center; }
+.sub-panel-footer .sub-reset-global-btn {
+  border: 1px solid #5a6ad1; color: #cfd6ff; cursor: pointer; background: rgba(99,102,241,0.14);
+  font-size: 10px; font-weight: 700; padding: 3px 9px; border-radius: 7px; white-space: nowrap; flex-shrink: 0;
+  transition: background .15s ease;
+}
+.sub-panel-footer .sub-reset-global-btn:hover { background: rgba(99,102,241,0.3); color: #fff; }
+.sub-panel-footer .sub-ts-row .sub-foot-sep { align-self: center; }
+/* Thanh timeshift đặt trong footer: dùng padding đầy đủ như bản gốc */
+.sub-panel-footer .sub-ts-bar { flex-shrink: 1; min-width: 0; }
 .sub-panel .sub-fade-lab { white-space: nowrap; }
 .sub-panel .sub-fade-out-lab { white-space: nowrap; }
 /* Fade mượt cho từng cue phụ đề (fade in/out) */
@@ -1398,8 +1440,6 @@ select.input option { background: #141a2d; color: var(--text); }
   border: 1px solid rgba(62,166,255,0.35);
   border-radius: 12px;
 }
-/* Bản đặt trên header sub-panel: co nhỏ để vừa 1 dòng cùng tên file */
-.sub-ts-bar.sub-ts-in-header { margin-bottom: 0; flex-shrink: 1; min-width: 0; padding: 3px 5px; gap: 2px; }
 .sub-ts-bar .sub-ts-ico { font-size: 11px; line-height: 1; color: #3ea6ff; flex-shrink: 0; cursor: default; }
 .sub-ts-bar .sub-ts-ms { font-size: 8px; color: #8ab4cc; white-space: nowrap; }
 .sub-ts-bar #sub-ts-input {
