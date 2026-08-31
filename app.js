@@ -1,18 +1,18 @@
 ﻿/* ============================================================
-   app.js â€” ToĂ n bá»™ logic KullAnime (Vanilla JS, ES6+ modular)
+   app.js — Toàn bộ logic KullAnime (Vanilla JS, ES6+ modular)
    ------------------------------------------------------------
-   Gá»“m: Supabase Client, Cloudinary Upload, YouTube Player,
+   Gồm: Supabase Client, Cloudinary Upload, YouTube Player,
    Auto-fetch GitHub .ass, AniList API Auto-fill, Rich Text Parser
-   (BBCode + Markdown), DOMPurify (chá»‘ng XSS), Admin Panel,
-   Rate limiting & Captcha chá»‘ng spam.
+   (BBCode + Markdown), DOMPurify (chống XSS), Admin Panel,
+   Rate limiting & Captcha chống spam.
    ============================================================ */
 
 (function () {
   'use strict';
 
-  /* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-     1. KHá»I Táº O TOĂ€N Cá»¤C
-     â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+  /* ──────────────────────────────────────────────────────
+     1. KHỞI TẠO TOÀN CỤC
+     ────────────────────────────────────────────────────── */
   const $ = (sel, root) => (root || document).querySelector(sel);
   const $$ = (sel, root) => Array.from((root || document).querySelectorAll(sel));
   const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) =>
@@ -24,54 +24,54 @@
     supabase: null,
     animes: [],
     songs: [],
-    subsFiles: [],         // danh sĂ¡ch file .ass tá»« GitHub
-    assQuery: '',          // tá»« khoĂ¡ tĂ¬m kiáº¿m file .ass
-    currentAnime: null,    // anime Ä‘ang xem trong modal
-    currentSong: null,     // bĂ i hĂ¡t Ä‘ang phĂ¡t
-    subtitles: [],         // máº£ng cue phá»¥ Ä‘á» ASS Ä‘Ă£ parse (engine)
+    subsFiles: [],         // danh sách file .ass từ GitHub
+    assQuery: '',          // từ khoá tìm kiếm file .ass
+    currentAnime: null,    // anime đang xem trong modal
+    currentSong: null,     // bài hát đang phát
+    subtitles: [],         // mảng cue phụ đề ASS đã parse (engine)
     subsEnabled: false,
     subsTick: null,
-    subSettings: null,     // cĂ i Ä‘áº·t toĂ n cá»¥c phá»¥ Ä‘á» (fontSize, mĂ u, karaoke...) -> lÆ°u localStorage
-    timeShiftMs: 0,        // dá»i phá»¥ Ä‘á» theo ms (Timeshift)
-    subOverlayHeight: 0,   // chiá»u cao overlay phá»¥ Ä‘á» (dĂ¹ng scaleH cho fontSize)
-    // Dá»¯ liá»‡u engine phá»¥ Ä‘á» ASS (port tá»« YouTube-Aegisub-Loader)
+    subSettings: null,     // cài đặt toàn cục phụ đề (fontSize, màu, karaoke...) -> lưu localStorage
+    timeShiftMs: 0,        // dời phụ đề theo ms (Timeshift)
+    subOverlayHeight: 0,   // chiều cao overlay phụ đề (dùng scaleH cho fontSize)
+    // Dữ liệu engine phụ đề ASS (port từ YouTube-Aegisub-Loader)
     styleSettings: {},     // { styleName: {color1,color3,fontSize,outlineWidth,blur,spacing,fontName,align,posX,posY,...} }
     playResX: 384,
     playResY: 288,
     rawAssText: '',
     lastRenderTime: 0,
     isAdmin: false,
-    isLoggedIn: false,   // Ä‘Ă£ Ä‘Äƒng nháº­p (thĂ nh viĂªn hoáº·c admin)
+    isLoggedIn: false,   // đã đăng nhập (thành viên hoặc admin)
     adminEmail: '',
-    nickname: '',        // tĂªn hiá»ƒn thá»‹ (nickname) cá»§a tĂ i khoáº£n Ä‘Ă£ Ä‘Äƒng nháº­p
+    nickname: '',        // tên hiển thị (nickname) của tài khoản đã đăng nhập
     youtubeReady: false,
     ytPlayer: null,
     ytReady: false,        // player da san sang (onReady da chay) - moi load video an toan
     pendingPlay: null,     // bai hat cho phat khi YT API san sang
     pendingVideoId: null,  // videoId cho nap khi player onReady
-    autoNext: true,        // tá»± Ä‘á»™ng chuyá»ƒn bĂ i káº¿ tiáº¿p khi bĂ i hiá»‡n táº¡i káº¿t thĂºc
-    shuffle: false,        // phĂ¡t ngáº«u nhiĂªn khi káº¿t thĂºc / báº¥m next
+    autoNext: true,        // tự động chuyển bài kế tiếp khi bài hiện tại kết thúc
+    shuffle: false,        // phát ngẫu nhiên khi kết thúc / bấm next
     // Rate limit comment
     lastCommentAt: 0,
     lastChatAt: 0,
-    // Captcha hiá»‡n táº¡i
+    // Captcha hiện tại
     captcha: { a: 0, b: 0, result: 0 },
     chatCaptcha: { a: 0, b: 0, result: 0 },
     // AniList (search auto-fill abort)
     jikanAbort: null,
-    // PhĂ¢n trang hiá»ƒn thá»‹ trĂªn 1 trang
-    animeVisible: 10,      // sá»‘ anime render má»—i lÆ°á»£t
-    songVisible: 15,       // sá»‘ bĂ i hĂ¡t render má»—i lÆ°á»£t
-    commentAll: [],        // toĂ n bá»™ bĂ¬nh luáº­n cá»§a anime Ä‘ang má»Ÿ
-    commentVisible: 20,    // sá»‘ bĂ¬nh luáº­n anime hiá»ƒn thá»‹ hiá»‡n táº¡i
-    chatAll: [],           // toĂ n bá»™ tin chat chung
-    chatVisible: 3,        // sá»‘ tin chat hiá»ƒn thá»‹ (thu gá»n = 3)
-    chatExpanded: false    // tráº¡ng thĂ¡i má»Ÿ rá»™ng sticky chat
+    // Phân trang hiển thị trên 1 trang
+    animeVisible: 10,      // số anime render mỗi lượt
+    songVisible: 15,       // số bài hát render mỗi lượt
+    commentAll: [],        // toàn bộ bình luận của anime đang mở
+    commentVisible: 20,    // số bình luận anime hiển thị hiện tại
+    chatAll: [],           // toàn bộ tin chat chung
+    chatVisible: 3,        // số tin chat hiển thị (thu gọn = 3)
+    chatExpanded: false    // trạng thái mở rộng sticky chat
   };
 
-  /* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-     2. TIá»†N ĂCH (helpers)
-     â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+  /* ──────────────────────────────────────────────────────
+     2. TIỆN ÍCH (helpers)
+     ────────────────────────────────────────────────────── */
   function toast(msg, type = 'info', duration = 3200) {
     const box = $('#toastContainer');
     if (!box) return;
@@ -92,17 +92,17 @@
   function timeAgo(iso) {
     if (!iso) return '';
     const secs = Math.floor((Date.now() - new Date(iso).getTime()) / 1000);
-    if (secs < 60) return 'vá»«a xong';
-    if (secs < 3600) return Math.floor(secs / 60) + ' phĂºt trÆ°á»›c';
-    if (secs < 86400) return Math.floor(secs / 3600) + ' giá» trÆ°á»›c';
-    if (secs < 604800) return Math.floor(secs / 86400) + ' ngĂ y trÆ°á»›c';
+    if (secs < 60) return 'vừa xong';
+    if (secs < 3600) return Math.floor(secs / 60) + ' phút trước';
+    if (secs < 86400) return Math.floor(secs / 3600) + ' giờ trước';
+    if (secs < 604800) return Math.floor(secs / 86400) + ' ngày trước';
     return formatDate(iso);
   }
 
   function parseYoutubeId(input) {
     if (!input) return '';
     const s = String(input).trim();
-    // ID thuáº§n 11 kĂ½ tá»±
+    // ID thuần 11 ký tự
     if (/^[A-Za-z0-9_-]{11}$/.test(s)) return s;
     try {
       const u = new URL(s);
@@ -117,16 +117,16 @@
 
   function posterFallback(anime) {
     const initial = (anime.title || '?').trim().charAt(0).toUpperCase();
-    return '<div class="poster-fallback" aria-label="KhĂ´ng cĂ³ poster">' + esc(initial || 'đŸ') + '</div>';
+    return '<div class="poster-fallback" aria-label="Không có poster">' + esc(initial || '🎞') + '</div>';
   }
-  // Fallback poster: thay <img> há»ng báº±ng khá»‘i poster-fallback â€” dĂ¹ng hĂ m toĂ n cá»¥c
-  // thay vĂ¬ nhĂºng HTML thĂ´ vĂ o onerror="..." (trĂ¡nh dáº¥u " cáº¯t cá»¥t attribute gĂ¢y kĂ½ tá»± " /> dÆ°)
+  // Fallback poster: thay <img> hỏng bằng khối poster-fallback — dùng hàm toàn cục
+  // thay vì nhúng HTML thô vào onerror="..." (tránh dấu " cắt cụt attribute gây ký tự " /> dư)
   window.__posterFallback = function (img, title) {
     if (!img || !img.parentNode) return;
-    const initial = String(title || '?').trim().charAt(0).toUpperCase() || 'đŸ';
+    const initial = String(title || '?').trim().charAt(0).toUpperCase() || '🎞';
     const div = document.createElement('div');
     div.className = 'poster-fallback';
-    div.setAttribute('aria-label', 'KhĂ´ng cĂ³ poster');
+    div.setAttribute('aria-label', 'Không có poster');
     div.textContent = initial;
     img.replaceWith(div);
   };
@@ -144,7 +144,7 @@
     m.setAttribute('aria-hidden', 'true');
   }
 
-  // Cháº·n cuá»™n ná»n khi má»Ÿ modal
+  // Chặn cuộn nền khi mở modal
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') {
       $$('.modal-overlay.open').forEach((m) => {
@@ -170,22 +170,22 @@
 
   function statusClass(status) {
     const s = String(status || '');
-    if (/hoĂ n|finish|completed/i.test(s)) return 'finish';
-    if (/sáº¯p|upcoming|tba/i.test(s)) return 'upcoming';
+    if (/hoàn|finish|completed/i.test(s)) return 'finish';
+    if (/sắp|upcoming|tba/i.test(s)) return 'upcoming';
     return '';
   }
 
-  /* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  /* ──────────────────────────────────────────────────────
      3. RICH TEXT PARSER (BBCode + Markdown) + DOMPurify
-     â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
-  // Chuyá»ƒn BBCode ([b]...[/b]) thĂ nh Markdown trÆ°á»›c khi Ä‘Æ°a qua marked.js
+     ────────────────────────────────────────────────────── */
+  // Chuyển BBCode ([b]...[/b]) thành Markdown trước khi đưa qua marked.js
   function bbcodeToMarkdown(input) {
     let s = String(input || '');
-    // Quote â€” giá»¯ cáº¥u trĂºc
+    // Quote — giữ cấu trúc
     s = s.replace(/\[quote\]([\s\S]*?)\[\/quote\]/gi, (m, inner) => {
       return '\n> ' + inner.trim().split('\n').map((l) => l.trim()).join('\n> ') + '\n';
     });
-    // CĂ¡c tháº» inline
+    // Các thẻ inline
     s = s.replace(/\[b\]/gi, '**').replace(/\[\/b\]/gi, '**');
     s = s.replace(/\[i\]/gi, '*').replace(/\[\/i\]/gi, '*');
     s = s.replace(/\[u\]/gi, '<u>').replace(/\[\/u\]/gi, '</u>');
@@ -200,8 +200,8 @@
     return s;
   }
 
-  // Fallback sanitizer khi DOMPurify CDN khĂ´ng táº£i Ä‘Æ°á»£c.
-  // Chá»‰ cho phĂ©p má»™t táº­p tag/attr an toĂ n, loáº¡i bá» má»i script/event/iframe.
+  // Fallback sanitizer khi DOMPurify CDN không tải được.
+  // Chỉ cho phép một tập tag/attr an toàn, loại bỏ mọi script/event/iframe.
   const SAFE_TAGS = new Set(['a', 'b', 'strong', 'i', 'em', 'u', 's', 'strike', 'del',
     'code', 'pre', 'blockquote', 'p', 'br', 'ul', 'ol', 'li', 'span', 'div', 'h1', 'h2', 'h3', 'h4', 'img']);
   function sanitizeHTMLFallback(html) {
@@ -213,20 +213,20 @@
         ADD_ATTR: ['target', 'rel', 'class']
       });
     }
-    // KhĂ´ng cĂ³ DOMPurify (CDN lá»—i) â†’ tá»± lĂ m sáº¡ch qua DOM (váº«n an toĂ n XSS)
+    // Không có DOMPurify (CDN lỗi) → tự làm sạch qua DOM (vẫn an toàn XSS)
     const doc = new DOMParser().parseFromString('<div id="__root">' + html + '</div>', 'text/html');
     const root = doc.getElementById('__root');
     function walk(node) {
-      // Xá»­ lĂ½ text node: yĂªn tĂ¢m giá»¯ nguyĂªn
+      // Xử lý text node: yên tâm giữ nguyên
       Array.from(node.children || []).forEach((el) => {
         const tag = (el.tagName || '').toLowerCase();
         if (!SAFE_TAGS.has(tag) || /script|style|iframe|form|input|button|object|embed|link|meta/i.test(tag)) {
-          // Thay tháº¿ element nguy hiá»ƒm báº±ng text thuáº§n (máº¥t tag nhÆ°ng an toĂ n)
+          // Thay thế element nguy hiểm bằng text thuần (mất tag nhưng an toàn)
           const txt = document.createTextNode(el.textContent || '');
           el.replaceWith(txt);
           return;
         }
-        // Lá»c attribute: chá»‰ giá»¯ attr an toĂ n, vĂ  chá»‰ trĂªn <a>/<img>
+        // Lọc attribute: chỉ giữ attr an toàn, và chỉ trên <a>/<img>
         Array.from(el.attributes || []).forEach((attr) => {
           const name = attr.name.toLowerCase();
           const isHref = name === 'href' && (tag === 'a');
@@ -236,7 +236,7 @@
           if (!(isHref || isImg || isSafeCommon || isTargetRel)) {
             el.removeAttribute(attr.name);
           }
-          // Chá»‰ cho href/src báº¯t Ä‘áº§u báº±ng http(s) hoáº·c # , cháº·n javascript:
+          // Chỉ cho href/src bắt đầu bằng http(s) hoặc # , chặn javascript:
           if ((name === 'href' || name === 'src') && !/^(https?:|#|\.|\/)/i.test(String(attr.value || ''))) {
             el.removeAttribute(attr.name);
             if (name === 'href') el.textContent = '[' + (el.textContent || '') + ']';
@@ -253,7 +253,7 @@
     return root.innerHTML;
   }
 
-  // Sanitize XSS. KHĂ”NG BAO GIá»œ render HTML chÆ°a qua Ä‘Ă¢y.
+  // Sanitize XSS. KHÔNG BAO GIỜ render HTML chưa qua đây.
   function renderRichText(raw) {
     const md = bbcodeToMarkdown(raw || '');
     let html;
@@ -262,13 +262,13 @@
     } catch (_e) {
       html = esc(md);
     }
-    // DOMPurify triá»‡t háº¡ 100% script/event handler/iframe Ä‘á»™c háº¡i;
-    // náº¿u CDN DOMPurify lá»—i (khĂ´ng táº£i Ä‘Æ°á»£c) thĂ¬ dĂ¹ng fallback an toĂ n thay vĂ¬ crash.
+    // DOMPurify triệt hạ 100% script/event handler/iframe độc hại;
+    // nếu CDN DOMPurify lỗi (không tải được) thì dùng fallback an toàn thay vì crash.
     return sanitizeHTMLFallback(html);
   }
 
-  // Bá»™ lá»c tá»« cáº¥m cÆ¡ báº£n (biáº¿n thĂ nh ***)
-  const BAD_WORDS = ['fuck', 'shit', 'bitch', 'Ä‘mm', 'clmm', 'cmm', 'clgt', 'Ä‘á»¥', 'Ä‘á»‹t', 'lá»“n', 'cáº·c', 'buá»“i'];
+  // Bộ lọc từ cấm cơ bản (biến thành ***)
+  const BAD_WORDS = ['fuck', 'shit', 'bitch', 'đmm', 'clmm', 'cmm', 'clgt', 'đụ', 'địt', 'lồn', 'cặc', 'buồi'];
   function filterBadWords(str) {
     let s = String(str || '');
     for (const w of BAD_WORDS) {
@@ -278,19 +278,19 @@
     return s;
   }
 
-  /* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-     4. SUPABASE KHá»I Táº O & Äá»ŒC Dá»® LIá»†U
-     â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+  /* ──────────────────────────────────────────────────────
+     4. SUPABASE KHỞI TẠO & ĐỌC DỮ LIỆU
+     ────────────────────────────────────────────────────── */
   async function initSupabase() {
     State.config = await AppConfig.load();
-    // Táº¡o client Supabase tá»« CDN (window.supabase)
+    // Tạo client Supabase từ CDN (window.supabase)
     const sb = window.supabase && window.supabase.createClient
       ? window.supabase.createClient(State.config.SUPABASE_URL, State.config.SUPABASE_ANON_KEY, {
           auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true }
         })
       : null;
     if (!sb) {
-      toast('KhĂ´ng táº£i Ä‘Æ°á»£c Supabase client. Kiá»ƒm tra káº¿t ná»‘i CDN.', 'error', 5000);
+      toast('Không tải được Supabase client. Kiểm tra kết nối CDN.', 'error', 5000);
       return null;
     }
     State.supabase = sb;
@@ -322,16 +322,16 @@
     }
   }
 
-  // Äá»“ng bá»™ giao diá»‡n theo tráº¡ng thĂ¡i Ä‘Äƒng nháº­p (nĂºt header + composer)
+  // Đồng bộ giao diện theo trạng thái đăng nhập (nút header + composer)
   function applyAuthState() {
     updateLoginUI();
     updateAuthUI();
   }
 
-  // áº¨n/hiá»‡n Ă´ tĂªn hiá»ƒn thá»‹ + captcha trong composer theo tráº¡ng thĂ¡i Ä‘Äƒng nháº­p
+  // Ẩn/hiện ô tên hiển thị + captcha trong composer theo trạng thái đăng nhập
   function updateAuthUI() {
     const loggedIn = State.isLoggedIn;
-    const name = State.nickname || (State.adminEmail ? State.adminEmail.split('@')[0] : '') || 'ThĂ nh viĂªn';
+    const name = State.nickname || (State.adminEmail ? State.adminEmail.split('@')[0] : '') || 'Thành viên';
     ['comment', 'chat'].forEach((pfx) => {
       const authorEl = $('#' + pfx + 'Author');
       const captchaWrap = $('#' + pfx + 'CaptchaWrap');
@@ -355,8 +355,8 @@
       .order('created_at', { ascending: false });
     $('#animeLoading').classList.add('hidden');
     if (error) {
-      console.error('Lá»—i Ä‘á»c animes:', error);
-      toast('KhĂ´ng táº£i Ä‘Æ°á»£c danh sĂ¡ch anime: ' + error.message, 'error', 5000);
+      console.error('Lỗi đọc animes:', error);
+      toast('Không tải được danh sách anime: ' + error.message, 'error', 5000);
       return;
     }
     State.animes = data || [];
@@ -376,8 +376,8 @@
       .order('created_at', { ascending: true });
     if (loading) loading.classList.add('hidden');
     if (error) {
-      console.error('Lá»—i Ä‘á»c songs:', error);
-      toast('KhĂ´ng táº£i Ä‘Æ°á»£c danh sĂ¡ch nháº¡c: ' + error.message, 'error', 5000);
+      console.error('Lỗi đọc songs:', error);
+      toast('Không tải được danh sách nhạc: ' + error.message, 'error', 5000);
       return;
     }
     State.songs = data || [];
@@ -385,14 +385,14 @@
   }
 
 
-  /* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-     5. GITHUB: Tá»° Äá»˜NG Láº¤Y DANH SĂCH FILE .ass
-     â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+  /* ──────────────────────────────────────────────────────
+     5. GITHUB: TỰ ĐỘNG LẤY DANH SÁCH FILE .ass
+     ────────────────────────────────────────────────────── */
   async function fetchSubsFiles() {
     if (!State.config) return;
     const statusEl = $('#assStatus');
     try {
-      statusEl.textContent = 'Äang káº¿t ná»‘i Github...';
+      statusEl.textContent = 'Đang kết nối Github...';
       const res = await fetch(State.config.GITHUB_SUBS_LIST_URL, {
         headers: { 'Accept': 'application/vnd.github+json' }
       });
@@ -409,10 +409,10 @@
         }));
       renderAssStatus();
     } catch (err) {
-      console.warn('KhĂ´ng láº¥y Ä‘Æ°á»£c danh sĂ¡ch .ass tá»« GitHub:', err.message);
+      console.warn('Không lấy được danh sách .ass từ GitHub:', err.message);
       State.subsFiles = [];
       if (statusEl) {
-        statusEl.textContent = 'â ï¸ KhĂ´ng táº£i Ä‘Æ°á»£c kho phá»¥ Ä‘á» GitHub (kiá»ƒm tra internet / rate limit).';
+        statusEl.textContent = '⚠️ Không tải được kho phụ đề GitHub (kiểm tra internet / rate limit).';
       }
     }
   }
@@ -422,21 +422,21 @@
     const list = $('#assFileList');
     if (!statusEl) return;
     if (State.subsFiles.length === 0) {
-      statusEl.textContent = 'KhĂ´ng cĂ³ file .ass nĂ o trong kho.';
+      statusEl.textContent = 'Không có file .ass nào trong kho.';
       if (list) list.innerHTML = '';
       return;
     }
-    // Lá»c theo tá»« khoĂ¡ tĂ¬m kiáº¿m
+    // Lọc theo từ khoá tìm kiếm
     const q = (State.assQuery || '').trim().toLowerCase();
     const filtered = q
       ? State.subsFiles.filter((f) => f.name.toLowerCase().includes(q))
       : State.subsFiles;
     statusEl.textContent = q
-      ? 'TĂ¬m tháº¥y ' + filtered.length + '/' + State.subsFiles.length + ' file .ass.'
-      : 'TĂ¬m tháº¥y ' + State.subsFiles.length + ' file .ass â€” báº¥m Ä‘á»ƒ phĂ¡t.';
+      ? 'Tìm thấy ' + filtered.length + '/' + State.subsFiles.length + ' file .ass.'
+      : 'Tìm thấy ' + State.subsFiles.length + ' file .ass — bấm để phát.';
     if (list) {
       if (filtered.length === 0) {
-        list.innerHTML = '<div class="ass-file-item"><span class="dot"></span>KhĂ´ng cĂ³ file khá»›p.</div>';
+        list.innerHTML = '<div class="ass-file-item"><span class="dot"></span>Không có file khớp.</div>';
         return;
       }
       list.innerHTML = filtered.map((f) => {
@@ -445,11 +445,11 @@
         const isActive = State.currentSong && State.currentSong.id === 'ass:' + f.name;
         const cls = 'ass-file-item' + (yid ? ' clickable' : '') + (isActive ? ' active' : '');
         const badge = yid
-          ? '<span class="ass-file-play-btn">â–¶</span>'
-          : '<span class="ass-file-bad" title="File nĂ y khĂ´ng cĂ³ YouTube ID há»£p lá»‡">ID sai</span>';
+          ? '<span class="ass-file-play-btn">▶</span>'
+          : '<span class="ass-file-bad" title="File này không có YouTube ID hợp lệ">ID sai</span>';
         return (
           '<div class="' + cls
-          + '" data-ass="' + esc(f.name) + '" tabindex="0" role="button" aria-label="Má»Ÿ video ' + esc(title) + '">'
+          + '" data-ass="' + esc(f.name) + '" tabindex="0" role="button" aria-label="Mở video ' + esc(title) + '">'
           + '<span class="dot"></span>'
           + '<span class="ass-file-name">' + esc(title) + '</span>'
           + badge
@@ -459,15 +459,15 @@
     }
   }
 
-  // Láº¥y YouTube ID tá»« tĂªn file .ass theo Ä‘á»‹nh dáº¡ng "youtubeID_tiĂªu Ä‘á».ass"
+  // Lấy YouTube ID từ tên file .ass theo định dạng "youtubeID_tiêu đề.ass"
   function parseAssYoutubeId(name) {
     const base = String(name || '').replace(/\.ass$/i, '').trim();
-    // YouTube ID thÆ°á»ng lĂ  11 kĂ½ tá»± [A-Za-z0-9_-], náº±m Ä‘áº§u tĂªn file, theo sau bá»Ÿi "_" hoáº·c " "
+    // YouTube ID thường là 11 ký tự [A-Za-z0-9_-], nằm đầu tên file, theo sau bởi "_" hoặc " "
     const m = base.match(/^([A-Za-z0-9_-]{11})(?=(\s|_)|$)/);
     return m ? m[1] : '';
   }
 
-  // Bá» tiá»n tá»‘ YouTube ID khá»i tĂªn file Ä‘á»ƒ hiá»ƒn thá»‹ tiĂªu Ä‘á» video
+  // Bỏ tiền tố YouTube ID khỏi tên file để hiển thị tiêu đề video
   function stripAssTitle(name) {
     return String(name || '')
       .replace(/\.ass$/i, '')
@@ -475,12 +475,12 @@
       .trim() || String(name || '').replace(/\.ass$/i, '').trim();
   }
 
-  // Má»Ÿ video YouTube theo file .ass (click vĂ o káº¿t quáº£ tĂ¬m kiáº¿m)
+  // Mở video YouTube theo file .ass (click vào kết quả tìm kiếm)
   async function playAssSub(file) {
     if (!file) return;
     const yid = parseAssYoutubeId(file.name);
     if (!yid) {
-      toast('ID sai â€” file "' + file.name + '" khĂ´ng cĂ³ YouTube ID há»£p lá»‡.', 'error', 4000);
+      toast('ID sai — file "' + file.name + '" không có YouTube ID hợp lệ.', 'error', 4000);
       return;
     }
     const title = stripAssTitle(file.name);
@@ -490,24 +490,24 @@
       ass_file: file.name,
       title: title,
       artist: '',
-      anime: 'Phá»¥ Ä‘á» .ass',
+      anime: 'Phụ đề .ass',
       song_type: 'ASS'
     };
     await playSong(song);
     renderAssStatus();
   }
 
-  // Khá»›p file .ass cho 1 bĂ i hĂ¡t: theo ass_file, hoáº·c theo youtube_id trong tĂªn file
+  // Khớp file .ass cho 1 bài hát: theo ass_file, hoặc theo youtube_id trong tên file
   function matchSubtitleFor(song) {
     if (!song || State.subsFiles.length === 0) return null;
     const yid = song.youtube_id;
-    // 1) khá»›p theo ass_file Ä‘Ă£ chá»‰ Ä‘á»‹nh
+    // 1) khớp theo ass_file đã chỉ định
     if (song.ass_file) {
       const exact = State.subsFiles.find((f) => f.name === song.ass_file);
       if (exact) return exact;
     }
     if (!yid) return null;
-    // 2) khá»›p theo youtube_id Ä‘á»©ng Ä‘áº§u tĂªn file (pattern: {videoId} {title}.ass)
+    // 2) khớp theo youtube_id đứng đầu tên file (pattern: {videoId} {title}.ass)
     const yidMatch = State.subsFiles.find((f) => {
       const base = f.name.replace(/\.ass$/i, '').trim();
       return base === yid || base.startsWith(yid + ' ') || base.startsWith(yid + '_');
@@ -515,15 +515,15 @@
     return yidMatch || null;
   }
 
-  /* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-     6. ASS ENGINE â€” PARSER + RENDERER
-     Port nguyĂªn lĂ½ render phá»¥ Ä‘á» ASS tá»«
+  /* ──────────────────────────────────────────────────────
+     6. ASS ENGINE — PARSER + RENDERER
+     Port nguyên lý render phụ đề ASS từ
      YouTube-Aegisub-Loader (parser.js + engine-css.js + globals.js):
-     parseAssEngine() + assembleCue() + renderAssSubtitle() dÆ°á»›i Ä‘Ă¢y thay
-     tháº¿ parseAss() cÅ© â€” há»— trá»£ Style, {\pos}, {\an}, karaoke {\k},
-     mĂ u/outline/shadow, xuá»‘ng dĂ²ng {\N}.
-     â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
-  // (parseAss() cÅ© Ä‘Ă£ Ä‘Æ°á»£c thay báº±ng parseAssEngine() â€” xem bĂªn dÆ°á»›i)
+     parseAssEngine() + assembleCue() + renderAssSubtitle() dưới đây thay
+     thế parseAss() cũ — hỗ trợ Style, {\pos}, {\an}, karaoke {\k},
+     màu/outline/shadow, xuống dòng {\N}.
+     ────────────────────────────────────────────────────── */
+  // (parseAss() cũ đã được thay bằng parseAssEngine() — xem bên dưới)
   // "h:mm:ss.cc" -> seconds (float)
   function parseAssTime(str) {
     const m = String(str).trim().match(/^(\d+):(\d{1,2}):(\d{1,2})[.:](\d{1,3})$/);
@@ -538,7 +538,7 @@
   // &HAABBGGRR (ASS) -> #RRGGBB (CSS)
   function assToHex(assStr) {
     let clean = String(assStr || '').replace(/&H|&/gi, '');
-    if (clean.length > 6) clean = clean.substring(2); // bá» alpha
+    if (clean.length > 6) clean = clean.substring(2); // bỏ alpha
     while (clean.length < 6) clean = '0' + clean;
     return '#' + clean.substring(4, 6) + clean.substring(2, 4) + clean.substring(0, 2);
   }
@@ -551,13 +551,13 @@
     return 'rgba(' + r + ',' + g + ',' + b + ',' + alpha + ')';
   }
 
-  // Aegisub-style outline: vĂ²ng 8 hÆ°á»›ng text-shadow + blur.
+  // Aegisub-style outline: vòng 8 hướng text-shadow + blur.
   function buildShadow(ow, bl, oc, useStroke) {
     const ow2 = Math.max(0, Number(ow) || 0);
     const bl2 = Math.max(0, Number(bl) || 0);
     if (ow2 <= 0 && bl2 <= 0) return 'none';
     if (useStroke) {
-      // text-stroke lo viá»n sáº¯c nĂ©t; shadow chá»‰ cĂ²n blur-glow (ow lĂ m ná»Ÿ rá»™ng)
+      // text-stroke lo viền sắc nét; shadow chỉ còn blur-glow (ow làm nở rộng)
       if (bl2 <= 0) return 'none';
       return '0 0 ' + Math.max(bl2 + ow2, 1) + 'px ' + oc;
     }
@@ -575,7 +575,7 @@
     return shadows.length ? shadows.join(',') : 'none';
   }
 
-  // Deep glow: nhiá»u lá»›p text-shadow chá»“ng nhau (port tá»« globals.js)
+  // Deep glow: nhiều lớp text-shadow chồng nhau (port từ globals.js)
   function buildDeepGlow(ow, bl, oc, useStroke) {
     const ow2 = Math.max(0, Number(ow) || 0);
     const bl2 = Math.max(0, Number(bl) || 0);
@@ -597,7 +597,7 @@
     return layers.join(', ');
   }
 
-  // Há»‡ sá»‘ co font: canvas Ä‘o ascent/descent -> customResize (~0.7-0.9)
+  // Hệ số co font: canvas đo ascent/descent -> customResize (~0.7-0.9)
   const _fontResizeCache = {};
   function getFontResize(fontFamily) {
     const key = String(fontFamily || '');
@@ -609,7 +609,7 @@
       const ctx = canvas.getContext('2d');
       const usedFontSize = 2048;
       ctx.font = usedFontSize + 'px "' + key + '"';
-      const metrics = ctx.measureText('MgĂ€');
+      const metrics = ctx.measureText('MgÀ');
       const ascent = metrics.actualBoundingBoxAscent || usedFontSize * 0.7;
       const descent = metrics.actualBoundingBoxDescent || usedFontSize * 0.3;
       const total = ascent + descent;
@@ -630,7 +630,7 @@
     return { h, v };
   }
 
-  // TĂ¡ch chuá»—i ASS thĂ nh máº£ng Ä‘oáº¡n karaoke: [{text,time}], time=ms tá»« Ä‘áº§u dĂ²ng.
+  // Tách chuỗi ASS thành mảng đoạn karaoke: [{text,time}], time=ms từ đầu dòng.
   function splitAssKaraoke(rawText) {
     const segments = [];
     let leadingTime = 0;
@@ -659,7 +659,7 @@
     return { segments, totalMs: leadingTime };
   }
 
-  // Parse toĂ n bá»™ .ass -> { subtitles, styleSettings, playResX, playResY }
+  // Parse toàn bộ .ass -> { subtitles, styleSettings, playResX, playResY }
   function parseAssEngine(content) {
     const subtitles = [];
     const styleSettings = {};
@@ -724,7 +724,7 @@
     subtitles.sort((a, b) => a.start - b.start);
     return { subtitles, styleSettings, playResX, playResY };
   }
-  // GhĂ©p 1 dialogue thĂ nh Ä‘á»‘i tÆ°á»£ng cue cáº¥u trĂºc cho renderer.
+  // Ghép 1 dialogue thành đối tượng cue cấu trúc cho renderer.
   function assembleCue(rawText, style, styleSettings, playResX, playResY, start, end) {
     const st = styleSettings[style] || {
       color1: '#ffffff', color3: '#000000',
@@ -732,7 +732,7 @@
       fontName: '', align: 2, marginL: 10, marginR: 10, marginV: 10,
       posX: playResX / 2, posY: playResY - 30, blur: 2
     };
-    // ---- Parse cĂ¡c override chĂ­nh ----
+    // ---- Parse các override chính ----
     let pos = null, an = null, a = null, ovFs = null, ovC1 = null, ovC3 = null;
     let ovBord = null, ovBlur = null, ovSpacing = null, ovBold = null, ovItalic = null;
     let ovScaleX = 100, ovScaleY = 100;
@@ -767,7 +767,7 @@
       const i1m = inner.match(/\\i\s*(\d)/i);
       if (i1m) { ovItalic = i1m[1] === '1'; continue; }
     }
-    // ---- Alignment & vá»‹ trĂ­ hiá»‡u lá»±c ----
+    // ---- Alignment & vị trí hiệu lực ----
     let effAlign = st.align;
     if (an) effAlign = an;
     else if (a) effAlign = a;
@@ -782,7 +782,7 @@
       else if (hv.v === 'mid') posY = playResY / 2;
       else posY = playResY - st.marginV - 20;
     }
-    // ---- DĂ²ng + vÄƒn báº£n sáº¡ch ----
+    // ---- Dòng + văn bản sạch ----
     const rawLines = rawText.split(/\\N/gi);
     const hasKara = /\\[kKf][\d.]+/i.test(rawText);
     const idx = rawText.indexOf('\u0000');
@@ -798,9 +798,9 @@
     };
   }
   /* ---- RENDER ASS CUE (engine) ----
-     Chuyá»ƒn 1 cue (Ä‘Ă£ parse bá»Ÿi assembleCue) thĂ nh pháº§n tá»­ DOM vá»›i Ä‘Ăºng
-     style/vá»‹ trĂ­/mĂ u/viá»n/glow + karaoke {\\k} + xuá»‘ng dĂ²ng {\\N}.          */
-  // Parse karaoke cá»§a 1 cue: tráº£ vá» [{line, syllables:[{text,start,dur}]}], ms tĂ­nh tá»« Ä‘áº§u cue.
+     Chuyển 1 cue (đã parse bởi assembleCue) thành phần tử DOM với đúng
+     style/vị trí/màu/viền/glow + karaoke {\\k} + xuống dòng {\\N}.          */
+  // Parse karaoke của 1 cue: trả về [{line, syllables:[{text,start,dur}]}], ms tính từ đầu cue.
   function parseKaraokeCue(rawLines) {
     const groups = [];
     let cumulative = 0;
@@ -820,7 +820,7 @@
     return groups;
   }
 
-  // XĂ¢y 1 div chá»©a toĂ n bá»™ cue vá»›i style/vá»‹ trĂ­ + karaoke.
+  // Xây 1 div chứa toàn bộ cue với style/vị trí + karaoke.
   function renderAssCue(cue) {
     const gs = State.subSettings || {};
     const st = (State.styleSettings && State.styleSettings[cue.style]) || {};
@@ -828,15 +828,15 @@
     const pY = State.playResY || 288;
     const align = cue.align || 2;
     const hv = alignToHV(align);
-    const isO = st.override !== false; // style cĂ³ "override" (khĂ´ng dĂ¹ng global) ?
+    const isO = st.override !== false; // style có "override" (không dùng global) ?
 
-    // ---- Scale theo chiá»u cao overlay (y nhÆ° extension engine-css.js) ----
+    // ---- Scale theo chiều cao overlay (y như extension engine-css.js) ----
     const scaleH = (State.subOverlayHeight > 0 && pY > 0)
       ? (State.subOverlayHeight / pY) : 1;
     const customResize = getFontResize(gs.fontFamily || '') || 1;
     const textZoom = (gs.textZoom > 0 && gs.textZoom <= 3) ? gs.textZoom : 0.9;
 
-    // ---- Font size hiá»‡u dá»¥ng (base * scaleH * customResize * textZoom) ----
+    // ---- Font size hiệu dụng (base * scaleH * customResize * textZoom) ----
     let baseFs = isO
       ? (st.fontSize || 25)
       : (gs.fontSize || 70);
@@ -844,7 +844,7 @@
     baseFs = baseFs * ((cue.ovScaleY || 100) / 100);
     const fs = Math.max(6, baseFs * scaleH * customResize * textZoom);
 
-    // ---- MĂ u / viá»n / glow (style override hoáº·c global setting) ----
+    // ---- Màu / viền / glow (style override hoặc global setting) ----
     let c1 = isO ? (st.color1 || '#ffffff') : (gs.color1 || '#ffffff');
     let c3 = isO ? (st.color3 || '#000000') : (gs.color3 || '#000000');
     if (cue.ovC1) c1 = cue.ovC1;
@@ -869,7 +869,7 @@
     const boxOpacity = (gs.boxOpacity != null ? gs.boxOpacity : 0.5);
     const letterSpacing = gs.letterSpacing || 0;
 
-    // ---- Font family (style font hoáº·c global) ----
+    // ---- Font family (style font hoặc global) ----
     let fontName = (st.fontName || '').replace(/["']/g, '');
     if (!isO || !fontName) fontName = (gs.fontFamily || '').replace(/["']/g, '');
     const shadow = deepGlow
@@ -883,7 +883,7 @@
     div.className = 'ass-cue';
     const useFont = fontName ? '\'' + fontName + '\', sans-serif' : 'inherit';
 
-    // ---- Vá»‹ trĂ­ theo tá»· lá»‡ PlayRes ----
+    // ---- Vị trí theo tỷ lệ PlayRes ----
     const leftPct = (cue.posX / pX * 100);
     const topPct = (cue.posY / pY * 100);
     let tx = '-50%', ty = '-50%';
@@ -919,7 +919,7 @@
       }
     };
 
-    // ---- Hiá»ƒn thá»‹ tá»«ng dĂ²ng (há»— trá»£ \\N + karaoke) ----
+    // ---- Hiển thị từng dòng (hỗ trợ \\N + karaoke) ----
     const groups = cue.hasKara ? parseKaraokeCue(cue.rawLines) : null;
     const nowMs = (State.lastRenderTime - cue.start) * 1000;
     const lineSpacing = fs * 1.35;
@@ -963,7 +963,7 @@
             let useC1, useC3, useOutl, useBl, useZoom = 1;
             const active = nowMs >= syl.start && nowMs < syl.start + syl.dur;
             if (active) {
-              // Ă‚m tiáº¿t Ä‘ang hĂ¡t -> tab kActive
+              // Âm tiết đang hát -> tab kActive
               const k = kTab('kActive');
               useC1 = k.c1 || '#ffffff';
               useC3 = k.c3 || '#ff2d55';
@@ -978,7 +978,7 @@
               else if (sRem < zOut) useZoom = 1 + (zoomMax - 1) * (sRem / zOut);
               else useZoom = zoomMax;
             } else if (nowMs >= syl.start + syl.dur) {
-              // ÄĂ£ hĂ¡t xong -> tab kPost (má» dáº§n)
+              // Đã hát xong -> tab kPost (mờ dần)
               const k = kTab('kPost');
               useC1 = isO ? (st.color1 || k.c1 || c1) : (k.c1 || '#ffffff');
               useC3 = isO ? (st.color3 || k.c3 || c3) : (k.c3 || '#000000');
@@ -987,7 +987,7 @@
               const zoomPost = Number(k.zoom) || 1.0;
               useZoom = zoomPost < 1 ? zoomPost : 0.92;
             } else {
-              // ChÆ°a hĂ¡t -> tab kPre (mĂ u bĂ¬nh thÆ°á»ng)
+              // Chưa hát -> tab kPre (màu bình thường)
               const k = kTab('kPre');
               useC1 = isO ? (st.color1 || k.c1 || c1) : (k.c1 || '#ffffff');
               useC3 = isO ? (st.color3 || k.c3 || c3) : (k.c3 || '#000000');
@@ -1027,29 +1027,29 @@
     return h * 3600 + min * 60 + sec + cs / 1000;
   }
 
-  // Loáº¡i bá» tag ASS {\\...} vĂ  {\\k...}
+  // Loại bỏ tag ASS {\\...} và {\\k...}
   function cleanAssText(text) {
     return String(text || '')
-      .replace(/\{[^}]*\}/g, '')   // bá» má»i tag {\\...}
-      .replace(/\{\\/g, '')         // dá»± phĂ²ng
+      .replace(/\{[^}]*\}/g, '')   // bỏ mọi tag {\\...}
+      .replace(/\{\\/g, '')         // dự phòng
       .replace(/\s+/g, ' ')
       .trim();
   }
 
 
-  /* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  /* ──────────────────────────────────────────────────────
      7. YOUTUBE IFrame PLAYER
-     â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
-  // ÄÆ°á»£c gá»i bá»Ÿi YouTube IFrame API khi sáºµn sĂ ng
+     ────────────────────────────────────────────────────── */
+  // Được gọi bởi YouTube IFrame API khi sẵn sàng
   window.onYouTubeIframeAPIReady = function () {
     State.youtubeReady = true;
     _ytApiLoading = false;
     // Tao player ngay khi API san sang de khong phai cho khi nguoi dung bam phat
     ensureYtPlayer();
-    // KhĂ´ng tá»± táº¡o player á»Ÿ Ä‘Ă¢y; táº¡o khi ngÆ°á»i dĂ¹ng chá»n bĂ i
+    // Không tự tạo player ở đây; tạo khi người dùng chọn bài
   };
 
-  // Bá»‹ cháº·n hoáº·c API chÆ°a náº¡p -> tá»± Ä‘á»™ng chĂ¨n láº¡i script iframe_api
+  // Bị chặn hoặc API chưa nạp -> tự động chèn lại script iframe_api
   let _ytApiLoading = false;
   function loadYouTubeApi() {
     if ((window.YT && YT.Player) || _ytApiLoading) return;
@@ -1060,12 +1060,12 @@
     document.head.appendChild(tag);
   }
 
-  // Player YT Ä‘Ă£ sáºµn sĂ ng -> má»Ÿ khĂ³a nĂ y Ä‘á»ƒ an toĂ n gá»i loadVideoById
+  // Player YT đã sẵn sàng -> mở khóa này để an toàn gọi loadVideoById
   function onYtPlayerReady() {
     State.ytReady = true;
     startSubtitleTicker();
-    try { State.ytPlayer.unloadModule('captions'); } catch (_e) { /* náº¿u module khĂ´ng cĂ³ sáºµn thĂ¬ bá» qua */ }
-    // Náº¿u Ä‘ang cĂ³ bĂ i hĂ¡t chá» -> phĂ¡t láº¡i Ä‘áº§y Ä‘á»§ (kĂ¨m .ass) khi player sáºµn sĂ ng
+    try { State.ytPlayer.unloadModule('captions'); } catch (_e) { /* nếu module không có sẵn thì bỏ qua */ }
+    // Nếu đang có bài hát chờ -> phát lại đầy đủ (kèm .ass) khi player sẵn sàng
     if (State.pendingPlay) {
       const song = State.pendingPlay;
       State.pendingPlay = null;
@@ -1081,7 +1081,7 @@
     }
   }
 
-  // Náº¡p & phĂ¡t video chá»‰ khi player Ä‘Ă£ onReady; ngÆ°á»£c láº¡i thĂ¬ queue Ä‘á»ƒ phĂ¡t sau
+  // Nạp & phát video chỉ khi player đã onReady; ngược lại thì queue để phát sau
   function loadCurrentVideo(ytid) {
     if (State.ytPlayer && State.ytReady) {
       try {
@@ -1108,30 +1108,30 @@
           playsinline: 1,
           controls: 1,
           enablejsapi: 1,
-          fs: 0, // áº©n nĂºt fullscreen cá»§a YouTube; dĂ¹ng nĂºt fullscreen riĂªng cá»§a app
-          cc_load_policy: 0, // luĂ´n máº·c Ä‘á»‹nh táº¯t phá»¥ Ä‘á» CC gá»‘c cá»§a YouTube (dĂ¹ng engine ASS riĂªng)
+          fs: 0, // ẩn nút fullscreen của YouTube; dùng nút fullscreen riêng của app
+          cc_load_policy: 0, // luôn mặc định tắt phụ đề CC gốc của YouTube (dùng engine ASS riêng)
           cc_lang_pref: 'vi'
         },
         events: {
           onReady: () => {
             startSubtitleTicker();
-            // Táº¯t háº³n module captions cá»§a YouTube Ä‘á»ƒ khĂ´ng bao giá» hiá»‡n CC gá»‘c chá»“ng lĂªn phá»¥ Ä‘á» ASS
-            try { State.ytPlayer.unloadModule('captions'); } catch (_e) { /* náº¿u module khĂ´ng cĂ³ sáºµn thĂ¬ bá» qua */ }
+            // Tắt hẳn module captions của YouTube để không bao giờ hiện CC gốc chồng lên phụ đề ASS
+            try { State.ytPlayer.unloadModule('captions'); } catch (_e) { /* nếu module không có sẵn thì bỏ qua */ }
           },
           onStateChange: onPlayerStateChange,
-          onError: () => { toast('KhĂ´ng thá»ƒ phĂ¡t video nĂ y.', 'error'); }
+          onError: () => { toast('Không thể phát video này.', 'error'); }
         }
       });
       return true;
     } catch (e) {
-      console.error('Lá»—i táº¡o YT player:', e);
+      console.error('Lỗi tạo YT player:', e);
       return false;
     }
   }
 
-  // NĂºt phĂ³ng to video full mĂ n hĂ¬nh (dĂ¹ng Fullscreen API trĂªn khung video-wrap)
-  // TrĂªn Ä‘iá»‡n thoáº¡i: cá»‘ gáº¯ng khoĂ¡ mĂ n hĂ¬nh theo chiá»u ngang (landscape) Ä‘á»ƒ video
-  // phĂ³ng to ngang mĂ n hĂ¬nh thay vĂ¬ dá»c (dĂ¹ng Screen Orientation API, iOS 16.4+/Android).
+  // Nút phóng to video full màn hình (dùng Fullscreen API trên khung video-wrap)
+  // Trên điện thoại: cố gắng khoá màn hình theo chiều ngang (landscape) để video
+  // phóng to ngang màn hình thay vì dọc (dùng Screen Orientation API, iOS 16.4+/Android).
   function toggleVideoFullscreen() {
     const wrap = $('.video-wrap');
     if (!wrap) return;
@@ -1139,18 +1139,18 @@
       const doEnter = () => {
         if (wrap.requestFullscreen) wrap.requestFullscreen();
         else if (wrap.webkitRequestFullscreen) wrap.webkitRequestFullscreen(); // Safari
-        else toast('TrĂ¬nh duyá»‡t khĂ´ng há»— trá»£ fullscreen.', 'warning');
+        else toast('Trình duyệt không hỗ trợ fullscreen.', 'warning');
       };
-      // KhoĂ¡ hÆ°á»›ng landscape trÆ°á»›c khi vĂ o fullscreen
+      // Khoá hướng landscape trước khi vào fullscreen
       const so = screen.orientation || (screen.mozOrientation) || (window.screen && window.screen.orientation);
       let lockPromise = Promise.resolve();
       if (so && typeof so.lock === 'function') {
         try {
-          // landscape-primary/landscape-secondary â€” thá»­ tá»«ng loáº¡i, Æ°u tiĂªn primary
+          // landscape-primary/landscape-secondary — thử từng loại, ưu tiên primary
           if (so.type && so.type.indexOf('landscape') === 0) {
-            doEnter(); // Ä‘Ă£ á»Ÿ landscape rá»“i
+            doEnter(); // đã ở landscape rồi
           } else {
-            lockPromise = so.lock('landscape').catch(() => { /* trĂ¬nh duyá»‡t cĂ³ thá»ƒ khĂ´ng cho phĂ©p lock */ });
+            lockPromise = so.lock('landscape').catch(() => { /* trình duyệt có thể không cho phép lock */ });
           }
         } catch (_e) { /* fallthrough */ }
       }
@@ -1158,7 +1158,7 @@
     } else {
       if (document.exitFullscreen) document.exitFullscreen();
       else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
-      // Thá»­ má»Ÿ khoĂ¡ hÆ°á»›ng (vá» tá»± do) khi thoĂ¡t fullscreen
+      // Thử mở khoá hướng (về tự do) khi thoát fullscreen
       try {
         const so = screen.orientation || (window.screen && window.screen.orientation);
         if (so && typeof so.unlock === 'function') so.unlock();
@@ -1171,8 +1171,8 @@
     if (!fsBtn) return;
     const fs = !!document.fullscreenElement;
     fsBtn.classList.toggle('active', fs);
-    fsBtn.setAttribute('aria-label', fs ? 'ThoĂ¡t toĂ n mĂ n hĂ¬nh' : 'PhĂ³ng to video');
-    fsBtn.setAttribute('title', fs ? 'ThoĂ¡t toĂ n mĂ n hĂ¬nh (Esc)' : 'PhĂ³ng to video');
+    fsBtn.setAttribute('aria-label', fs ? 'Thoát toàn màn hình' : 'Phóng to video');
+    fsBtn.setAttribute('title', fs ? 'Thoát toàn màn hình (Esc)' : 'Phóng to video');
     const enterSvg = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M21 8V5a2 2 0 0 0-2-2h-3"/><path d="M3 16v3a2 2 0 0 0 2 2h3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/></svg>';
     const exitSvg = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3v3a2 2 0 0 1-2 2H3"/><path d="M21 8h-3a2 2 0 0 1-2-2V3"/><path d="M3 16h3a2 2 0 0 1 2 2v3"/><path d="M16 21v-3a2 2 0 0 1 2-2h3"/></svg>';
     fsBtn.innerHTML = fs ? exitSvg : enterSvg;
@@ -1187,7 +1187,7 @@
       if (e.data === YT.PlayerState.PAUSED) hideSubtitleOverlay();
     } else if (e.data === YT.PlayerState.ENDED) {
       hideSubtitleOverlay();
-      // Tá»± phĂ¡t bĂ i káº¿ tiáº¿p (náº¿u báº­t) â€” ngáº«u nhiĂªn náº¿u báº­t shuffle
+      // Tự phát bài kế tiếp (nếu bật) — ngẫu nhiên nếu bật shuffle
       if (State.autoNext) {
         const next = pickNextSong();
         if (next) setTimeout(() => playSong(next), 1200);
@@ -1197,24 +1197,24 @@
     }
   }
 
-  // Chá»n bĂ i káº¿ tiáº¿p â€” tĂ´n trá»ng cháº¿ Ä‘á»™ ngáº«u nhiĂªn (shuffle)
+  // Chọn bài kế tiếp — tôn trọng chế độ ngẫu nhiên (shuffle)
   function pickNextSong() {
     const songs = State.songs;
     if (!songs || songs.length === 0) return null;
     const curId = State.currentSong && State.currentSong.id;
     const idx = songs.findIndex((s) => s.id === curId);
     if (State.shuffle) {
-      // ngáº«u nhiĂªn trong danh sĂ¡ch, trĂ¡nh láº·p láº¡i bĂ i Ä‘ang phĂ¡t náº¿u cĂ³ > 1 bĂ i
+      // ngẫu nhiên trong danh sách, tránh lặp lại bài đang phát nếu có > 1 bài
       if (songs.length === 1) return songs[0];
       let pick;
       do { pick = songs[Math.floor(Math.random() * songs.length)]; } while (pick.id === curId);
       return pick;
     }
     if (idx !== -1 && idx < songs.length - 1) return songs[idx + 1];
-    return null; // háº¿t danh sĂ¡ch (khĂ´ng vĂ²ng láº¡i)
+    return null; // hết danh sách (không vòng lại)
   }
 
-  // LĂ¹i vá» bĂ i trÆ°á»›c (vĂ²ng láº¡i cuá»‘i danh sĂ¡ch náº¿u Ä‘ang á»Ÿ bĂ i Ä‘áº§u)
+  // Lùi về bài trước (vòng lại cuối danh sách nếu đang ở bài đầu)
   function playPrevSong() {
     const songs = State.songs;
     if (!songs || songs.length === 0) return;
@@ -1225,7 +1225,7 @@
     else playSong(songs[0]);
   }
 
-  // Sang bĂ i káº¿ tiáº¿p (vĂ²ng láº¡i Ä‘áº§u danh sĂ¡ch náº¿u á»Ÿ bĂ i cuá»‘i) â€” shuffle thĂ¬ ngáº«u nhiĂªn
+  // Sang bài kế tiếp (vòng lại đầu danh sách nếu ở bài cuối) — shuffle thì ngẫu nhiên
   function playNextSong() {
     const songs = State.songs;
     if (!songs || songs.length === 0) return;
@@ -1236,7 +1236,7 @@
     else playSong(songs[0]);
   }
 
-  // Báº­t / táº¡m dá»«ng (chá»‰ khi cĂ³ player vĂ  Ä‘ang phĂ¡t má»™t video)
+  // Bật / tạm dừng (chỉ khi có player và đang phát một video)
   function togglePlay() {
     if (!State.ytPlayer || !State.youtubeReady || !State.currentSong) return;
     try {
@@ -1268,28 +1268,28 @@
     State.subtitles = [];
     hideSubtitleOverlay();
 
-    // Cáº­p nháº­t UI now-playing
-    $('#npTitle').textContent = song.title || 'KhĂ´ng tĂªn';
-    $('#npMeta').textContent = [song.artist, song.anime, song.song_type].filter(Boolean).join(' Â· ') || 'â€”';
+    // Cập nhật UI now-playing
+    $('#npTitle').textContent = song.title || 'Không tên';
+    $('#npMeta').textContent = [song.artist, song.anime, song.song_type].filter(Boolean).join(' · ') || '—';
     const thumb = $('#npThumb');
     if (song.cover_url) {
       thumb.innerHTML = '<img src="' + esc(song.cover_url) + '" alt="" loading="lazy" onerror="this.remove()" />';
     } else {
-      thumb.innerHTML = '<span class="np-thumb-ph">đŸœ</span>';
+      thumb.innerHTML = '<span class="np-thumb-ph">🎜</span>';
     }
 
-    // Highlight trong danh sĂ¡ch
+    // Highlight trong danh sách
     $$('.song-item').forEach((el) => el.classList.remove('active'));
     const activeEl = $('.song-item[data-id="' + song.id + '"]');
     if (activeEl) activeEl.classList.add('active');
 
-    // Khá»Ÿi táº¡o player náº¿u cáº§n
+    // Khởi tạo player nếu cần
     if (!ensureYtPlayer()) {
-      toast('YouTube player chÆ°a sáºµn sĂ ng, thá»­ láº¡i sau giĂ¢y lĂ¡t...', 'warning');
+      toast('YouTube player chưa sẵn sàng, thử lại sau giây lát...', 'warning');
       return;
     }
 
-    // Táº£i & náº¡p phá»¥ Ä‘á» .ass
+    // Tải & nạp phụ đề .ass
     const subFile = matchSubtitleFor(song);
     if (subFile) {
       try {
@@ -1302,29 +1302,29 @@
           State.styleSettings = parsed.styleSettings;
           State.playResX = parsed.playResX;
           State.playResY = parsed.playResY;
-          State.subsEnabled = parsed.subtitles.length > 0; // tá»± báº­t phá»¥ Ä‘á» khi cĂ³ file .ass
+          State.subsEnabled = parsed.subtitles.length > 0; // tự bật phụ đề khi có file .ass
         }
       } catch (e) {
-        console.warn('Lá»—i táº£i .ass:', e);
+        console.warn('Lỗi tải .ass:', e);
         State.subtitles = [];
       }
     }
-    // Ăp cĂ i Ä‘áº·t phá»¥ Ä‘á» Ä‘Ă£ lÆ°u riĂªng cho video / file .ass nĂ y (mĂ u, karaoke, per-style override, báº­t/táº¯t)
+    // Áp cài đặt phụ đề đã lưu riêng cho video / file .ass này (màu, karaoke, per-style override, bật/tắt)
     activateSubContext();
     updateSubsToggleUI();
 
-    // PhĂ¡t video
+    // Phát video
     try {
       State.ytPlayer.loadVideoById({ videoId: song.youtube_id, suggestedQuality: 'default' });
       $('#playerPlaceholder').classList.add('hidden');
-      toast('Äang phĂ¡t: ' + (song.title || ''), 'info', 1600);
+      toast('Đang phát: ' + (song.title || ''), 'info', 1600);
     } catch (e) {
-      console.error('Lá»—i phĂ¡t video:', e);
-      toast('KhĂ´ng thá»ƒ phĂ¡t video ' + (song.title || ''), 'error');
+      console.error('Lỗi phát video:', e);
+      toast('Không thể phát video ' + (song.title || ''), 'error');
     }
   }
 
-  /* ---- Phá»¥ Ä‘á» ticker (Ä‘á»“ng bá»™ theo thá»i gian phĂ¡t) ---- */
+  /* ---- Phụ đề ticker (đồng bộ theo thời gian phát) ---- */
   function startSubtitleTicker() {
     if (State.subsTick) clearInterval(State.subsTick);
     State.subsTick = setInterval(updateCurrentSubtitle, 100);
@@ -1337,7 +1337,7 @@
     if (!overlay || !State.ytPlayer || !State.youtubeReady) return;
     let current;
     try { current = State.ytPlayer.getCurrentTime(); } catch (_e) { return; }
-    // Ăp dá»¥ng timeshift (ms) + lÆ°u chiá»u cao overlay Ä‘á»ƒ tĂ­nh scaleH
+    // Áp dụng timeshift (ms) + lưu chiều cao overlay để tính scaleH
     const shiftSec = (State.timeShiftMs || 0) / 1000;
     const t = current + shiftSec;
     State.lastRenderTime = t;
@@ -1347,7 +1347,7 @@
       hideSubtitleOverlay();
       return;
     }
-    // Render tá»«ng cue ASS (engine) â€” style/vá»‹ trĂ­/karaoke
+    // Render từng cue ASS (engine) — style/vị trí/karaoke
     overlay.innerHTML = '';
     active.forEach((cue) => overlay.appendChild(renderAssCue(cue)));
     overlay.classList.add('show');
@@ -1368,22 +1368,22 @@
     if (btn) btn.disabled = !hasSubs;
     if (!hasSubs) {
       State.subsEnabled = false;
-      if (label) label.textContent = 'KhĂ´ng cĂ³ phá»¥ Ä‘á»';
-      if (icon) icon.textContent = 'đŸ«';
+      if (label) label.textContent = 'Không có phụ đề';
+      if (icon) icon.textContent = '🚫';
       hideSubtitleOverlay();
       return;
     }
-    if (icon) icon.textContent = State.subsEnabled ? 'đŸ’¬' : 'đŸ”‡';
-    if (label) label.textContent = State.subsEnabled ? 'Phá»¥ Ä‘á»: Báº­t' : 'Phá»¥ Ä‘á»: Táº¯t';
+    if (icon) icon.textContent = State.subsEnabled ? '💬' : '🔇';
+    if (label) label.textContent = State.subsEnabled ? 'Phụ đề: Bật' : 'Phụ đề: Tắt';
     if (State.subsEnabled) updateCurrentSubtitle();
     else hideSubtitleOverlay();
   }
 
-/* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-     7.6 CĂ€I Äáº¶T PHá»¤ Äá»€ â€” POPUP MENU (port YouTube-Aegisub-Loader)
-     â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* ──────────────────────────────────────────────────────
+     7.6 CÀI ĐẶT PHỤ ĐỀ — POPUP MENU (port YouTube-Aegisub-Loader)
+     ────────────────────────────────────────────────────── */
   const SUB_SETTINGS_KEY = 'kullanime_sub_settings_v1';
-  const SUB_STORE_KEY = 'kullanime_sub_store_v2';     // lÆ°u cĂ i Ä‘áº·t theo tá»«ng video / file .ass
+  const SUB_STORE_KEY = 'kullanime_sub_store_v2';     // lưu cài đặt theo từng video / file .ass
   const SUB_SETTINGS_DEFAULTS = {
     fontSize: 90, outlineWidth: 3, blur: 6, color1: '#ffffff', color3: '#000000',
     spacing: 0, letterSpacing: 0, textZoom: 1.4,
@@ -1401,11 +1401,11 @@
   let _subPopupEl = null;
   let _subPopupDragging = false;
   let _subPopupDragOff = [0, 0];
-  let _lastUsedSubSettings = null; // cĂ i Ä‘áº·t cá»§a context gáº§n nháº¥t (Ä‘á»ƒ "káº¿ thá»«a" sang video má»›i khi chÆ°a cĂ³ riĂªng)
+  let _lastUsedSubSettings = null; // cài đặt của context gần nhất (để "kế thừa" sang video mới khi chưa có riêng)
   const _subFontOptions = ['VNF-Comic Sans', 'Arial', 'Tahoma', 'Verdana', 'Segoe UI', 'Times New Roman'];
 
-  // --------------------- LÆ¯U CĂ€I Äáº¶T THEO Tá»ªNG VIDEO / FILE .ASS ---------------------
-  // Store: { [contextKey]: { subSettings, styleSettings, subsEnabled } } lÆ°u á»Ÿ localStorage.
+  // --------------------- LƯU CÀI ĐẶT THEO TỪNG VIDEO / FILE .ASS ---------------------
+  // Store: { [contextKey]: { subSettings, styleSettings, subsEnabled } } lưu ở localStorage.
   function readSubStore() {
     try {
       const raw = localStorage.getItem(SUB_STORE_KEY);
@@ -1417,7 +1417,7 @@
   function writeSubStore(store) {
     try { localStorage.setItem(SUB_STORE_KEY, JSON.stringify(store)); } catch (_e) { /* quota */ }
   }
-  // Chuá»—i Ä‘á»‹nh danh cho video / file .ass Ä‘ang phĂ¡t
+  // Chuỗi định danh cho video / file .ass đang phát
   function currentSubContext() {
     const s = State.currentSong;
     if (!s) return '__global__';
@@ -1425,17 +1425,17 @@
     if (s.youtube_id) return 'vid:' + s.youtube_id;
     return '__global__';
   }
-  // Náº¡p cĂ i Ä‘áº·t máº·c Ä‘á»‹nh (cho lĂºc chÆ°a phĂ¡t bĂ i nĂ o)
+  // Nạp cài đặt mặc định (cho lúc chưa phát bài nào)
   function loadSubSettings() {
     try {
-      const raw = localStorage.getItem(SUB_SETTINGS_KEY); // nĂ¢ng cáº¥p tá»« v1 náº¿u cĂ³
+      const raw = localStorage.getItem(SUB_SETTINGS_KEY); // nâng cấp từ v1 nếu có
       if (!raw) return JSON.parse(JSON.stringify(SUB_SETTINGS_DEFAULTS));
       return Object.assign({}, JSON.parse(JSON.stringify(SUB_SETTINGS_DEFAULTS)), JSON.parse(raw));
     } catch (_e) {
       return JSON.parse(JSON.stringify(SUB_SETTINGS_DEFAULTS));
     }
   }
-  // LÆ°u cĂ i Ä‘áº·t hiá»‡n táº¡i (subSettings + per-style override) theo Ä‘Ăºng context Ä‘ang phĂ¡t
+  // Lưu cài đặt hiện tại (subSettings + per-style override) theo đúng context đang phát
   function saveSubSettings() {
     try {
       const store = readSubStore();
@@ -1452,7 +1452,7 @@
     if (!State.subSettings) State.subSettings = loadSubSettings();
     return State.subSettings;
   }
-  // ÄÆ°á»£c gá»i trong playSong sau khi parse .ass: Ă¡p dá»¥ng cĂ i Ä‘áº·t + per-style override Ä‘Ă£ lÆ°u cho context nĂ y
+  // Được gọi trong playSong sau khi parse .ass: áp dụng cài đặt + per-style override đã lưu cho context này
   function activateSubContext() {
     const store = readSubStore();
     const ctx = currentSubContext();
@@ -1460,10 +1460,10 @@
     if (entry && entry.subSettings) {
       State.subSettings = Object.assign({}, JSON.parse(JSON.stringify(SUB_SETTINGS_DEFAULTS)), entry.subSettings);
     } else {
-      // chÆ°a cĂ³ riĂªng cho video nĂ y â†’ káº¿ thá»«a cĂ i Ä‘áº·t cá»§a context gáº§n nháº¥t (hoáº·c máº·c Ä‘á»‹nh)
+      // chưa có riêng cho video này → kế thừa cài đặt của context gần nhất (hoặc mặc định)
       State.subSettings = Object.assign({}, JSON.parse(JSON.stringify(SUB_SETTINGS_DEFAULTS)), State.subSettings || {});
     }
-    // Ăp per-style override Ä‘Ă£ lÆ°u lĂªn styleSettings vá»«a parse
+    // Áp per-style override đã lưu lên styleSettings vừa parse
     if (entry && entry.styleSettings) {
       const saved = entry.styleSettings;
       for (const k of Object.keys(saved)) {
@@ -1671,7 +1671,7 @@
       '</div>';
   }
 
-  // Render danh sĂ¡ch style + nĂºt Ä‘iá»u chá»‰nh tá»«ng style (port engine-css.js renderStyles)
+  // Render danh sách style + nút điều chỉnh từng style (port engine-css.js renderStyles)
   function renderSubStyleItems() {
     const container = $('#sub-style-items');
     if (!container) return;
@@ -1689,10 +1689,10 @@
       item.className = 'style-item';
       item.innerHTML = '<div class="style-head"><span title="Font: ' + (s.fontName || 'default') + '">' + sName + '</span>' +
         '<div style="display:flex; align-items:center; gap:6px;">' +
-          '<span class="sub-reset-style" data-style="' + sName + '" style="cursor:pointer;font-size:10px;color:#ffaa00;">âŸ³</span>' +
-          '<span class="sub-eye" data-style="' + sName + '" style="cursor:pointer;opacity:' + (s.visible ? 1 : 0.3) + '">' + (s.visible ? 'đŸ‘ï¸' : 'đŸ«') + '</span>' +
-          '<label style="display:flex; align-items:center;height:16px;"><input type="checkbox" data-style="' + sName + '" data-type="override" ' + (s.override ? 'checked' : '') + ' style="margin:0;height:12px;"> <span style="font-size:12px;display:flex;align-items:center;">â™ï¸</span></label>' +
-          '<span>â–¼</span>' +
+          '<span class="sub-reset-style" data-style="' + sName + '" style="cursor:pointer;font-size:10px;color:#ffaa00;">⟳</span>' +
+          '<span class="sub-eye" data-style="' + sName + '" style="cursor:pointer;opacity:' + (s.visible ? 1 : 0.3) + '">' + (s.visible ? '👁️' : '🚫') + '</span>' +
+          '<label style="display:flex; align-items:center;height:16px;"><input type="checkbox" data-style="' + sName + '" data-type="override" ' + (s.override ? 'checked' : '') + ' style="margin:0;height:12px;"> <span style="font-size:12px;display:flex;align-items:center;">⚙️</span></label>' +
+          '<span>▼</span>' +
         '</div></div>' +
         '<div class="sub-style-meta" style="display:flex; flex-wrap:wrap; gap:3px 8px; padding:4px 10px; font-size:9px; color:#9aa; border-top:1px dashed rgba(255,255,255,0.07);">' +
           '<span>XY:' + (s.posX || 0) + ',' + (s.posY || 0) + '</span>' +
@@ -1737,7 +1737,7 @@
       item.querySelector('.sub-eye').onclick = (e) => {
         e.stopPropagation();
         s.visible = !s.visible;
-        e.target.innerText = s.visible ? 'đŸ‘ï¸' : 'đŸ«';
+        e.target.innerText = s.visible ? '👁️' : '🚫';
         e.target.style.opacity = s.visible ? 1 : 0.3;
         saveSubSettings();
         if (State.subsEnabled) updateCurrentSubtitle();
@@ -1800,14 +1800,14 @@ function setupSubPopupEvents() {
       };
     });
 
-    // ÄĂ³ng + Reset toĂ n bá»™
+    // Đóng + Reset toàn bộ
     const closeBtn = popup.querySelector('#subPanelClose') || popup.querySelector('#sub-settings-close');
     if (closeBtn) closeBtn.onclick = () => hideSubPanel();
     popup.querySelector('#sub-settings-reset').onclick = () => {
       State.subSettings = JSON.parse(JSON.stringify(SUB_SETTINGS_DEFAULTS));
       State.timeShiftMs = 0;
       saveSubSettings();
-      // náº¡p láº¡i style gá»‘c tá»« .ass hiá»‡n táº¡i
+      // nạp lại style gốc từ .ass hiện tại
       if (State.subtitles.length && State.rawAssText) {
         try {
           const parsed = parseAssEngine(State.rawAssText);
@@ -1815,12 +1815,12 @@ function setupSubPopupEvents() {
           State.styleSettings = parsed.styleSettings;
         } catch (_e) { }
       }
-      // dá»±ng láº¡i popup vá»›i giĂ¡ trá»‹ má»›i
+      // dựng lại popup với giá trị mới
       rerenderSubPanel();
       showSubPanel();
       renderSubStyleItems();
       if (State.subsEnabled) updateCurrentSubtitle();
-      toast('ÄĂ£ reset cĂ i Ä‘áº·t phá»¥ Ä‘á».', 'info', 1800);
+      toast('Đã reset cài đặt phụ đề.', 'info', 1800);
     };
 // Reset all styles
     const resetAll = popup.querySelector('#sub-reset-all-styles');
@@ -1898,7 +1898,7 @@ function setupSubPopupEvents() {
     if (fontSel) {
       fontSel.addEventListener('change', () => {
         if (fontSel.value === 'custom') {
-          const pick = prompt('Nháº­p tĂªn font Ä‘Ă£ cĂ i trĂªn mĂ¡y:', State.subSettings.fontFamily);
+          const pick = prompt('Nhập tên font đã cài trên máy:', State.subSettings.fontFamily);
           if (pick && pick.trim()) {
             fontSel.insertAdjacentHTML('beforeend', '<option value="' + pick.trim() + '">' + pick.trim() + '</option>');
             State.subSettings.fontFamily = pick.trim();
@@ -1912,7 +1912,7 @@ function setupSubPopupEvents() {
       });
     }
 
-    // Input chĂ­nh: global g-*, karaoke data-k, style data-style
+    // Input chính: global g-*, karaoke data-k, style data-style
     popup.addEventListener('input', (e) => {
       const t = e.target;
       const id = t.id, style = t.getAttribute('data-style'), type = t.getAttribute('data-type'), kTab = t.getAttribute('data-k');
@@ -2018,9 +2018,9 @@ function setupSubPopupEvents() {
       });
     }
   }
-  /* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  /* ──────────────────────────────────────────────────────
      8. RENDER ANIME GRID + FILTER
-     â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+     ────────────────────────────────────────────────────── */
   function renderAnimeGrid() {
     const grid = $('#animeGrid');
     const empty = $('#animeEmpty');
@@ -2031,11 +2031,11 @@ function setupSubPopupEvents() {
 
     let list = State.animes.slice();
 
-    // Lá»c tráº¡ng thĂ¡i (tĂ¬nh tráº¡ng phĂ¡t hĂ nh cá»§a anime)
+    // Lọc trạng thái (tình trạng phát hành của anime)
     if (status !== 'all') {
       list = list.filter((a) => String(a.status || '').toLowerCase() === String(status).toLowerCase());
     }
-    // Lá»c thá»ƒ loáº¡i â€” danh sĂ¡ch tá»± liá»‡t kĂª toĂ n bá»™ thá»ƒ loáº¡i Ä‘Ă£ lÆ°u
+    // Lọc thể loại — danh sách tự liệt kê toàn bộ thể loại đã lưu
     const genre = $('#genreFilter').value;
     if (genre !== 'all') {
       list = list.filter((a) => {
@@ -2043,12 +2043,12 @@ function setupSubPopupEvents() {
         return gs.some((g) => String(g).toLowerCase() === String(genre).toLowerCase());
       });
     }
-    // Lá»c theo tráº¡ng thĂ¡i xem cá»§a tĂ´i (ÄĂ£ xem / Äang xem / Muá»‘n xem / ChÆ°a xem)
+    // Lọc theo trạng thái xem của tôi (Đã xem / Đang xem / Muốn xem / Chưa xem)
     const myStatus = $('#myStatusFilter').value;
     if (myStatus !== 'all') {
       list = list.filter((a) => myStatusMeta(a.my_status).label === myStatus);
     }
-    // Lá»c theo tá»« khĂ³a (tĂªn, studio, thá»ƒ loáº¡i)
+    // Lọc theo từ khóa (tên, studio, thể loại)
     if (search) {
       list = list.filter((a) => {
         const genres = Array.isArray(a.genres) ? a.genres.join(' ') : String(a.genres || '');
@@ -2057,7 +2057,7 @@ function setupSubPopupEvents() {
         return haystack.includes(search);
       });
     }
-    // Sáº¯p xáº¿p
+    // Sắp xếp
     if (sort === 'rating') {
       list.sort((a, b) => (Number(b.rating) || 0) - (Number(a.rating) || 0));
     } else if (sort === 'title') {
@@ -2073,13 +2073,13 @@ function setupSubPopupEvents() {
       return;
     }
     empty.classList.add('hidden');
-    // PhĂ¢n trang: chá»‰ hiá»ƒn thá»‹ animeVisible pháº§n tá»­ Ä‘áº§u
+    // Phân trang: chỉ hiển thị animeVisible phần tử đầu
     const visible = list.slice(0, State.animeVisible);
     grid.innerHTML = visible.map((a) => animeCardHTML(a)).join('');
     updateLoadMore('#animeLoadMoreWrap', list.length - State.animeVisible);
   }
 
-  // Helper: hiá»‡n/áº©n nĂºt "Xem thĂªm" vĂ  cáº­p nháº­t sá»‘ cĂ²n láº¡i
+  // Helper: hiện/ẩn nút "Xem thêm" và cập nhật số còn lại
   function updateLoadMore(wrapSel, remaining) {
     const wrap = $(wrapSel);
     if (!wrap) return;
@@ -2087,15 +2087,15 @@ function setupSubPopupEvents() {
       wrap.classList.remove('hidden');
       const btn = wrap.querySelector('.load-more-btn');
       if (btn) {
-        const base = btn.dataset.label || 'Xem thĂªm â–¼';
-        btn.textContent = base + ' (' + remaining + ' cĂ²n)';
+        const base = btn.dataset.label || 'Xem thêm ▼';
+        btn.textContent = base + ' (' + remaining + ' còn)';
       }
     } else {
       wrap.classList.add('hidden');
     }
   }
 
-  // Äá»• danh sĂ¡ch thá»ƒ loáº¡i vĂ o select lá»c â€” tá»± Ä‘á»™ng liá»‡t kĂª má»i thá»ƒ loáº¡i Ä‘Ă£ lÆ°u
+  // Đổ danh sách thể loại vào select lọc — tự động liệt kê mọi thể loại đã lưu
   function syncGenreFilter() {
     const sel = $('#genreFilter');
     if (!sel) return;
@@ -2110,19 +2110,19 @@ function setupSubPopupEvents() {
     sel.dataset.sig = sig;
     const cur = sel.value;
     sel.innerHTML =
-      '<option value="all">Táº¥t cáº£ thá»ƒ loáº¡i</option>' +
+      '<option value="all">Tất cả thể loại</option>' +
       genres.map((g) => '<option value="' + esc(g) + '">' + esc(g) + '</option>').join('');
     if (cur !== 'all' && genres.includes(cur)) sel.value = cur;
     else sel.value = 'all';
   }
 
-  // Helper: metadata cho tráº¡ng thĂ¡i xem cĂ¡ nhĂ¢n (cá»§a chá»§ web)
+  // Helper: metadata cho trạng thái xem cá nhân (của chủ web)
   function myStatusMeta(s) {
     s = String(s || '').trim();
-    if (/Ä‘Ă£ xem|xem r/i.test(s)) return { label: 'ÄĂ£ xem', icon: 'âœ…', cls: 'my-watched' };
-    if (/Ä‘ang xem|Ä‘ang/i.test(s)) return { label: 'Äang xem', icon: 'â³', cls: 'my-watching' };
-    if (/Ă½ Ä‘á»‹nh|Ä‘á»‹nh xem|muá»‘n xem|dá»± Ä‘á»‹nh/i.test(s)) return { label: 'Muá»‘n xem', icon: 'â•', cls: 'my-planned' };
-    return { label: 'ChÆ°a xem', icon: 'â¬œ', cls: 'my-unwatched' };
+    if (/đã xem|xem r/i.test(s)) return { label: 'Đã xem', icon: '✅', cls: 'my-watched' };
+    if (/đang xem|đang/i.test(s)) return { label: 'Đang xem', icon: '⏳', cls: 'my-watching' };
+    if (/ý định|định xem|muốn xem|dự định/i.test(s)) return { label: 'Muốn xem', icon: '➕', cls: 'my-planned' };
+    return { label: 'Chưa xem', icon: '⬜', cls: 'my-unwatched' };
   }
 
   function animeCardHTML(a) {
@@ -2134,27 +2134,27 @@ function setupSubPopupEvents() {
       ? '<img src="' + esc(a.poster_url) + '" alt="' + esc(a.title) + '" loading="lazy" data-title="' + esc(a.title) + '" onerror="window.__posterFallback(this, this.dataset.title)" />'
       : posterFallback(a);
 
-    // NĂºt đŸŒ¸ (gĂ³c trĂªn-pháº£i) má»Ÿ menu tráº¡ng thĂ¡i â€” LUĂ”N hiá»ƒn thá»‹ Ä‘á»ƒ sá»­a tráº¡ng thĂ¡i nhanh + badge tráº¡ng thĂ¡i (gĂ³c dÆ°á»›i-pháº£i)
+    // Nút 🌸 (góc trên-phải) mở menu trạng thái — LUÔN hiển thị để sửa trạng thái nhanh + badge trạng thái (góc dưới-phải)
     let badgeText;
     if (mySt.cls === 'my-watching') {
       const we = Number(a.watched_episodes) || 0;
-      badgeText = 'đŸ”¥ Äang xem' + ((we > 0 || totalEp > 0) ? ' ' + we + '/' + (totalEp || '?') + ' táº­p' : '');
-    } else if (mySt.cls === 'my-watched') badgeText = 'âœ… ÄĂ£ xem';
-    else if (mySt.cls === 'my-planned') badgeText = 'â• Muá»‘n xem';
-    else badgeText = 'â¬œ ChÆ°a xem';
+      badgeText = '🔥 Đang xem' + ((we > 0 || totalEp > 0) ? ' ' + we + '/' + (totalEp || '?') + ' tập' : '');
+    } else if (mySt.cls === 'my-watched') badgeText = '✅ Đã xem';
+    else if (mySt.cls === 'my-planned') badgeText = '➕ Muốn xem';
+    else badgeText = '⬜ Chưa xem';
     const statusUI =
-      '<button type="button" class="card-sakura" data-quick="menu" title="Äáº·t tráº¡ng thĂ¡i xem">đŸŒ¸</button>' +
+      '<button type="button" class="card-sakura" data-quick="menu" title="Đặt trạng thái xem">🌸</button>' +
       '<span class="card-status-badge ' + mySt.cls + '">' + esc(badgeText) + '</span>';
 
-    // Meta: â˜… Ä‘iá»ƒm cá»™ng Ä‘á»“ng (AniDB) | nĂºt Ä‘iá»ƒm cá»§a tĂ´i (báº¥m Ä‘á»ƒ má»Ÿ popup cháº¥m â™¥; hiá»ƒn thá»‹ trĂ¡i tim trÆ°á»›c, sá»‘ sau) | tá»•ng sá»‘ táº­p Ä‘Ă£ phĂ¡t hĂ nh
+    // Meta: ★ điểm cộng đồng (AniDB) | nút điểm của tôi (bấm để mở popup chấm ♥; hiển thị trái tim trước, số sau) | tổng số tập đã phát hành
     const metaRight =
       '<span class="card-meta-right">' +
-        '<button type="button" class="card-heart-btn" data-heart-menu="1" title="Äiá»ƒm cá»§a tĂ´i â€” báº¥m Ä‘á»ƒ cháº¥m â™¥">â™¥' + (myRating > 0 ? ' ' + myRating : '') + '</button>' +
+        '<button type="button" class="card-heart-btn" data-heart-menu="1" title="Điểm của tôi — bấm để chấm ♥">♥' + (myRating > 0 ? ' ' + myRating : '') + '</button>' +
         '<span class="card-progress">' + (totalEp ? totalEp + '/' + totalEp : '?/?') + '</span>' +
       '</span>';
 
     return (
-      '<article class="anime-card" data-id="' + esc(a.id) + '" role="button" tabindex="0" aria-label="Xem chi tiáº¿t ' + esc(a.title) + '">' +
+      '<article class="anime-card" data-id="' + esc(a.id) + '" role="button" tabindex="0" aria-label="Xem chi tiết ' + esc(a.title) + '">' +
         '<div class="card-poster">' + img +
           '<span class="card-status ' + statusClass(a.status) + '">' + esc(a.status || '') + '</span>' +
           statusUI +
@@ -2162,7 +2162,7 @@ function setupSubPopupEvents() {
         '<div class="card-body">' +
           '<h3 class="card-title">' + esc(a.title || '') + '</h3>' +
           '<div class="card-meta">' +
-            '<span class="card-rating">â˜… ' + rating.toFixed(1) + '</span>' +
+            '<span class="card-rating">★ ' + rating.toFixed(1) + '</span>' +
             metaRight +
           '</div>' +
         '</div>' +
@@ -2170,15 +2170,15 @@ function setupSubPopupEvents() {
     );
   }
 
-  /* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  /* ──────────────────────────────────────────────────────
      9. RENDER SONG LIST
-     â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+     ────────────────────────────────────────────────────── */
   function renderSongList() {
     const list = $('#songList');
     const empty = $('#songEmpty');
     const count = $('#songCount');
-    if (!list || !empty || !count) return; // Danh sĂ¡ch phĂ¡t Ä‘Ă£ bá»‹ gá»¡ khá»i giao diá»‡n
-    count.textContent = State.songs.length + ' bĂ i';
+    if (!list || !empty || !count) return; // Danh sách phát đã bị gỡ khỏi giao diện
+    count.textContent = State.songs.length + ' bài';
     if (State.songs.length === 0) {
       list.innerHTML = '';
       empty.classList.remove('hidden');
@@ -2191,22 +2191,22 @@ function setupSubPopupEvents() {
       const hasSub = !!matchSubtitleFor(s);
       const thumb = s.cover_url
         ? '<div class="song-thumb"><img src="' + esc(s.cover_url) + '" alt="" loading="lazy" onerror="this.remove()" /></div>'
-        : '<div class="song-thumb">đŸœ</div>';
+        : '<div class="song-thumb">🎜</div>';
       return (
         '<div class="song-item' + (State.currentSong && State.currentSong.id === s.id ? ' active' : '') + '" data-id="' + esc(s.id) + '" tabindex="0" role="button">' +
           thumb +
           '<div class="song-info">' +
-            '<p class="song-title">' + esc(s.title || 'KhĂ´ng tĂªn') + '</p>' +
-            '<p class="song-sub">' + esc([s.artist, s.anime].filter(Boolean).join(' Â· ') || 'â€”') + '</p>' +
+            '<p class="song-title">' + esc(s.title || 'Không tên') + '</p>' +
+            '<p class="song-sub">' + esc([s.artist, s.anime].filter(Boolean).join(' · ') || '—') + '</p>' +
           '</div>' +
-          '<span class="song-badge ' + (hasSub ? 'song-has-sub' : '') + '">' + (hasSub ? 'đŸ’¬ .ass' : esc(s.song_type || 'OST')) + '</span>' +
+          '<span class="song-badge ' + (hasSub ? 'song-has-sub' : '') + '">' + (hasSub ? '💬 .ass' : esc(s.song_type || 'OST')) + '</span>' +
         '</div>'
       );
     }).join('');
     updateLoadMore('#songLoadMoreWrap', State.songs.length - State.songVisible);
   }
 
-  // Event delegation: click bĂ i hĂ¡t
+  // Event delegation: click bài hát
   const songListEl = $('#songList');
   if (songListEl) {
     songListEl.addEventListener('click', (e) => {
@@ -2218,9 +2218,9 @@ function setupSubPopupEvents() {
   }
 
 
-  /* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  /* ──────────────────────────────────────────────────────
      10. ANIME DETAIL MODAL
-     â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+     ────────────────────────────────────────────────────── */
   function openAnimeDetail(anime) {
     State.currentAnime = anime;
     renderAnimeDetail(anime);
@@ -2238,82 +2238,82 @@ function setupSubPopupEvents() {
     const watched = a.watched_episodes || 0;
     const pct = total > 0 ? Math.min(100, Math.round((watched / total) * 100)) : 0;
 
-    // Tráº¡ng thĂ¡i xem + Ä‘iá»ƒm Ä‘Ă¡nh giĂ¡ cá»§a riĂªng chá»§ web
+    // Trạng thái xem + điểm đánh giá của riêng chủ web
     const mySt = myStatusMeta(a.my_status);
     const myRating = Number(a.my_rating) || 0;
     const myIcons = State.isAdmin ? watchIconsHTML(a) : '';
 
     const poster = a.poster_url
       ? '<img src="' + esc(a.poster_url) + '" alt="' + esc(a.title) + '" loading="lazy" data-title="' + esc(a.title) + '" onerror="window.__posterFallback(this, this.dataset.title)" />'
-      : '<div class="poster-fallback">đŸ</div>';
+      : '<div class="poster-fallback">🎞</div>';
 
-    // LĂ m sáº¡ch synopsis: chuyá»ƒn <br> thĂ nh xuá»‘ng dĂ²ng, gá»™p dĂ²ng trá»‘ng liĂªn tiáº¿p, cáº¯t khoáº£ng tráº¯ng 2 Ä‘áº§u Ä‘á»ƒ cÄƒn Ä‘á»u mÆ°á»£t hÆ¡n
+    // Làm sạch synopsis: chuyển <br> thành xuống dòng, gộp dòng trống liên tiếp, cắt khoảng trắng 2 đầu để căn đều mượt hơn
     const synopsis =
       String(a.synopsis || '')
         .replace(/<br\s*\/?>/gi, '\n')
         .replace(/\r\n/g, '\n')
         .replace(/[ \t]+\n/g, '\n')
         .replace(/\n{3,}/g, '\n\n')
-        .trim() || 'ChÆ°a cĂ³ mĂ´ táº£.';
+        .trim() || 'Chưa có mô tả.';
 
-    // â•â• Pháº§n trĂ¡i: poster + thĂ´ng tin nhanh â•â•
+    // ══ Phần trái: poster + thông tin nhanh ══
     const sideRows = [];
     if (a.status) {
       sideRows.push(
         '<div class="detail-side-row">' +
-          '<span class="detail-side-label">Tráº¡ng thĂ¡i</span>' +
+          '<span class="detail-side-label">Trạng thái</span>' +
           '<span class="detail-side-value">' + esc(a.status) + '</span>' +
         '</div>'
       );
     }
     sideRows.push(
       '<div class="detail-side-row">' +
-        '<span class="detail-side-label">Äiá»ƒm cá»™ng Ä‘á»“ng</span>' +
-        '<span class="detail-side-value detail-rating">â˜… ' + rating.toFixed(1) + '/10</span>' +
+        '<span class="detail-side-label">Điểm cộng đồng</span>' +
+        '<span class="detail-side-value detail-rating">★ ' + rating.toFixed(1) + '/10</span>' +
       '</div>'
     );
     sideRows.push(
       '<div class="detail-side-row detail-side-progress">' +
-        '<span class="detail-side-label">Tiáº¿n Ä‘á»™</span>' +
+        '<span class="detail-side-label">Tiến độ</span>' +
         '<div class="progress-bar"><div class="progress-fill" style="width:' + pct + '%"></div></div>' +
-        '<span class="detail-progress-text">' + watched + ' / ' + (total || '?') + ' táº­p Â· ' + pct + '%</span>' +
+        '<span class="detail-progress-text">' + watched + ' / ' + (total || '?') + ' tập · ' + pct + '%</span>' +
       '</div>'
     );
 
-    // â•â• Pháº§n pháº£i: thá»ƒ loáº¡i (5 cĂ¡i + nĂºt má»Ÿ rá»™ng) + chips + synopsis + seiyuu â•â•
+    // ══ Phần phải: thể loại (5 cái + nút mở rộng) + chips + synopsis + seiyuu ══
     const chips = [];
     const maxGenres = 5;
     const genreBtns = genres.map((g) =>
-      '<button type="button" class="chip chip-btn" data-search="' + esc(g) + '" title="TĂ¬m anime theo thá»ƒ loáº¡i">' + esc(g) + '</button>'
+      '<button type="button" class="chip chip-btn" data-search="' + esc(g) + '" title="Tìm anime theo thể loại">' + esc(g) + '</button>'
     ).join('');
     const genreMore = genres.length > maxGenres
-      ? '<button type="button" class="chip chip-more" data-genre-more title="Xem toĂ n bá»™ thá»ƒ loáº¡i"><span data-more-caret>â–¾</span> <span data-more-label>' + (genres.length - maxGenres) + ' thá»ƒ loáº¡i</span></button>'
+      ? '<button type="button" class="chip chip-more" data-genre-more title="Xem toàn bộ thể loại"><span data-more-caret>▾</span> <span data-more-label>' + (genres.length - maxGenres) + ' thể loại</span></button>'
       : '';
     chips.push('<div class="genre-chips' + (genres.length > maxGenres ? ' has-more' : '') + '">' + genreBtns + genreMore + '</div>');
-    chips.push('<span class="chip">đŸ“º ' + (total || '?') + ' táº­p</span>');
+    chips.push('<span class="chip">📺 ' + (total || '?') + ' tập</span>');
     chips.push('<span class="chip my-status-chip ' + mySt.cls + '">' + mySt.icon + ' ' + esc(mySt.label) + '</span>');
-    if (myRating > 0) chips.push('<span class="chip chip-mine">â™¥ ' + myRating + '/10</span>');
+    if (myRating > 0) chips.push('<span class="chip chip-mine">♥ ' + myRating + '/10</span>');
 
     const seiyuuSection = seiyuu.length
       ? '<details class="detail-section detail-collapse">' +
           '<summary class="detail-collapse-head">' +
-            '<h3 class="detail-section-title">đŸ¤ DĂ n diá»…n viĂªn lá»“ng tiáº¿ng (Seiyuu)</h3>' +
-            '<span class="detail-collapse-caret">â–¾</span>' +
+            '<h3 class="detail-section-title">🎤 Dàn diễn viên lồng tiếng (Seiyuu)</h3>' +
+            '<span class="detail-collapse-caret">▾</span>' +
           '</summary>' +
           '<div class="seiyuu-grid">' +
             seiyuu.map((s) => {
-              // áº¢nh chĂ­nh = áº£nh nhĂ¢n váº­t (character art), áº£nh nhá» = seiyuu
+              // Ảnh chính = ảnh nhân vật (character art), ảnh nhỏ = seiyuu
               const vaImg = s.image ? '<img src="' + esc(s.image) + '" alt="" loading="lazy" onerror="this.style.display=\'none\'" />' : '';
               const charImg = s.charImage
                 ? '<img class="seiyuu-char-img" src="' + esc(s.charImage) + '" alt="" loading="lazy" onerror="this.style.display=\'none\'" />'
                 : '';
-              const main = charImg || vaImg || '<span>đŸ™</span>';
+              const main = charImg || vaImg || '<span>🎙</span>';
               const badge = s.charImage && vaImg ? '<span class="seiyuu-va-badge">' + vaImg + '</span>' : '';
               return (
                 '<div class="seiyuu-card">' +
                   '<div class="seiyuu-avatar">' + main + badge + '</div>' +
                   '<div class="seiyuu-info">' +
-                    '<button type="button" class="seiyuu-name seiyuu-link" data-search="' + esc(s.name || '') + '" title="TĂ¬m anime theo diá»…n viĂªn">' + esc(s.name || '') + '</button>' +
+                    '<button type="button" class="seiyuu-name seiyuu-link" data-search="' + esc(s.name || '') + '" title="Tìm anime theo diễn viên">' + esc(s.name || '') + '</button>' +
                     '<div class="seiyuu-char">' + esc(s.character || '') + '</div>' +
                   '</div>' +
                 '</div>'
@@ -2333,11 +2333,11 @@ function setupSubPopupEvents() {
         '<div class="detail-main">' +
           '<header class="detail-header">' +
             '<h2 class="detail-title">' + esc(a.title || '') + '</h2>' +
-            '<p class="detail-subtitle">' + esc([a.studio, a.year].filter(Boolean).join(' Â· ') || 'â€”') + '</p>' +
+            '<p class="detail-subtitle">' + esc([a.studio, a.year].filter(Boolean).join(' · ') || '—') + '</p>' +
           '</header>' +
           '<div class="detail-chips">' + chips.join('') + '</div>' +
           '<section class="detail-section">' +
-            '<h3 class="detail-section-title">đŸ“– TĂ³m táº¯t (Synopsis)</h3>' +
+            '<h3 class="detail-section-title">📖 Tóm tắt (Synopsis)</h3>' +
             '<div class="detail-synopsis-scroll"><p class="detail-synopsis">' + esc(synopsis) + '</p></div>' +
           '</section>' +
           seiyuuSection +
@@ -2345,33 +2345,33 @@ function setupSubPopupEvents() {
       '</div>';
   }
 
-  // DĂ£y icon tráº¡ng thĂ¡i xem + Ä‘iá»ƒm cá»§a tĂ´i (chá»‰ admin) â€” Ä‘áº·t ngay dÆ°á»›i áº£nh bĂ¬a, báº¥m lĂ  lÆ°u liá»n
+  // Dãy icon trạng thái xem + điểm của tôi (chỉ admin) — đặt ngay dưới ảnh bìa, bấm là lưu liền
   function watchIconsHTML(a) {
     const cur = myStatusMeta(a.my_status);
     const myRating = Math.round(Number(a.my_rating) || 0);
     const opts = [
-      { value: 'ÄĂ£ xem', icon: 'âœ…', cls: 'my-watched' },
-      { value: 'Äang xem', icon: 'â³', cls: 'my-watching' },
-      { value: 'Muá»‘n xem', icon: 'â•', cls: 'my-planned' },
-      { value: 'ChÆ°a xem', icon: 'â¬œ', cls: 'my-unwatched' }
+      { value: 'Đã xem', icon: '✅', cls: 'my-watched' },
+      { value: 'Đang xem', icon: '⏳', cls: 'my-watching' },
+      { value: 'Muốn xem', icon: '➕', cls: 'my-planned' },
+      { value: 'Chưa xem', icon: '⬜', cls: 'my-unwatched' }
     ];
     const icoBtn = (o) =>
       '<button type="button" class="watch-ico ' + o.cls + (o.value === cur.label ? ' on' : '') +
-      '" data-status="' + esc(o.value) + '" title="' + (o.value === 'Äang xem' ? 'Äang xem â€” báº¥m Ä‘á»ƒ chá»n táº­p Ä‘Ă£ xem' : o.value) + '">' + o.icon + '</button>';
+      '" data-status="' + esc(o.value) + '" title="' + (o.value === 'Đang xem' ? 'Đang xem — bấm để chọn tập đã xem' : o.value) + '">' + o.icon + '</button>';
     return (
       '<div class="detail-watch-icons" id="myTracker" data-anime="' + esc(a.id) + '">' +
         icoBtn(opts[0]) + icoBtn(opts[1]) + icoBtn(opts[2]) + icoBtn(opts[3]) +
         '<span class="watch-ico-sep" aria-hidden="true"></span>' +
-        '<button type="button" class="watch-ico heart' + (myRating > 0 ? ' on' : '') + '" id="myRatingBtn" title="Äiá»ƒm cá»§a tĂ´i ' + (myRating > 0 ? myRating + '/10' : '(chÆ°a cháº¥m)') + ' â€” báº¥m Ä‘á»ƒ cháº¥m â™¥">â™¥' + (myRating > 0 ? '<b>' + myRating + '</b>' : '') + '</button>' +
+        '<button type="button" class="watch-ico heart' + (myRating > 0 ? ' on' : '') + '" id="myRatingBtn" title="Điểm của tôi ' + (myRating > 0 ? myRating + '/10' : '(chưa chấm)') + ' — bấm để chấm ♥">♥' + (myRating > 0 ? '<b>' + myRating + '</b>' : '') + '</button>' +
       '</div>'
     );
   }
 
-  // LÆ°u nhanh má»™t/nhiá»u trÆ°á»ng â€œcá»§a tĂ´iâ€ (my_status / my_rating / watched_episodes)
+  // Lưu nhanh một/nhiều trường “của tôi” (my_status / my_rating / watched_episodes)
   async function saveMyTracker(animeId, patch) {
-    if (!State.isAdmin) { toast('Báº¡n khĂ´ng cĂ³ quyá»n.', 'error'); return false; }
+    if (!State.isAdmin) { toast('Bạn không có quyền.', 'error'); return false; }
     const { error } = await State.supabase.from('animes').update(patch).eq('id', animeId);
-    if (error) { toast('LÆ°u tháº¥t báº¡i: ' + error.message, 'error', 5000); return false; }
+    if (error) { toast('Lưu thất bại: ' + error.message, 'error', 5000); return false; }
     const idx = State.animes.findIndex((x) => String(x.id) === String(animeId));
     if (idx > -1) {
       Object.assign(State.animes[idx], patch);
@@ -2388,7 +2388,7 @@ function setupSubPopupEvents() {
 
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
-  // â”€â”€ Popup mini: chá»n táº­p Ä‘Ă£ xem / cháº¥m Ä‘iá»ƒm â™¥ â”€â”€
+  // ── Popup mini: chọn tập đã xem / chấm điểm ♥ ──
   function closeMiniPop() {
     const a = $('#epPop'); if (a) a.classList.add('hidden');
     const b = $('#heartPop'); if (b) b.classList.add('hidden');
@@ -2407,7 +2407,7 @@ function setupSubPopupEvents() {
     pop.style.top = top + 'px';
   }
 
-  // Popup chá»n táº­p Ä‘Ă£ xem (1 â†’ tá»•ng táº­p), lÆ°u watched_episodes + tráº¡ng thĂ¡i
+  // Popup chọn tập đã xem (1 → tổng tập), lưu watched_episodes + trạng thái
   function openEpisodePop(anchor, id) {
     const a = State.animes.find((x) => String(x.id) === String(id));
     if (!a) return;
@@ -2422,37 +2422,37 @@ function setupSubPopupEvents() {
     if (!pop) return;
     pop.dataset.anime = String(a.id);
     pop.style.minWidth = '190px';
-    pop.innerHTML = '<div class="mini-pop-title">đŸ¬ ÄĂ£ xem Ä‘áº¿n táº­p...</div><div class="mini-pop-grid">' + opts + '</div>';
+    pop.innerHTML = '<div class="mini-pop-title">🎬 Đã xem đến tập...</div><div class="mini-pop-grid">' + opts + '</div>';
     openMiniPop(pop, anchor);
   }
 
-  // Popup cháº¥m Ä‘iá»ƒm â™¥ (10 â™¥ + nĂºt xoĂ¡)
+  // Popup chấm điểm ♥ (10 ♥ + nút xoá)
   function openHeartPop(anchor, id) {
     const a = State.animes.find((x) => String(x.id) === String(id));
     if (!a) return;
     const cur = Math.max(0, Math.min(10, Math.round(Number(a.my_rating) || 0)));
-    let hearts = '<button type="button" class="heart-opt heart-clear" data-val="0" title="XoĂ¡ Ä‘iá»ƒm">âœ•</button>';
+    let hearts = '<button type="button" class="heart-opt heart-clear" data-val="0" title="Xoá điểm">✕</button>';
     for (let i = 1; i <= 10; i++) {
-      hearts += '<button type="button" class="heart-opt' + (i <= cur ? ' on' : '') + '" data-val="' + i + '" title="' + i + '/10">' + (i <= cur ? 'â™¥' : 'â™¡') + '</button>';
+      hearts += '<button type="button" class="heart-opt' + (i <= cur ? ' on' : '') + '" data-val="' + i + '" title="' + i + '/10">' + (i <= cur ? '♥' : '♡') + '</button>';
     }
     const pop = $('#heartPop');
     if (!pop) return;
     pop.dataset.anime = String(a.id);
     pop.style.minWidth = '';
-    pop.innerHTML = '<div class="mini-pop-title">â™¥ Cháº¥m Ä‘iá»ƒm (0â€“10) â€” báº¥m 1 cĂ¡i lĂ  lÆ°u</div><div class="mini-pop-hearts">' + hearts + '</div>';
+    pop.innerHTML = '<div class="mini-pop-title">♥ Chấm điểm (0–10) — bấm 1 cái là lưu</div><div class="mini-pop-hearts">' + hearts + '</div>';
     openMiniPop(pop, anchor);
   }
 
-  // Menu tráº¡ng thĂ¡i nhanh trĂªn card: 4 lá»±a chá»n (báº¥m đŸŒ¸ â†’ chá»n 1, lÆ°u liá»n; "Äang xem" má»Ÿ popup chá»n táº­p)
+  // Menu trạng thái nhanh trên card: 4 lựa chọn (bấm 🌸 → chọn 1, lưu liền; "Đang xem" mở popup chọn tập)
   function openStatusMenu(anchor, id) {
     const a = State.animes.find((x) => String(x.id) === String(id));
     if (!a) return;
     const cur = myStatusMeta(a.my_status).label;
     const items = [
-      { label: 'Muá»‘n xem', icon: 'â•', hint: '' },
-      { label: 'ÄĂ£ xem', icon: 'âœ…', hint: '' },
-      { label: 'ChÆ°a xem', icon: 'â¬œ', hint: '' },
-      { label: 'Äang xem', icon: 'â³', hint: 'chá»n táº­p Ä‘Ă£ xem' }
+      { label: 'Muốn xem', icon: '➕', hint: '' },
+      { label: 'Đã xem', icon: '✅', hint: '' },
+      { label: 'Chưa xem', icon: '⬜', hint: '' },
+      { label: 'Đang xem', icon: '⏳', hint: 'chọn tập đã xem' }
     ];
     const btns = items.map((it) =>
       '<button type="button" class="status-opt' + (it.label === cur ? ' cur' : '') + '" data-status="' + it.label + '">' +
@@ -2464,7 +2464,7 @@ function setupSubPopupEvents() {
     if (!pop) return;
     pop.dataset.anime = String(a.id);
     pop.style.minWidth = '180px';
-    pop.innerHTML = '<div class="mini-pop-title">đŸŒ¸ Äáº·t tráº¡ng thĂ¡i xem</div><div class="mini-pop-statuses">' + btns + '</div>';
+    pop.innerHTML = '<div class="mini-pop-title">🌸 Đặt trạng thái xem</div><div class="mini-pop-statuses">' + btns + '</div>';
     openMiniPop(pop, anchor);
   }
   async function pickEpisode(id, ep) {
@@ -2473,19 +2473,19 @@ function setupSubPopupEvents() {
     const total = Number(a.total_episodes) || 0;
     const val = Math.max(1, Math.min(Number(ep) || 1, total > 0 ? total : Infinity));
     closeMiniPop();
-    const my_status = total > 0 && val >= total ? 'ÄĂ£ xem' : 'Äang xem';
+    const my_status = total > 0 && val >= total ? 'Đã xem' : 'Đang xem';
     await saveMyTracker(id, { my_status, watched_episodes: val });
-    toast('ÄĂ£ cáº­p nháº­t: xem Ä‘áº¿n táº­p ' + val + '/' + (total || '?') + (my_status === 'ÄĂ£ xem' ? ' âœ…' : ''), 'success');
+    toast('Đã cập nhật: xem đến tập ' + val + '/' + (total || '?') + (my_status === 'Đã xem' ? ' ✅' : ''), 'success');
   }
 
   async function pickHeart(id, val) {
     closeMiniPop();
     const v = Math.max(0, Math.min(10, Number(val) || 0));
     await saveMyTracker(id, { my_rating: v });
-    toast(v > 0 ? 'ÄĂ£ cháº¥m ' + v + '/10 â™¥' : 'ÄĂ£ xoĂ¡ Ä‘iá»ƒm â™¥', 'success');
+    toast(v > 0 ? 'Đã chấm ' + v + '/10 ♥' : 'Đã xoá điểm ♥', 'success');
   }
 
-  // NĂºt đŸŒ¸ trĂªn card: má»Ÿ menu tráº¡ng thĂ¡i (chá»n 1 trong 4; "Äang xem" má»Ÿ tiáº¿p popup chá»n táº­p)
+  // Nút 🌸 trên card: mở menu trạng thái (chọn 1 trong 4; "Đang xem" mở tiếp popup chọn tập)
   function handleCardQuick(ev, kind, id, btn) {
     if (kind === 'menu') {
       ev.__popOpened = true;
@@ -2493,9 +2493,9 @@ function setupSubPopupEvents() {
     }
   }
 
-  /* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-     11. BĂŒNH LUáº¬N (comment section)
-     â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+  /* ──────────────────────────────────────────────────────
+     11. BÌNH LUẬN (comment section)
+     ────────────────────────────────────────────────────── */
   async function loadComments(animeId) {
     const list = $('#commentList');
     const empty = $('#commentEmpty');
@@ -2511,8 +2511,8 @@ function setupSubPopupEvents() {
       .limit(100);
     $('#commentLoading').classList.add('hidden');
     if (error) {
-      console.error('Lá»—i Ä‘á»c bĂ¬nh luáº­n:', error);
-      list.innerHTML = '<p class="empty-desc">KhĂ´ng táº£i Ä‘Æ°á»£c bĂ¬nh luáº­n.</p>';
+      console.error('Lỗi đọc bình luận:', error);
+      list.innerHTML = '<p class="empty-desc">Không tải được bình luận.</p>';
       list.classList.remove('hidden');
       return;
     }
@@ -2542,27 +2542,27 @@ function setupSubPopupEvents() {
 
   function commentHTML(c) {
     const isPinned = !!c.is_pinned;
-    const author = c.author_name || 'áº¨n danh';
+    const author = c.author_name || 'Ẩn danh';
     let actions =
       '<div class="comment-actions">' +
-        '<button class="comment-action-btn" data-quote-src="' + esc(c.content) + '" data-quote-author="' + esc(author) + '" title="Tráº£ lá»i báº±ng trĂ­ch dáº«n">â Tráº£ lá»i</button>';
+        '<button class="comment-action-btn" data-quote-src="' + esc(c.content) + '" data-quote-author="' + esc(author) + '" title="Trả lời bằng trích dẫn">❝ Trả lời</button>';
     if (State.isAdmin) {
       actions +=
-          '<button class="comment-action-btn" data-act="pin" data-id="' + esc(c.id) + '" title="' + (isPinned ? 'Bá» ghim' : 'Ghim') + '">' + (isPinned ? 'đŸ“Œ Ghim' : 'đŸ“ Ghim') + '</button>' +
-          '<button class="comment-action-btn danger" data-act="del" data-id="' + esc(c.id) + '" title="XĂ³a">đŸ—‘</button>';
+          '<button class="comment-action-btn" data-act="pin" data-id="' + esc(c.id) + '" title="' + (isPinned ? 'Bỏ ghim' : 'Ghim') + '">' + (isPinned ? '📌 Ghim' : '📍 Ghim') + '</button>' +
+          '<button class="comment-action-btn danger" data-act="del" data-id="' + esc(c.id) + '" title="Xóa">🗑</button>';
     }
     actions += '</div>';
-    // Ná»™i dung dĂ i > 400 kĂ½ tá»± â†’ thu gá»n + nĂºt xem thĂªm / thu gá»n láº¡i
+    // Nội dung dài > 400 ký tự → thu gọn + nút xem thêm / thu gọn lại
     const bodyHtml = renderRichText(c.content);
     const bodyInner = '<div class="comment-body long-text-body">' + bodyHtml + '</div>';
     const body = String(c.content || '').length > 400
-      ? '<div class="long-text" data-expanded="false">' + bodyInner + '<button type="button" class="long-text-toggle">Xem thĂªm â–¾</button></div>'
+      ? '<div class="long-text" data-expanded="false">' + bodyInner + '<button type="button" class="long-text-toggle">Xem thêm ▾</button></div>'
       : bodyInner;
     return (
       '<div class="comment-item' + (isPinned ? ' pinned' : '') + '" data-id="' + esc(c.id) + '">' +
         '<div class="comment-head">' +
           '<span class="comment-author">' + esc(author) + '</span>' +
-          (isPinned ? '<span class="pin-badge">đŸ“Œ ÄĂ£ ghim</span>' : '') +
+          (isPinned ? '<span class="pin-badge">📌 Đã ghim</span>' : '') +
           '<span class="comment-time">' + timeAgo(c.created_at) + '</span>' +
           actions +
         '</div>' +
@@ -2571,7 +2571,7 @@ function setupSubPopupEvents() {
     );
   }
 
-  // Táº£i toĂ n bá»™ chat chung (anime_id = null + táº¥t cáº£ bĂ¬nh luáº­n trong phim, kĂ¨m tĂªn anime)
+  // Tải toàn bộ chat chung (anime_id = null + tất cả bình luận trong phim, kèm tên anime)
   async function loadGlobalChat() {
     if (!State.supabase) return;
     const { data, error } = await State.supabase
@@ -2580,7 +2580,7 @@ function setupSubPopupEvents() {
       .order('created_at', { ascending: false })
       .limit(100);
     if (error) {
-      console.error('Lá»—i Ä‘á»c chat chung:', error);
+      console.error('Lỗi đọc chat chung:', error);
       return;
     }
     const comments = data || [];
@@ -2591,12 +2591,12 @@ function setupSubPopupEvents() {
     renderGlobalChat();
   }
 
-  // Render chat chung: preview (3 tin) khi thu gá»n; list Ä‘áº§y Ä‘á»§ khi má»Ÿ rá»™ng
+  // Render chat chung: preview (3 tin) khi thu gọn; list đầy đủ khi mở rộng
   function renderGlobalChat() {
     const comments = State.chatAll || [];
     const map = State.chatMap || {};
 
-    // Badge trĂªn nĂºt bong bĂ³ng: tá»•ng sá»‘ tin hiá»‡n cĂ³
+    // Badge trên nút bong bóng: tổng số tin hiện có
     const badge = $('#chatFabBadge');
     const fab = $('#chatFab');
     if (badge) {
@@ -2605,11 +2605,11 @@ function setupSubPopupEvents() {
     }
     if (fab) {
       fab.setAttribute('aria-label', comments.length > 0
-        ? 'Má»Ÿ Chat All (' + comments.length + ' tin)'
-        : 'Má»Ÿ Chat All');
+        ? 'Mở Chat All (' + comments.length + ' tin)'
+        : 'Mở Chat All');
     }
 
-    // List Ä‘áº§y Ä‘á»§
+    // List đầy đủ
     const list = $('#chatList');
     const empty = $('#chatEmpty');
     if (comments.length === 0) {
@@ -2622,24 +2622,24 @@ function setupSubPopupEvents() {
     const visible = comments.slice(0, State.chatVisible);
     if (list) {
       list.classList.remove('hidden');
-      // Discord style: tin má»›i nháº¥t á»Ÿ dÆ°á»›i cĂ¹ng, tin cÅ© hÆ¡n á»Ÿ phĂ­a trĂªn
+      // Discord style: tin mới nhất ở dưới cùng, tin cũ hơn ở phía trên
       list.innerHTML = visible.slice().reverse().map((c) => chatHTML(c, map)).join('');
     }
     updateLoadMore('#chatLoadMoreWrap', comments.length - State.chatVisible);
   }
 
-  // Cuá»™n vĂ¹ng tin chat xuá»‘ng dÆ°á»›i cĂ¹ng (hiá»ƒn thá»‹ tin má»›i nháº¥t)
+  // Cuộn vùng tin chat xuống dưới cùng (hiển thị tin mới nhất)
   function scrollChatToBottom() {
     const wrap = $('#chatMessages') || $('#chatDockBody');
     if (wrap) wrap.scrollTop = wrap.scrollHeight;
   }
 
-  // Bá» [quote]...[/quote] cÅ© trong ná»™i dung (trĂ¡nh quote lá»“ng nhau há»ng cáº¥u trĂºc)
+  // Bỏ [quote]...[/quote] cũ trong nội dung (tránh quote lồng nhau hỏng cấu trúc)
   function stripQuotes(src) {
     return String(src || '').replace(/\[quote\][\s\S]*?\[\/quote\]/gi, '').trim();
   }
 
-  // NĂºt "â Tráº£ lá»i" trong Chat All: chĂ¨n trĂ­ch dáº«n vĂ o Ä‘áº§u Ă´ nháº­p chat
+  // Nút "❝ Trả lời" trong Chat All: chèn trích dẫn vào đầu ô nhập chat
   function quoteIntoChat(author, src) {
     const box = $('#chatBox');
     if (!box) return;
@@ -2648,7 +2648,7 @@ function setupSubPopupEvents() {
     box.focus();
   }
 
-  // NĂºt "â Tráº£ lá»i" trong bĂ¬nh luáº­n anime: chĂ¨n trĂ­ch dáº«n vĂ o Ä‘áº§u Ă´ nháº­p bĂ¬nh luáº­n
+  // Nút "❝ Trả lời" trong bình luận anime: chèn trích dẫn vào đầu ô nhập bình luận
   function quoteIntoComment(author, src) {
     const box = $('#commentBox');
     if (!box) return;
@@ -2657,40 +2657,40 @@ function setupSubPopupEvents() {
     box.focus();
   }
 
-  // Báº­t/táº¯t "Xem thĂªm / Thu gá»n" cho bĂ¬nh luáº­n & tin nháº¯n dĂ i
+  // Bật/tắt "Xem thêm / Thu gọn" cho bình luận & tin nhắn dài
   function toggleLongText(btn) {
     const wrap = btn.closest('.long-text');
     if (!wrap) return;
     const expanded = wrap.getAttribute('data-expanded') === 'true';
     wrap.setAttribute('data-expanded', expanded ? 'false' : 'true');
-    btn.textContent = expanded ? 'Xem thĂªm â–¾' : 'Thu gá»n â–´';
+    btn.textContent = expanded ? 'Xem thêm ▾' : 'Thu gọn ▴';
   }
 
-  // Render 1 tin chat chung dáº¡ng bong bĂ³ng; náº¿u cĂ³ anime_id â†’ thĂªm nhĂ£n phim
+  // Render 1 tin chat chung dạng bong bóng; nếu có anime_id → thêm nhãn phim
   function chatHTML(c, animeMap) {
     const anime = animeMap[String(c.anime_id)] || null;
     const isPinned = !!c.is_pinned;
-    const author = c.author_name || 'áº¨n danh';
-    // Bong bĂ³ng cá»§a mĂ¬nh (trĂ¹ng tĂªn Ä‘ang nháº­p á»Ÿ Ă´ chat) sáº½ cÄƒn pháº£i
+    const author = c.author_name || 'Ẩn danh';
+    // Bong bóng của mình (trùng tên đang nhập ở ô chat) sẽ căn phải
     const ownAuthor = ($('#chatAuthor') && $('#chatAuthor').value.trim().toLowerCase()) || '';
     const isOwn = !!ownAuthor && String(author).trim().toLowerCase() === ownAuthor;
     let actions =
       '<div class="comment-actions">' +
-        '<button class="comment-action-btn" data-quote-src="' + esc(c.content) + '" data-quote-author="' + esc(author) + '" title="Tráº£ lá»i báº±ng trĂ­ch dáº«n">â Tráº£ lá»i</button>';
+        '<button class="comment-action-btn" data-quote-src="' + esc(c.content) + '" data-quote-author="' + esc(author) + '" title="Trả lời bằng trích dẫn">❝ Trả lời</button>';
     if (State.isAdmin) {
       actions +=
-          '<button class="comment-action-btn" data-cact2="pin" data-id="' + esc(c.id) + '" title="' + (isPinned ? 'Bá» ghim' : 'Ghim') + '">' + (isPinned ? 'đŸ“Œ Ghim' : 'đŸ“ Ghim') + '</button>' +
-          '<button class="comment-action-btn danger" data-cact2="del" data-id="' + esc(c.id) + '" title="XĂ³a">đŸ—‘</button>';
+          '<button class="comment-action-btn" data-cact2="pin" data-id="' + esc(c.id) + '" title="' + (isPinned ? 'Bỏ ghim' : 'Ghim') + '">' + (isPinned ? '📌 Ghim' : '📍 Ghim') + '</button>' +
+          '<button class="comment-action-btn danger" data-cact2="del" data-id="' + esc(c.id) + '" title="Xóa">🗑</button>';
     }
     actions += '</div>';
     const tag = anime
-      ? '<a href="#" class="chat-anime-tag" data-anime-id="' + esc(anime.id) + '" title="Má»Ÿ chi tiáº¿t ' + esc(anime.title) + '">đŸ¬ ' + esc(anime.title) + '</a>'
-      : '<span class="chat-anime-tag chat-general">đŸ’¬ Chat All</span>';
-    // Ná»™i dung dĂ i > 400 kĂ½ tá»± â†’ thu gá»n + nĂºt xem thĂªm / thu gá»n láº¡i
+      ? '<a href="#" class="chat-anime-tag" data-anime-id="' + esc(anime.id) + '" title="Mở chi tiết ' + esc(anime.title) + '">🎬 ' + esc(anime.title) + '</a>'
+      : '<span class="chat-anime-tag chat-general">💬 Chat All</span>';
+    // Nội dung dài > 400 ký tự → thu gọn + nút xem thêm / thu gọn lại
     const bodyHtml = renderRichText(c.content);
     const bodyInner = '<div class="comment-body chat-bubble-body long-text-body">' + bodyHtml + '</div>';
     const body = String(c.content || '').length > 400
-      ? '<div class="long-text" data-expanded="false">' + bodyInner + '<button type="button" class="long-text-toggle">Xem thĂªm â–¾</button></div>'
+      ? '<div class="long-text" data-expanded="false">' + bodyInner + '<button type="button" class="long-text-toggle">Xem thêm ▾</button></div>'
       : bodyInner;
     return (
       '<div class="chat-bubble-row' + (isOwn ? ' own' : '') + '" data-id="' + esc(c.id) + '">' +
@@ -2698,7 +2698,7 @@ function setupSubPopupEvents() {
           '<div class="chat-bubble-head">' +
             '<span class="chat-bubble-author">' + esc(author) + '</span>' +
             tag +
-            (isPinned ? '<span class="pin-badge">đŸ“Œ ÄĂ£ ghim</span>' : '') +
+            (isPinned ? '<span class="pin-badge">📌 Đã ghim</span>' : '') +
             '<span class="chat-bubble-time">' + timeAgo(c.created_at) + '</span>' +
             actions +
           '</div>' +
@@ -2708,13 +2708,13 @@ function setupSubPopupEvents() {
     );
   }
 
-  // Rate limiting: cháº·n gá»­i liĂªn tá»¥c trong 45s (dĂ¹ng chung cho cáº£ bĂ¬nh luáº­n & chat)
+  // Rate limiting: chặn gửi liên tục trong 45s (dùng chung cho cả bình luận & chat)
   function enforceRateLimit() {
     const now = Date.now();
     const diff = now - State.lastCommentAt;
     if (diff < 45000) {
       const remain = Math.ceil((45000 - diff) / 1000);
-      $('#rateHint').textContent = 'â³ Chá» ' + remain + 's ná»¯a Ä‘á»ƒ gá»­i tiáº¿p.';
+      $('#rateHint').textContent = '⏳ Chờ ' + remain + 's nữa để gửi tiếp.';
       return false;
     }
     $('#rateHint').textContent = '';
@@ -2740,22 +2740,22 @@ function setupSubPopupEvents() {
   async function submitComment() {
     const anime = State.currentAnime;
     if (!anime) return;
-    if (!State.supabase) { toast('Há»‡ thá»‘ng chÆ°a sáºµn sĂ ng.', 'error'); return; }
+    if (!State.supabase) { toast('Hệ thống chưa sẵn sàng.', 'error'); return; }
     const loggedIn = State.isLoggedIn;
     const author = loggedIn
-      ? (State.nickname || (State.adminEmail ? State.adminEmail.split('@')[0] : '') || 'ThĂ nh viĂªn')
+      ? (State.nickname || (State.adminEmail ? State.adminEmail.split('@')[0] : '') || 'Thành viên')
       : $('#commentAuthor').value.trim();
     const content = $('#commentBox').value.trim();
     if (loggedIn && !State.nickname && !State.adminEmail) {
-      toast('KhĂ´ng xĂ¡c Ä‘á»‹nh Ä‘Æ°á»£c tĂªn tĂ i khoáº£n. Vui lĂ²ng Ä‘Äƒng nháº­p láº¡i.', 'warning'); return;
+      toast('Không xác định được tên tài khoản. Vui lòng đăng nhập lại.', 'warning'); return;
     }
-    if (!author) { toast('Vui lĂ²ng nháº­p tĂªn hiá»ƒn thá»‹.', 'warning'); return; }
-    if (!content) { toast('Vui lĂ²ng nháº­p ná»™i dung bĂ¬nh luáº­n.', 'warning'); return; }
+    if (!author) { toast('Vui lòng nhập tên hiển thị.', 'warning'); return; }
+    if (!content) { toast('Vui lòng nhập nội dung bình luận.', 'warning'); return; }
     if (!enforceRateLimit()) return;
     if (!loggedIn) {
       const captchaVal = parseInt($('#captchaInput').value, 10);
       if (isNaN(captchaVal) || captchaVal !== State.captcha.result) {
-        toast('Sai káº¿t quáº£ captcha. Thá»­ láº¡i.', 'error');
+        toast('Sai kết quả captcha. Thử lại.', 'error');
         newCaptcha();
         return;
       }
@@ -2768,23 +2768,23 @@ function setupSubPopupEvents() {
       .insert({ anime_id: anime.id, author_name: author.slice(0, 60), content: safeContent, is_pinned: false });
     btn.disabled = false;
     if (error) {
-      toast('KhĂ´ng gá»­i Ä‘Æ°á»£c bĂ¬nh luáº­n: ' + error.message, 'error', 5000);
+      toast('Không gửi được bình luận: ' + error.message, 'error', 5000);
       return;
     }
     State.lastCommentAt = Date.now();
     $('#commentBox').value = '';
     newCaptcha();
-    toast('ÄĂ£ gá»­i bĂ¬nh luáº­n âœ…', 'success');
+    toast('Đã gửi bình luận ✅', 'success');
     loadComments(anime.id);
   }
 
-  // Gá»­i tin nháº¯n chat chung (anime_id = null)
+  // Gửi tin nhắn chat chung (anime_id = null)
   function enforceChatRateLimit() {
     const now = Date.now();
     const diff = now - State.lastChatAt;
     if (diff < 45000) {
       const remain = Math.ceil((45000 - diff) / 1000);
-      $('#chatRateHint').textContent = 'â³ Chá» ' + remain + 's ná»¯a Ä‘á»ƒ gá»­i tiáº¿p.';
+      $('#chatRateHint').textContent = '⏳ Chờ ' + remain + 's nữa để gửi tiếp.';
       return false;
     }
     $('#chatRateHint').textContent = '';
@@ -2792,22 +2792,22 @@ function setupSubPopupEvents() {
   }
 
   async function submitChat() {
-    if (!State.supabase) { toast('Há»‡ thá»‘ng chÆ°a sáºµn sĂ ng.', 'error'); return; }
+    if (!State.supabase) { toast('Hệ thống chưa sẵn sàng.', 'error'); return; }
     const loggedIn = State.isLoggedIn;
     const author = loggedIn
-      ? (State.nickname || (State.adminEmail ? State.adminEmail.split('@')[0] : '') || 'ThĂ nh viĂªn')
+      ? (State.nickname || (State.adminEmail ? State.adminEmail.split('@')[0] : '') || 'Thành viên')
       : $('#chatAuthor').value.trim();
     const content = $('#chatBox').value.trim();
     if (loggedIn && !State.nickname && !State.adminEmail) {
-      toast('KhĂ´ng xĂ¡c Ä‘á»‹nh Ä‘Æ°á»£c tĂªn tĂ i khoáº£n. Vui lĂ²ng Ä‘Äƒng nháº­p láº¡i.', 'warning'); return;
+      toast('Không xác định được tên tài khoản. Vui lòng đăng nhập lại.', 'warning'); return;
     }
-    if (!author) { toast('Vui lĂ²ng nháº­p tĂªn hiá»ƒn thá»‹.', 'warning'); return; }
-    if (!content) { toast('Vui lĂ²ng nháº­p ná»™i dung chat.', 'warning'); return; }
+    if (!author) { toast('Vui lòng nhập tên hiển thị.', 'warning'); return; }
+    if (!content) { toast('Vui lòng nhập nội dung chat.', 'warning'); return; }
     if (!enforceChatRateLimit()) return;
     if (!loggedIn) {
       const captchaVal = parseInt($('#chatCaptchaInput').value, 10);
       if (isNaN(captchaVal) || captchaVal !== State.chatCaptcha.result) {
-        toast('Sai káº¿t quáº£ captcha. Thá»­ láº¡i.', 'error');
+        toast('Sai kết quả captcha. Thử lại.', 'error');
         newChatCaptcha();
         return;
       }
@@ -2820,43 +2820,43 @@ function setupSubPopupEvents() {
       .insert({ anime_id: null, author_name: author.slice(0, 60), content: safeContent, is_pinned: false });
     btn.disabled = false;
     if (error) {
-      toast('KhĂ´ng gá»­i Ä‘Æ°á»£c tin nháº¯n: ' + error.message, 'error', 5000);
+      toast('Không gửi được tin nhắn: ' + error.message, 'error', 5000);
       return;
     }
     State.lastChatAt = Date.now();
     $('#chatBox').value = '';
     newChatCaptcha();
-    toast('ÄĂ£ gá»­i tin nháº¯n đŸ’¬', 'success');
+    toast('Đã gửi tin nhắn 💬', 'success');
     loadGlobalChat();
     scrollChatToBottom();
   }
 
-  // Xá»­ lĂ½ pin/delete (admin)
+  // Xử lý pin/delete (admin)
   async function handleCommentAction(act, id) {
     if (!State.isAdmin) return;
     if (act === 'del') {
-      if (!confirm('XĂ³a bĂ¬nh luáº­n nĂ y?')) return;
+      if (!confirm('Xóa bình luận này?')) return;
       const { error } = await State.supabase.from('comments').delete().eq('id', id);
-      if (error) { toast('XĂ³a tháº¥t báº¡i: ' + error.message, 'error'); return; }
-      toast('ÄĂ£ xĂ³a bĂ¬nh luáº­n.', 'success');
+      if (error) { toast('Xóa thất bại: ' + error.message, 'error'); return; }
+      toast('Đã xóa bình luận.', 'success');
     } else if (act === 'pin') {
       const item = document.querySelector('.comment-item[data-id="' + id + '"]');
       const isPinnedNow = item ? item.classList.contains('pinned') : false;
       const { error } = await State.supabase.from('comments').update({ is_pinned: !isPinnedNow }).eq('id', id);
-      if (error) { toast('Ghim tháº¥t báº¡i: ' + error.message, 'error'); return; }
-      toast(isPinnedNow ? 'ÄĂ£ bá» ghim.' : 'ÄĂ£ ghim đŸ“Œ', 'success');
+      if (error) { toast('Ghim thất bại: ' + error.message, 'error'); return; }
+      toast(isPinnedNow ? 'Đã bỏ ghim.' : 'Đã ghim 📌', 'success');
     }
     if (State.currentAnime) loadComments(State.currentAnime.id);
   }
 
-  // Xá»­ lĂ½ pin/delete trong chat chung (admin)
+  // Xử lý pin/delete trong chat chung (admin)
   async function handleChatAdminAction(act, id) {
     if (!State.isAdmin) return;
     if (act === 'del') {
-      if (!confirm('XĂ³a tin nháº¯n nĂ y?')) return;
+      if (!confirm('Xóa tin nhắn này?')) return;
       const { error } = await State.supabase.from('comments').delete().eq('id', id);
-      if (error) { toast('XĂ³a tháº¥t báº¡i: ' + error.message, 'error'); return; }
-      toast('ÄĂ£ xĂ³a tin nháº¯n.', 'success');
+      if (error) { toast('Xóa thất bại: ' + error.message, 'error'); return; }
+      toast('Đã xóa tin nhắn.', 'success');
       loadGlobalChat();
       if (State.currentAnime) loadComments(State.currentAnime.id);
     } else if (act === 'pin') {
@@ -2864,24 +2864,24 @@ function setupSubPopupEvents() {
       const bubble = row ? row.querySelector('.chat-bubble') : null;
       const isPinnedNow = bubble ? bubble.classList.contains('pinned') : false;
       const { error } = await State.supabase.from('comments').update({ is_pinned: !isPinnedNow }).eq('id', id);
-      if (error) { toast('Ghim tháº¥t báº¡i: ' + error.message, 'error'); return; }
-      toast(isPinnedNow ? 'ÄĂ£ bá» ghim.' : 'ÄĂ£ ghim đŸ“Œ', 'success');
+      if (error) { toast('Ghim thất bại: ' + error.message, 'error'); return; }
+      toast(isPinnedNow ? 'Đã bỏ ghim.' : 'Đã ghim 📌', 'success');
       loadGlobalChat();
       if (State.currentAnime) loadComments(State.currentAnime.id);
     }
   }
 
-  /* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-     12. CLOUDINARY UNSIGNED UPLOAD (áº£nh bĂ¬nh luáº­n)
-     â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+  /* ──────────────────────────────────────────────────────
+     12. CLOUDINARY UNSIGNED UPLOAD (ảnh bình luận)
+     ────────────────────────────────────────────────────── */
   async function uploadImageToCloudinary(file) {
-    // Kiá»ƒm tra loáº¡i file
+    // Kiểm tra loại file
     if (!file.type || !file.type.startsWith('image/')) {
-      throw new Error('Chá»‰ cháº¥p nháº­n file áº£nh (image/*).');
+      throw new Error('Chỉ chấp nhận file ảnh (image/*).');
     }
-    // Kiá»ƒm tra dung lÆ°á»£ng <= 10MB
+    // Kiểm tra dung lượng <= 10MB
     if (file.size > 10 * 1024 * 1024) {
-      throw new Error('áº¢nh tá»‘i Ä‘a 10MB.');
+      throw new Error('Ảnh tối đa 10MB.');
     }
     const form = new FormData();
     form.append('file', file);
@@ -2890,10 +2890,10 @@ function setupSubPopupEvents() {
     const res = await fetch(State.config.CLOUDINARY_UPLOAD_URL, { method: 'POST', body: form });
     if (!res.ok) {
       const txt = await res.text().catch(() => '');
-      throw new Error('Upload Cloudinary tháº¥t báº¡i (' + res.status + ') ' + txt.slice(0, 120));
+      throw new Error('Upload Cloudinary thất bại (' + res.status + ') ' + txt.slice(0, 120));
     }
     const data = await res.json();
-    return data; // chá»©a secure_url, etc.
+    return data; // chứa secure_url, etc.
   }
 
   async function handleImageUpload() {
@@ -2903,16 +2903,16 @@ function setupSubPopupEvents() {
     try {
       const result = await uploadImageToCloudinary(file);
       const url = result.secure_url || result.url;
-      if (!url) throw new Error('KhĂ´ng láº¥y Ä‘Æ°á»£c URL áº£nh.');
-      insertAtCursor($('#commentBox'), '![' + esc(file.name || 'áº£nh') + '](' + esc(url) + ')');
-      toast('ÄĂ£ táº£i áº£nh lĂªn Cloudinary âœ…', 'success');
+      if (!url) throw new Error('Không lấy được URL ảnh.');
+      insertAtCursor($('#commentBox'), '![' + esc(file.name || 'ảnh') + '](' + esc(url) + ')');
+      toast('Đã tải ảnh lên Cloudinary ✅', 'success');
     } catch (err) {
-      toast('Lá»—i táº£i áº£nh: ' + err.message, 'error', 5000);
+      toast('Lỗi tải ảnh: ' + err.message, 'error', 5000);
     }
     input.value = '';
   }
 
-  // Toolbar soáº¡n tháº£o: chĂ¨n BBCode/Markdown vĂ o textarea
+  // Toolbar soạn thảo: chèn BBCode/Markdown vào textarea
   function applyFormat(fmt) {
     applyFormatTo($('#commentBox'), fmt);
   }
@@ -2921,7 +2921,7 @@ function setupSubPopupEvents() {
     if (!box) return;
     const start = box.selectionStart != null ? box.selectionStart : box.value.length;
     const end = box.selectionEnd != null ? box.selectionEnd : start;
-    const selected = box.value.slice(start, end) || 'vÄƒn báº£n';
+    const selected = box.value.slice(start, end) || 'văn bản';
     let insert;
     let pos = start;
     switch (fmt) {
@@ -2932,13 +2932,13 @@ function setupSubPopupEvents() {
       case 'quote': insert = '[quote]' + selected + '[/quote]'; break;
       case 'code': insert = '[code]' + selected + '[/code]'; break;
       case 'link': {
-        const url = prompt('Nháº­p URL:', 'https://');
+        const url = prompt('Nhập URL:', 'https://');
         if (!url) return;
         insert = '[' + selected + '](' + url + ')';
         break;
       }
       case 'image': {
-        const url = prompt('Nháº­p URL áº£nh:', 'https://');
+        const url = prompt('Nhập URL ảnh:', 'https://');
         if (!url) return;
         insert = '![' + selected + '](' + url + ')';
         break;
@@ -2951,10 +2951,10 @@ function setupSubPopupEvents() {
     box.setSelectionRange(pos, pos);
   }
 
-  /* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-     PASTE THĂ”NG MINH: URL â†’ link, URL áº£nh â†’ áº£nh, file áº£nh â†’ upload
-     â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
-  // ChĂ¨n text vĂ o vá»‹ trĂ­ con trá» trong textarea
+  /* ──────────────────────────────────────────────────────
+     PASTE THÔNG MINH: URL → link, URL ảnh → ảnh, file ảnh → upload
+     ────────────────────────────────────────────────────── */
+  // Chèn text vào vị trí con trỏ trong textarea
   function insertAtCursor(box, text) {
     if (!box) return;
     const start = box.selectionStart != null ? box.selectionStart : box.value.length;
@@ -2974,11 +2974,11 @@ function setupSubPopupEvents() {
 
   const IMG_URL_RE = /\.(png|jpe?g|gif|webp|bmp|svg|avif|ico)(\?[^\s]*)?$/i;
 
-  // Xá»­ lĂ½ khi ngÆ°á»i dĂ¹ng paste vĂ o Ă´ nháº­p (cáº£ bĂ¬nh luáº­n láº«n chat)
+  // Xử lý khi người dùng paste vào ô nhập (cả bình luận lẫn chat)
   function onSmartPaste(e, box) {
     const cd = e.clipboardData;
     if (!cd) return;
-    // 1) Paste file áº£nh tá»« clipboard (vd: chá»¥p mĂ n hĂ¬nh, sao chĂ©p áº£nh) â†’ tá»± upload
+    // 1) Paste file ảnh từ clipboard (vd: chụp màn hình, sao chép ảnh) → tự upload
     const items = Array.from(cd.items || []);
     const imageFile = items
       .map((it) => (it.kind === 'file' ? it.getAsFile() : null))
@@ -2988,7 +2988,7 @@ function setupSubPopupEvents() {
       smartUploadImage(imageFile, box);
       return;
     }
-    // 2) Paste text: náº¿u lĂ  URL â†’ tá»± chuyá»ƒn thĂ nh link / áº£nh
+    // 2) Paste text: nếu là URL → tự chuyển thành link / ảnh
     const text = (cd.getData('text/plain') || '').trim();
     if (!text) return;
     if (isLikelyUrl(text)) {
@@ -2996,46 +2996,46 @@ function setupSubPopupEvents() {
       const isImg = IMG_URL_RE.test(text);
       const md = isImg ? '![' + text + '](' + text + ')' : '[' + text + '](' + text + ')';
       insertAtCursor(box, md);
-      toast(isImg ? 'ÄĂ£ chĂ¨n áº£nh tá»« link âœ…' : 'ÄĂ£ chĂ¨n link âœ…', 'success');
+      toast(isImg ? 'Đã chèn ảnh từ link ✅' : 'Đã chèn link ✅', 'success');
     }
   }
 
-  // Tá»± upload áº£nh dĂ¡n (paste) lĂªn Cloudinary rá»“i chĂ¨n markdown áº£nh
+  // Tự upload ảnh dán (paste) lên Cloudinary rồi chèn markdown ảnh
   async function smartUploadImage(file, box) {
     try {
       const result = await uploadImageToCloudinary(file);
       const url = result.secure_url || result.url;
-      if (!url) throw new Error('KhĂ´ng láº¥y Ä‘Æ°á»£c URL áº£nh.');
-      const md = '![' + esc(file.name || 'áº£nh') + '](' + esc(url) + ')';
+      if (!url) throw new Error('Không lấy được URL ảnh.');
+      const md = '![' + esc(file.name || 'ảnh') + '](' + esc(url) + ')';
       insertAtCursor(box, md);
-      toast('ÄĂ£ táº£i áº£nh lĂªn Cloudinary âœ…', 'success');
+      toast('Đã tải ảnh lên Cloudinary ✅', 'success');
     } catch (err) {
-      toast('Lá»—i táº£i áº£nh: ' + err.message, 'error', 5000);
+      toast('Lỗi tải ảnh: ' + err.message, 'error', 5000);
     }
   }
 
-  /* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-     13. AUTH â€” ÄÄ‚NG NHáº¬P/ÄÄ‚NG XUáº¤T ADMIN
-     â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+  /* ──────────────────────────────────────────────────────
+     13. AUTH — ĐĂNG NHẬP/ĐĂNG XUẤT ADMIN
+     ────────────────────────────────────────────────────── */
   function updateLoginUI() {
     const icon = $('#loginBtnIcon');
     const label = $('#loginBtnLabel');
     const adminBtn = $('#adminBtn');
     if (State.isLoggedIn) {
-      icon.textContent = State.isAdmin ? 'đŸ”‘' : 'đŸ‘¤';
-      label.textContent = State.nickname || (State.adminEmail ? State.adminEmail.split('@')[0] : '') || (State.isAdmin ? 'Admin' : 'ThĂ nh viĂªn');
+      icon.textContent = State.isAdmin ? '🔑' : '👤';
+      label.textContent = State.nickname || (State.adminEmail ? State.adminEmail.split('@')[0] : '') || (State.isAdmin ? 'Admin' : 'Thành viên');
       adminBtn.classList.toggle('hidden', !State.isAdmin);
     } else {
-      icon.textContent = 'đŸ‘¤';
-      label.textContent = 'ÄÄƒng nháº­p';
+      icon.textContent = '👤';
+      label.textContent = 'Đăng nhập';
       adminBtn.classList.add('hidden');
     }
   }
 
   $('#loginBtn').addEventListener('click', () => {
     if (State.isLoggedIn) {
-      // ThoĂ¡t Ä‘Äƒng nháº­p
-      if (confirm('ÄÄƒng xuáº¥t khá»i tĂ i khoáº£n?')) handleLogout();
+      // Thoát đăng nhập
+      if (confirm('Đăng xuất khỏi tài khoản?')) handleLogout();
     } else {
       openModal('loginModal');
     }
@@ -3048,18 +3048,18 @@ function setupSubPopupEvents() {
     const errEl = $('#loginError');
     errEl.classList.add('hidden');
     if (!email || !password) {
-      errEl.textContent = 'Vui lĂ²ng nháº­p Ä‘áº§y Ä‘á»§ email vĂ  máº­t kháº©u.';
+      errEl.textContent = 'Vui lòng nhập đầy đủ email và mật khẩu.';
       errEl.classList.remove('hidden');
       return;
     }
     const btn = $('#loginSubmitBtn');
     btn.disabled = true;
-    btn.textContent = 'Äang Ä‘Äƒng nháº­p...';
+    btn.textContent = 'Đang đăng nhập...';
     const { data, error } = await State.supabase.auth.signInWithPassword({ email, password });
     btn.disabled = false;
-    btn.textContent = 'ÄÄƒng nháº­p';
+    btn.textContent = 'Đăng nhập';
     if (error) {
-      errEl.textContent = 'Sai email/máº­t kháº©u hoáº·c tĂ i khoáº£n khĂ´ng tá»“n táº¡i.';
+      errEl.textContent = 'Sai email/mật khẩu hoặc tài khoản không tồn tại.';
       errEl.classList.remove('hidden');
       return;
     }
@@ -3073,12 +3073,12 @@ function setupSubPopupEvents() {
     closeModal('loginModal');
     applyAuthState();
     if (State.isAdmin) {
-      toast('ÄÄƒng nháº­p Admin thĂ nh cĂ´ng đŸ‰', 'success');
+      toast('Đăng nhập Admin thành công 🎉', 'success');
       renderAdminAnimeList();
       renderAdminSongList();
       renderAdminCommentList();
     } else {
-      toast('ÄÄƒng nháº­p thĂ nh cĂ´ng đŸ‰', 'success');
+      toast('Đăng nhập thành công 🎉', 'success');
     }
   }
 
@@ -3089,59 +3089,59 @@ function setupSubPopupEvents() {
     State.adminEmail = '';
     State.nickname = '';
     applyAuthState();
-    if (!silent) toast('ÄĂ£ Ä‘Äƒng xuáº¥t.', 'info');
+    if (!silent) toast('Đã đăng xuất.', 'info');
     closeModal('loginModal');
     closeModal('adminModal');
   }
 
-  // Äá»•i tĂªn hiá»ƒn thá»‹ (nickname) cá»§a tĂ i khoáº£n Ä‘Ă£ Ä‘Äƒng nháº­p
+  // Đổi tên hiển thị (nickname) của tài khoản đã đăng nhập
   async function changeNickname() {
     if (!State.supabase || !State.isLoggedIn) return;
     const current = State.nickname || (State.adminEmail ? State.adminEmail.split('@')[0] : '') || '';
-    const name = prompt('Nháº­p tĂªn hiá»ƒn thá»‹ má»›i (nickname) cho tĂ i khoáº£n:', current);
-    if (name == null) return; // ngÆ°á»i dĂ¹ng báº¥m Há»§y
+    const name = prompt('Nhập tên hiển thị mới (nickname) cho tài khoản:', current);
+    if (name == null) return; // người dùng bấm Hủy
     const trimmed = name.trim();
-    if (!trimmed) { toast('TĂªn hiá»ƒn thá»‹ khĂ´ng Ä‘Æ°á»£c Ä‘á»ƒ trá»‘ng.', 'warning'); return; }
-    if (trimmed.length > 60) { toast('TĂªn hiá»ƒn thá»‹ tá»‘i Ä‘a 60 kĂ½ tá»±.', 'warning'); return; }
+    if (!trimmed) { toast('Tên hiển thị không được để trống.', 'warning'); return; }
+    if (trimmed.length > 60) { toast('Tên hiển thị tối đa 60 ký tự.', 'warning'); return; }
     const btn = event && event.currentTarget;
     if (btn) btn.disabled = true;
     const { error } = await State.supabase.auth.updateUser({ data: { nickname: trimmed } });
     if (btn) btn.disabled = false;
-    if (error) { toast('KhĂ´ng Ä‘á»•i Ä‘Æ°á»£c tĂªn hiá»ƒn thá»‹: ' + error.message, 'error', 5000); return; }
+    if (error) { toast('Không đổi được tên hiển thị: ' + error.message, 'error', 5000); return; }
     State.nickname = trimmed;
     applyAuthState();
-    toast('ÄĂ£ Ä‘á»•i tĂªn hiá»ƒn thá»‹ thĂ nh "' + trimmed + '" âœ…', 'success');
+    toast('Đã đổi tên hiển thị thành "' + trimmed + '" ✅', 'success');
   }
   $('#commentRenameBtn').addEventListener('click', changeNickname);
   $('#chatRenameBtn').addEventListener('click', changeNickname);
 
-  // XĂ³a cĂ¡c container admin khi Ä‘Äƒng xuáº¥t
+  // Xóa các container admin khi đăng xuất
   function clearAdminLists() {
     $('#adminAnimeList').innerHTML = '';
     $('#adminSongList').innerHTML = '';
     $('#adminCommentList').innerHTML = '';
   }
 
-  /* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-     14. ADMIN PANEL â€” CRUD ANIME
-     â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+  /* ──────────────────────────────────────────────────────
+     14. ADMIN PANEL — CRUD ANIME
+     ────────────────────────────────────────────────────── */
   function renderAdminAnimeList() {
     const list = $('#adminAnimeList');
     if (!State.isAdmin) { list.innerHTML = ''; return; }
     if (State.animes.length === 0) {
-      list.innerHTML = '<p class="empty-desc">ChÆ°a cĂ³ anime nĂ o.</p>';
+      list.innerHTML = '<p class="empty-desc">Chưa có anime nào.</p>';
       return;
     }
     list.innerHTML = State.animes.map((a) =>
       '<div class="admin-row" data-id="' + esc(a.id) + '">' +
-        '<div class="admin-row-thumb">' + (a.poster_url ? '<img src="' + esc(a.poster_url) + '" alt="" onerror="this.remove()" />' : 'đŸ') + '</div>' +
+        '<div class="admin-row-thumb">' + (a.poster_url ? '<img src="' + esc(a.poster_url) + '" alt="" onerror="this.remove()" />' : '🎞') + '</div>' +
         '<div class="admin-row-info">' +
           '<div class="admin-row-title">' + esc(a.title) + '</div>' +
-          '<div class="admin-row-sub">' + esc(a.status || '') + ' Â· â˜… ' + (Number(a.rating) || 0).toFixed(1) + '</div>' +
+          '<div class="admin-row-sub">' + esc(a.status || '') + ' · ★ ' + (Number(a.rating) || 0).toFixed(1) + '</div>' +
         '</div>' +
         '<div class="admin-row-actions">' +
-          '<button class="mini-btn primary" data-apact="edit" data-id="' + esc(a.id) + '">âœï¸ Sá»­a</button>' +
-          '<button class="mini-btn danger" data-apact="del" data-id="' + esc(a.id) + '">đŸ—‘ XĂ³a</button>' +
+          '<button class="mini-btn primary" data-apact="edit" data-id="' + esc(a.id) + '">✏️ Sửa</button>' +
+          '<button class="mini-btn danger" data-apact="del" data-id="' + esc(a.id) + '">🗑 Xóa</button>' +
         '</div>' +
       '</div>'
     ).join('');
@@ -3149,7 +3149,7 @@ function setupSubPopupEvents() {
 
   function openAddAnimeForm() {
     resetAnimeForm();
-    $('#animeFormTitle').textContent = 'ï¼‹ ThĂªm anime';
+    $('#animeFormTitle').textContent = '＋ Thêm anime';
     $('#af_id').value = '';
     openModal('animeFormModal');
   }
@@ -3158,10 +3158,10 @@ function setupSubPopupEvents() {
     const a = State.animes.find((x) => x.id === animeId);
     if (!a) return;
     resetAnimeForm();
-    $('#animeFormTitle').textContent = 'âœï¸ Sá»­a anime';
+    $('#animeFormTitle').textContent = '✏️ Sửa anime';
     $('#af_id').value = a.id;
     $('#af_title').value = a.title || '';
-    $('#af_status').value = a.status || 'Äang chiáº¿u';
+    $('#af_status').value = a.status || 'Đang chiếu';
     $('#af_rating').value = a.rating != null ? a.rating : 0;
     $('#af_year').value = a.year != null ? a.year : '';
     $('#af_studio').value = a.studio || '';
@@ -3182,7 +3182,7 @@ function setupSubPopupEvents() {
     $('#af_rating').value = 0;
     $('#af_total_ep').value = 0;
     $('#af_watched_ep').value = 0;
-    $('#af_status').value = 'Äang chiáº¿u';
+    $('#af_status').value = 'Đang chiếu';
     renderSeiyuuEditors([]);
     hi('jikanResults');
     $('#af_posterPreview').innerHTML = '';
@@ -3205,11 +3205,11 @@ function setupSubPopupEvents() {
       const row = document.createElement('div');
       row.className = 'seiyuu-editor-row';
       row.innerHTML =
-        '<input type="text" class="input" data-seiyuu="name" value="' + esc(s.name || '') + '" placeholder="TĂªn Seiyuu" />' +
-        '<input type="text" class="input" data-seiyuu="character" value="' + esc(s.character || '') + '" placeholder="NhĂ¢n váº­t" />' +
-        '<input type="text" class="input" data-seiyuu="image" value="' + esc(s.image || '') + '" placeholder="áº¢nh Seiyuu URL" />' +
-        '<input type="text" class="input" data-seiyuu="charImage" value="' + esc(s.charImage || '') + '" placeholder="áº¢nh nhĂ¢n váº­t URL" />' +
-        '<button type="button" class="seiyuu-remove" title="XĂ³a" aria-label="XĂ³a seiyuu">âœ•</button>';
+        '<input type="text" class="input" data-seiyuu="name" value="' + esc(s.name || '') + '" placeholder="Tên Seiyuu" />' +
+        '<input type="text" class="input" data-seiyuu="character" value="' + esc(s.character || '') + '" placeholder="Nhân vật" />' +
+        '<input type="text" class="input" data-seiyuu="image" value="' + esc(s.image || '') + '" placeholder="Ảnh Seiyuu URL" />' +
+        '<input type="text" class="input" data-seiyuu="charImage" value="' + esc(s.charImage || '') + '" placeholder="Ảnh nhân vật URL" />' +
+        '<button type="button" class="seiyuu-remove" title="Xóa" aria-label="Xóa seiyuu">✕</button>';
       row.querySelector('.seiyuu-remove').addEventListener('click', () => row.remove());
       wrap.appendChild(row);
     });
@@ -3231,7 +3231,7 @@ function setupSubPopupEvents() {
     const url = $('#af_poster').value.trim();
     const prev = $('#af_posterPreview');
     if (!prev) return;
-    prev.innerHTML = url ? '<img src="' + esc(url) + '" alt="Xem trÆ°á»›c poster" onerror="this.remove()" />' : '';
+    prev.innerHTML = url ? '<img src="' + esc(url) + '" alt="Xem trước poster" onerror="this.remove()" />' : '';
   }
 
   function animFormPayload() {
@@ -3252,9 +3252,9 @@ function setupSubPopupEvents() {
 
   async function saveAnime(e) {
     e.preventDefault();
-    if (!State.isAdmin) { toast('Báº¡n khĂ´ng cĂ³ quyá»n.', 'error'); return; }
+    if (!State.isAdmin) { toast('Bạn không có quyền.', 'error'); return; }
     const title = $('#af_title').value.trim();
-    if (!title) { toast('Vui lĂ²ng nháº­p tĂªn anime.', 'warning'); return; }
+    if (!title) { toast('Vui lòng nhập tên anime.', 'warning'); return; }
     const payload = animFormPayload();
     const id = $('#af_id').value;
     const btn = $('#saveAnimeBtn');
@@ -3269,10 +3269,10 @@ function setupSubPopupEvents() {
     }
     btn.disabled = false;
     if (error) {
-      toast('LÆ°u tháº¥t báº¡i: ' + error.message, 'error', 5000);
+      toast('Lưu thất bại: ' + error.message, 'error', 5000);
       return;
     }
-    toast('ÄĂ£ lÆ°u anime âœ…', 'success');
+    toast('Đã lưu anime ✅', 'success');
     closeModal('animeFormModal');
     await loadAnimes();
     renderAdminAnimeList();
@@ -3281,41 +3281,41 @@ function setupSubPopupEvents() {
   async function deleteAnime(id) {
     if (!State.isAdmin) return;
     const a = State.animes.find((x) => x.id === id);
-    if (!confirm('XĂ³a anime "' + (a ? a.title : '') + '"?')) return;
+    if (!confirm('Xóa anime "' + (a ? a.title : '') + '"?')) return;
     const { error } = await State.supabase.from('animes').delete().eq('id', id);
-    if (error) { toast('XĂ³a tháº¥t báº¡i: ' + error.message, 'error'); return; }
-    toast('ÄĂ£ xĂ³a anime.', 'success');
+    if (error) { toast('Xóa thất bại: ' + error.message, 'error'); return; }
+    toast('Đã xóa anime.', 'success');
     await loadAnimes();
     renderAdminAnimeList();
   }
 
-  /* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-     15. ADMIN PANEL â€” CRUD SONGS
-     â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+  /* ──────────────────────────────────────────────────────
+     15. ADMIN PANEL — CRUD SONGS
+     ────────────────────────────────────────────────────── */
   function renderAdminSongList() {
     const list = $('#adminSongList');
     if (!State.isAdmin) { list.innerHTML = ''; return; }
     if (State.songs.length === 0) {
-      list.innerHTML = '<p class="empty-desc">ChÆ°a cĂ³ bĂ i hĂ¡t nĂ o.</p>';
+      list.innerHTML = '<p class="empty-desc">Chưa có bài hát nào.</p>';
       return;
     }
     list.innerHTML = State.songs.map((s) =>
       '<div class="admin-row" data-id="' + esc(s.id) + '">' +
-        '<div class="admin-row-thumb">' + (s.cover_url ? '<img src="' + esc(s.cover_url) + '" alt="" onerror="this.remove()" />' : 'đŸœ') + '</div>' +
+        '<div class="admin-row-thumb">' + (s.cover_url ? '<img src="' + esc(s.cover_url) + '" alt="" onerror="this.remove()" />' : '🎜') + '</div>' +
         '<div class="admin-row-info">' +
-          '<div class="admin-row-title">' + esc(s.title || 'KhĂ´ng tĂªn') + '</div>' +
-          '<div class="admin-row-sub">' + esc([s.artist, s.anime, s.song_type].filter(Boolean).join(' Â· ') || 'â€”') + '</div>' +
+          '<div class="admin-row-title">' + esc(s.title || 'Không tên') + '</div>' +
+          '<div class="admin-row-sub">' + esc([s.artist, s.anime, s.song_type].filter(Boolean).join(' · ') || '—') + '</div>' +
         '</div>' +
         '<div class="admin-row-actions">' +
-          '<button class="mini-btn primary" data-spact="edit" data-id="' + esc(s.id) + '">âœï¸</button>' +
-          '<button class="mini-btn danger" data-spact="del" data-id="' + esc(s.id) + '">đŸ—‘</button>' +
+          '<button class="mini-btn primary" data-spact="edit" data-id="' + esc(s.id) + '">✏️</button>' +
+          '<button class="mini-btn danger" data-spact="del" data-id="' + esc(s.id) + '">🗑</button>' +
         '</div>' +
       '</div>'
     ).join('');
   }
 
   function openSongForm(song) {
-    $('#songFormTitle').textContent = song ? 'âœï¸ Sá»­a bĂ i hĂ¡t' : 'ï¼‹ ThĂªm bĂ i hĂ¡t';
+    $('#songFormTitle').textContent = song ? '✏️ Sửa bài hát' : '＋ Thêm bài hát';
     $('#sf_id').value = song ? song.id : '';
     $('#sf_title').value = song ? song.title || '' : '';
     $('#sf_artist').value = song ? song.artist || '' : '';
@@ -3328,11 +3328,11 @@ function setupSubPopupEvents() {
 
   async function saveSong(e) {
     e.preventDefault();
-    if (!State.isAdmin) { toast('Báº¡n khĂ´ng cĂ³ quyá»n.', 'error'); return; }
+    if (!State.isAdmin) { toast('Bạn không có quyền.', 'error'); return; }
     const title = $('#sf_title').value.trim();
     const yid = parseYoutubeId($('#sf_youtube').value);
-    if (!title) { toast('Vui lĂ²ng nháº­p tĂªn bĂ i hĂ¡t.', 'warning'); return; }
-    if (!yid) { toast('YouTube ID khĂ´ng há»£p lá»‡.', 'warning'); return; }
+    if (!title) { toast('Vui lòng nhập tên bài hát.', 'warning'); return; }
+    if (!yid) { toast('YouTube ID không hợp lệ.', 'warning'); return; }
     const payload = {
       title,
       artist: $('#sf_artist').value.trim(),
@@ -3353,8 +3353,8 @@ function setupSubPopupEvents() {
       error = r.error;
     }
     btn.disabled = false;
-    if (error) { toast('LÆ°u tháº¥t báº¡i: ' + error.message, 'error', 5000); return; }
-    toast('ÄĂ£ lÆ°u bĂ i hĂ¡t âœ…', 'success');
+    if (error) { toast('Lưu thất bại: ' + error.message, 'error', 5000); return; }
+    toast('Đã lưu bài hát ✅', 'success');
     closeModal('songFormModal');
     await loadSongs();
     renderAdminSongList();
@@ -3362,17 +3362,17 @@ function setupSubPopupEvents() {
 
   async function deleteSong(id) {
     if (!State.isAdmin) return;
-    if (!confirm('XĂ³a bĂ i hĂ¡t nĂ y?')) return;
+    if (!confirm('Xóa bài hát này?')) return;
     const { error } = await State.supabase.from('songs').delete().eq('id', id);
-    if (error) { toast('XĂ³a tháº¥t báº¡i: ' + error.message, 'error'); return; }
-    toast('ÄĂ£ xĂ³a bĂ i hĂ¡t.', 'success');
+    if (error) { toast('Xóa thất bại: ' + error.message, 'error'); return; }
+    toast('Đã xóa bài hát.', 'success');
     await loadSongs();
     renderAdminSongList();
   }
 
-  /* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-     16. ADMIN PANEL â€” QUáº¢N LĂ BĂŒNH LUáº¬N
-     â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+  /* ──────────────────────────────────────────────────────
+     16. ADMIN PANEL — QUẢN LÝ BÌNH LUẬN
+     ────────────────────────────────────────────────────── */
   async function renderAdminCommentList() {
     const list = $('#adminCommentList');
     if (!State.isAdmin) { list.innerHTML = ''; return; }
@@ -3381,24 +3381,24 @@ function setupSubPopupEvents() {
       .select('*')
       .order('created_at', { ascending: false })
       .limit(100);
-    if (error) { list.innerHTML = '<p class="empty-desc">Lá»—i táº£i bĂ¬nh luáº­n.</p>'; return; }
+    if (error) { list.innerHTML = '<p class="empty-desc">Lỗi tải bình luận.</p>'; return; }
     if (!data || data.length === 0) {
-      list.innerHTML = '<p class="empty-desc">KhĂ´ng cĂ³ bĂ¬nh luáº­n nĂ o.</p>';
+      list.innerHTML = '<p class="empty-desc">Không có bình luận nào.</p>';
       return;
     }
     list.innerHTML = data.map((c) => {
       const animeName = c.anime_id == null
-        ? 'đŸ’¬ Chat All'
-        : ((State.animes.find((a) => a.id === c.anime_id) || {}).title || 'â€”');
+        ? '💬 Chat All'
+        : ((State.animes.find((a) => a.id === c.anime_id) || {}).title || '—');
       return (
         '<div class="admin-row" data-id="' + esc(c.id) + '">' +
           '<div class="admin-row-info">' +
-            '<div class="admin-row-title">' + esc((c.author_name || 'áº¨n danh') + (c.is_pinned ? ' đŸ“Œ' : '')) + '</div>' +
-            '<div class="admin-row-sub">' + esc((animeName || 'â€”') + ' Â· ' + timeAgo(c.created_at)) + '</div>' +
+            '<div class="admin-row-title">' + esc((c.author_name || 'Ẩn danh') + (c.is_pinned ? ' 📌' : '')) + '</div>' +
+            '<div class="admin-row-sub">' + esc((animeName || '—') + ' · ' + timeAgo(c.created_at)) + '</div>' +
           '</div>' +
           '<div class="admin-row-actions">' +
-            '<button class="mini-btn primary" data-cact="pin" data-id="' + esc(c.id) + '">' + (c.is_pinned ? 'Bá» ghim' : 'Ghim') + '</button>' +
-            '<button class="mini-btn danger" data-cact="del" data-id="' + esc(c.id) + '">đŸ—‘</button>' +
+            '<button class="mini-btn primary" data-cact="pin" data-id="' + esc(c.id) + '">' + (c.is_pinned ? 'Bỏ ghim' : 'Ghim') + '</button>' +
+            '<button class="mini-btn danger" data-cact="del" data-id="' + esc(c.id) + '">🗑</button>' +
           '</div>' +
         '</div>'
       );
@@ -3408,37 +3408,37 @@ function setupSubPopupEvents() {
   async function adminCommentAction(act, id) {
     if (!State.isAdmin) return;
     if (act === 'del') {
-      if (!confirm('XĂ³a bĂ¬nh luáº­n nĂ y?')) return;
+      if (!confirm('Xóa bình luận này?')) return;
       const { error } = await State.supabase.from('comments').delete().eq('id', id);
-      if (error) { toast('Lá»—i: ' + error.message, 'error'); return; }
-      toast('ÄĂ£ xĂ³a.', 'success');
+      if (error) { toast('Lỗi: ' + error.message, 'error'); return; }
+      toast('Đã xóa.', 'success');
     } else if (act === 'pin') {
       const row = document.querySelector('#adminCommentList .admin-row[data-id="' + id + '"]');
-      const isPinned = row ? (row.querySelector('.admin-row-title').textContent.includes('đŸ“Œ')) : false;
+      const isPinned = row ? (row.querySelector('.admin-row-title').textContent.includes('📌')) : false;
       const { error } = await State.supabase.from('comments').update({ is_pinned: !isPinned }).eq('id', id);
-      if (error) { toast('Lá»—i: ' + error.message, 'error'); return; }
-      toast(isPinned ? 'ÄĂ£ bá» ghim.' : 'ÄĂ£ ghim đŸ“Œ', 'success');
+      if (error) { toast('Lỗi: ' + error.message, 'error'); return; }
+      toast(isPinned ? 'Đã bỏ ghim.' : 'Đã ghim 📌', 'success');
     }
     await renderAdminCommentList();
     if (State.currentAnime) loadComments(State.currentAnime.id);
   }
 
-  /* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-     17. ANILIST API â€” AUTO-FILL FORM
-     (Thay tháº¿ Jikan/MAL â€” AniList GraphQL miá»…n phĂ­, khĂ´ng cáº§n
-     key, á»•n Ä‘á»‹nh hÆ¡n nhiá»u so vá»›i Jikan hay bá»‹ quĂ¡ táº£i 504)
-     â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+  /* ──────────────────────────────────────────────────────
+     17. ANILIST API — AUTO-FILL FORM
+     (Thay thế Jikan/MAL — AniList GraphQL miễn phí, không cần
+     key, ổn định hơn nhiều so với Jikan hay bị quá tải 504)
+     ────────────────────────────────────────────────────── */
   async function anilistSearch(query) {
     if (State.jikanAbort) State.jikanAbort.abort();
     State.jikanAbort = new AbortController();
     const results = $('#jikanResults');
-    results.innerHTML = '<p class="empty-desc">Äang tra cá»©u trĂªn AniList...</p>';
+    results.innerHTML = '<p class="empty-desc">Đang tra cứu trên AniList...</p>';
     show('jikanResults');
     try {
       const gql = 'query ($search: String) { Page(page: 1, perPage: 6) { media(search: $search, type: ANIME, sort: SEARCH_MATCH, isAdult: false) { id title { romaji english } coverImage { extraLarge large } description status averageScore seasonYear studios(isMain: true) { nodes { name } } episodes genres } } }';
       let data = null;
       let lastErr = null;
-      // Thá»­ láº¡i tá»‘i Ä‘a 3 láº§n náº¿u gáº·p lá»—i táº¡m thá»i (429/503/504)
+      // Thử lại tối đa 3 lần nếu gặp lỗi tạm thời (429/503/504)
       for (let attempt = 1; attempt <= 3; attempt++) {
         try {
           const res = await fetch(State.config.ANILIST_API_URL, {
@@ -3456,36 +3456,36 @@ function setupSubPopupEvents() {
         }
         if (attempt < 3) await new Promise((r) => setTimeout(r, 700 * attempt));
       }
-      if (!data) throw lastErr || new Error('KhĂ´ng cĂ³ pháº£n há»“i tá»« AniList.');
+      if (!data) throw lastErr || new Error('Không có phản hồi từ AniList.');
       const items = (data && data.data && data.data.Page && data.data.Page.media) || [];
       if (items.length === 0) {
-        results.innerHTML = '<p class="empty-desc">KhĂ´ng tĂ¬m tháº¥y anime nĂ o. Thá»­ tĂªn khĂ¡c hoáº·c Ä‘iá»n thá»§ cĂ´ng bĂªn dÆ°á»›i.</p>';
+        results.innerHTML = '<p class="empty-desc">Không tìm thấy anime nào. Thử tên khác hoặc điền thủ công bên dưới.</p>';
         return;
       }
       results.innerHTML = items.map((it) => {
         const thumb = (it.coverImage && (it.coverImage.extraLarge || it.coverImage.large)) || '';
         const subParts = [];
-        subParts.push(it.episodes != null ? it.episodes + ' táº­p' : 'ChÆ°a rĂµ sá»‘ táº­p');
+        subParts.push(it.episodes != null ? it.episodes + ' tập' : 'Chưa rõ số tập');
         if (it.seasonYear) subParts.push(String(it.seasonYear));
-        if (it.averageScore != null && it.averageScore > 0) subParts.push(Math.round(it.averageScore / 10) + '/10 Ä‘iá»ƒm');
+        if (it.averageScore != null && it.averageScore > 0) subParts.push(Math.round(it.averageScore / 10) + '/10 điểm');
         return (
           '<div class="jikan-result-item" data-json="' + esc(JSON.stringify(it)).replace(/"/g, '&quot;') + '">' +
             '<div class="jikan-result-thumb">' + (thumb ? '<img src="' + esc(thumb) + '" alt="" loading="lazy" onerror="this.remove()" />' : '') + '</div>' +
             '<div class="jikan-result-info">' +
               '<div class="jikan-result-title">' + esc((it.title && (it.title.romaji || it.title.english)) || '') + '</div>' +
-              '<div class="jikan-result-sub">' + esc(subParts.join(' Â· ')) + '</div>' +
+              '<div class="jikan-result-sub">' + esc(subParts.join(' · ')) + '</div>' +
             '</div>' +
           '</div>'
         );
       }).join('');
     } catch (err) {
       if (err.name !== 'AbortError') {
-        results.innerHTML = '<p class="empty-desc">Lá»—i tra cá»©u AniList: ' + esc(err.message) + '. CĂ³ thá»ƒ thá»­ láº¡i hoáº·c Ä‘iá»n thá»§ cĂ´ng bĂªn dÆ°á»›i.</p>';
+        results.innerHTML = '<p class="empty-desc">Lỗi tra cứu AniList: ' + esc(err.message) + '. Có thể thử lại hoặc điền thủ công bên dưới.</p>';
       }
     }
   }
 
-  // Gá»i AniList GraphQL Ä‘Æ¡n giáº£n (khĂ´ng retry)
+  // Gọi AniList GraphQL đơn giản (không retry)
   async function anilistGraphQL(query, variables) {
     const res = await fetch(State.config.ANILIST_API_URL, {
       method: 'POST',
@@ -3495,7 +3495,7 @@ function setupSubPopupEvents() {
     return res.ok ? await res.json() : null;
   }
 
-  // Fetch dĂ n diá»…n viĂªn lá»“ng tiáº¿ng + áº¢NH NHĂ‚N Váº¬T theo id AniList
+  // Fetch dàn diễn viên lồng tiếng + ẢNH NHÂN VẬT theo id AniList
   async function anilistFetchCast(id) {
     const gql = 'query ($id: Int) { Media(id: $id) { characters(sort: ROLE, perPage: 25) { edges { node { name { full } image { large } } voiceActors(language: JAPANESE) { name { full } image { large } } } } } }';
     const data = await anilistGraphQL(gql, { id });
@@ -3515,7 +3515,7 @@ function setupSubPopupEvents() {
     return voices;
   }
 
-  // TĂ¬m id AniList theo tĂªn anime (dĂ¹ng cho backfill áº£nh nhĂ¢n váº­t)
+  // Tìm id AniList theo tên anime (dùng cho backfill ảnh nhân vật)
   async function anilistFindIdByTitle(title) {
     const gql = 'query ($search: String) { Page(page: 1, perPage: 1) { media(search: $search, type: ANIME, isAdult: false) { id title { romaji english } } } }';
     const data = await anilistGraphQL(gql, { search: title });
@@ -3523,9 +3523,9 @@ function setupSubPopupEvents() {
     return (m && m[0] && m[0].id) || null;
   }
 
-  // NĂºt "Láº¥y áº£nh nhĂ¢n váº­t": bá»• sung áº£nh nhĂ¢n váº­t (character art) cho anime cÅ© theo tĂªn tá»« AniList
+  // Nút "Lấy ảnh nhân vật": bổ sung ảnh nhân vật (character art) cho anime cũ theo tên từ AniList
   async function backfillCharacterImages() {
-    if (!State.isAdmin) { toast('Báº¡n khĂ´ng cĂ³ quyá»n.', 'error'); return; }
+    if (!State.isAdmin) { toast('Bạn không có quyền.', 'error'); return; }
     const btn = $('#backfillCharsBtn');
     if (!btn || btn.disabled) return;
     btn.disabled = true;
@@ -3536,7 +3536,7 @@ function setupSubPopupEvents() {
       const a = list[i];
       const seiyuu = Array.isArray(a.seiyuu) ? a.seiyuu : [];
       if (!seiyuu.some((s) => !s.charImage && s.character)) { skipped++; continue; }
-      toast('Láº¥y áº£nh nhĂ¢n váº­t: ' + (i + 1) + '/' + list.length + ' â€” ' + (a.title || ''), 'info');
+      toast('Lấy ảnh nhân vật: ' + (i + 1) + '/' + list.length + ' — ' + (a.title || ''), 'info');
       try {
         const id = await anilistFindIdByTitle(a.title);
         if (!id) { await sleep(350); continue; }
@@ -3555,16 +3555,16 @@ function setupSubPopupEvents() {
           if (!error) { a.seiyuu = next; updated++; }
         }
       } catch (err) {
-        console.warn('Lá»—i backfill áº£nh nhĂ¢n váº­t cho', a.title, err);
+        console.warn('Lỗi backfill ảnh nhân vật cho', a.title, err);
       }
       await sleep(600);
     }
     btn.disabled = false;
     renderAnimeGrid();
-    toast('Xong! ÄĂ£ bá»• sung áº£nh nhĂ¢n váº­t cho ' + updated + ' anime' + (skipped ? ' (bá» qua ' + skipped + ' Ä‘Ă£ cĂ³/khĂ´ng cĂ³ nhĂ¢n váº­t)' : '') + '.', 'success', 6000);
+    toast('Xong! Đã bổ sung ảnh nhân vật cho ' + updated + ' anime' + (skipped ? ' (bỏ qua ' + skipped + ' đã có/không có nhân vật)' : '') + '.', 'success', 6000);
   }
 
-  // Äiá»n dá»¯ liá»‡u AniList vĂ o form + fetch seiyuu + áº£nh nhĂ¢n váº­t
+  // Điền dữ liệu AniList vào form + fetch seiyuu + ảnh nhân vật
   async function applyAnilistToForm(it) {
     if (!it) return;
     $('#af_title').value = (it.title && (it.title.english || it.title.romaji)) || '';
@@ -3579,15 +3579,15 @@ function setupSubPopupEvents() {
 
     updatePosterPreview();
 
-    // Fetch seiyuu + áº£nh nhĂ¢n váº­t tá»« AniList characters
-    toast('Äang táº£i dĂ n Seiyuu + áº£nh nhĂ¢n váº­t...', 'info', 1200);
+    // Fetch seiyuu + ảnh nhân vật từ AniList characters
+    toast('Đang tải dàn Seiyuu + ảnh nhân vật...', 'info', 1200);
     try {
       const voices = await anilistFetchCast(it.id);
       if (voices.length) renderSeiyuuEditors(voices);
-    } catch (_e) { /* bá» qua lá»—i seiyuu */ }
+    } catch (_e) { /* bỏ qua lỗi seiyuu */ }
   }
 
-  // XoĂ¡ tháº» HTML (AniList tráº£ description dáº¡ng rich text)
+  // Xoá thẻ HTML (AniList trả description dạng rich text)
   function stripHtml(html) {
     const t = document.createElement('textarea');
     t.innerHTML = String(html || '');
@@ -3596,23 +3596,23 @@ function setupSubPopupEvents() {
 
   function mapAnilistStatus(s) {
     const map = {
-      'RELEASING': 'Äang chiáº¿u',
-      'FINISHED': 'HoĂ n thĂ nh',
-      'NOT_YET_RELEASED': 'Sáº¯p chiáº¿u',
-      'CANCELLED': 'Táº¡m ngÆ°ng',
-      'HIATUS': 'Táº¡m ngÆ°ng'
+      'RELEASING': 'Đang chiếu',
+      'FINISHED': 'Hoàn thành',
+      'NOT_YET_RELEASED': 'Sắp chiếu',
+      'CANCELLED': 'Tạm ngưng',
+      'HIATUS': 'Tạm ngưng'
     };
-    return map[s] || 'Äang chiáº¿u';
+    return map[s] || 'Đang chiếu';
   }
 
-  /* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-     18. BACKUP â€” EXPORT JSON
-     â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+  /* ──────────────────────────────────────────────────────
+     18. BACKUP — EXPORT JSON
+     ────────────────────────────────────────────────────── */
   async function exportBackup() {
     if (!State.isAdmin) return;
     const btn = $('#exportBackupBtn');
     btn.disabled = true;
-    btn.textContent = 'Äang xuáº¥t...';
+    btn.textContent = 'Đang xuất...';
     try {
       const [aR, sR, cR] = await Promise.all([
         State.supabase.from('animes').select('*'),
@@ -3636,35 +3636,35 @@ function setupSubPopupEvents() {
       a.click();
       a.remove();
       setTimeout(() => URL.revokeObjectURL(url), 2000);
-      toast('ÄĂ£ xuáº¥t backup âœ…', 'success');
+      toast('Đã xuất backup ✅', 'success');
     } catch (err) {
-      toast('Xuáº¥t backup tháº¥t báº¡i: ' + err.message, 'error');
+      toast('Xuất backup thất bại: ' + err.message, 'error');
     } finally {
       btn.disabled = false;
-      btn.textContent = 'đŸ“¥ Export Backup JSON';
+      btn.textContent = '📥 Export Backup JSON';
     }
   }
 
-  /* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  /* ──────────────────────────────────────────────────────
      19. EVENT BINDINGS (delegated handlers)
-     â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+     ────────────────────────────────────────────────────── */
   function bindEvents() {
-    // Brand: cuá»™n vá» Ä‘áº§u trang
+    // Brand: cuộn về đầu trang
     const brandBtn = $('#brandBtn');
     if (brandBtn) brandBtn.addEventListener('click', () => window.scrollTo({ top: 0, behavior: 'smooth' }));
 
-    // Tab Section (Anime / Music) â€” work vá»›i .main-nav cĂ³ [data-tab]
+    // Tab Section (Anime / Music) — work với .main-nav có [data-tab]
     $('.main-nav').addEventListener('click', (e) => {
       const btn = e.target.closest('[data-tab]');
       if (btn) switchTab(btn.dataset.tab);
     });
 
-    // Má»Ÿ modal anime khi click card + nĂºt tráº¡ng thĂ¡i nhanh (admin)
+    // Mở modal anime khi click card + nút trạng thái nhanh (admin)
     $('#animeGrid').addEventListener('click', (e) => {
       const card = e.target.closest('.anime-card');
       if (!card || !card.dataset.id) return;
 
-      // NĂºt Ä‘iá»ƒm â™¥ á»Ÿ meta: báº¥m Ä‘á»ƒ má»Ÿ popup cháº¥m Ä‘iá»ƒm â™¥ (menu 10 tim, khĂ´ng má»Ÿ modal)
+      // Nút điểm ♥ ở meta: bấm để mở popup chấm điểm ♥ (menu 10 tim, không mở modal)
       const hBtn = e.target.closest('.card-heart-btn');
       if (hBtn) {
         e.__popOpened = true;
@@ -3681,7 +3681,7 @@ function setupSubPopupEvents() {
       if (a) openAnimeDetail(a);
     });
 
-    // Click thá»ƒ loáº¡i / diá»…n viĂªn trong modal anime â†’ tĂ¬m anime theo tá»« Ä‘Ă³
+    // Click thể loại / diễn viên trong modal anime → tìm anime theo từ đó
     const detailEl = $('#animeDetail');
     if (detailEl) {
       detailEl.addEventListener('click', (e) => {
@@ -3703,7 +3703,7 @@ function setupSubPopupEvents() {
       });
     }
 
-    // Lá»c & sáº¯p xáº¿p anime Ä‘Ă£ render sáºµn qua renderAnimeGrid()
+    // Lọc & sắp xếp anime đã render sẵn qua renderAnimeGrid()
     const as = $('#animeSearch');
     if (as) as.addEventListener('input', renderAnimeGrid);
     const stf = $('#statusFilter');
@@ -3725,7 +3725,7 @@ function setupSubPopupEvents() {
       renderSongList();
     });
 
-    // Danh sĂ¡ch file .ass: tĂ¬m kiáº¿m + click Ä‘á»ƒ phĂ¡t theo YouTube ID
+    // Danh sách file .ass: tìm kiếm + click để phát theo YouTube ID
     const assSearch = $('#assSearch');
     if (assSearch) assSearch.addEventListener('input', (e) => {
       State.assQuery = e.target.value;
@@ -3749,7 +3749,7 @@ function setupSubPopupEvents() {
       });
     }
 
-    // Báº­t/táº¯t phá»¥ Ä‘á» .ass
+    // Bật/tắt phụ đề .ass
     const subsToggle = $('#subsToggle');
     if (subsToggle) {
       subsToggle.addEventListener('click', () => {
@@ -3761,7 +3761,7 @@ function setupSubPopupEvents() {
       });
     }
 
-    // SUB â™ï¸ â€” má»Ÿ popup cĂ i Ä‘áº·t phá»¥ Ä‘á»
+    // SUB ⚙️ — mở popup cài đặt phụ đề
     const subsSettingsBtn = $('#subsSettingsBtn');
     if (subsSettingsBtn) {
       subsSettingsBtn.addEventListener('click', () => {
@@ -3769,7 +3769,7 @@ function setupSubPopupEvents() {
       });
     }
 
-    // NĂºt phĂ³ng to video full mĂ n hĂ¬nh + cáº­p nháº­t icon khi vĂ o/thoĂ¡t fullscreen
+    // Nút phóng to video full màn hình + cập nhật icon khi vào/thoát fullscreen
     const videoFsBtn = $('#videoFullscreenBtn');
     if (videoFsBtn) {
       videoFsBtn.addEventListener('click', (e) => {
@@ -3780,7 +3780,7 @@ function setupSubPopupEvents() {
     document.addEventListener('fullscreenchange', updateVideoFsIcon);
     document.addEventListener('webkitfullscreenchange', updateVideoFsIcon); // Safari
 
-    // Äiá»u khiá»ƒn player: lĂ¹i / phĂ¡t-táº¡m dá»«ng / káº¿ tiáº¿p / tá»± Ä‘á»™ng / ngáº«u nhiĂªn
+    // Điều khiển player: lùi / phát-tạm dừng / kế tiếp / tự động / ngẫu nhiên
     $('#pcPrev').addEventListener('click', playPrevSong);
     $('#pcPlay').addEventListener('click', togglePlay);
     $('#pcNext').addEventListener('click', playNextSong);
@@ -3789,7 +3789,7 @@ function setupSubPopupEvents() {
     const pcShuffle = $('#pcShuffle');
     if (pcShuffle) pcShuffle.addEventListener('click', () => { State.shuffle = !State.shuffle; savePlayerPrefs(); updatePlayerControlsUI(); });
 
-    // BĂ¬nh luáº­n: gá»­i & captcha & toolbar (bold/italic/.../) + paste tá»± xá»­ lĂ½ link/áº£nh
+    // Bình luận: gửi & captcha & toolbar (bold/italic/.../) + paste tự xử lý link/ảnh
     $('#submitCommentBtn').addEventListener('click', submitComment);
     $('#captchaRefresh').addEventListener('click', newCaptcha);
     $$('#composer .tb-btn[data-fmt]').forEach((btn) => {
@@ -3803,7 +3803,7 @@ function setupSubPopupEvents() {
       renderCommentList();
     });
 
-    // Chat chung (sticky dock): gá»­i & captcha & toolbar & paste & click nhĂ£n anime & má»Ÿ rá»™ng
+    // Chat chung (sticky dock): gửi & captcha & toolbar & paste & click nhãn anime & mở rộng
     $('#chatSendBtn').addEventListener('click', submitChat);
     $('#chatCaptchaRefresh').addEventListener('click', newChatCaptcha);
     $$('#chatComposer [data-fmt]').forEach((btn) => {
@@ -3819,7 +3819,7 @@ function setupSubPopupEvents() {
       State.chatVisible += 20;
       renderGlobalChat();
     });
-    // Báº­t/táº¯t panel chat tá»« nĂºt bong bĂ³ng (FAB)
+    // Bật/tắt panel chat từ nút bong bóng (FAB)
     const chatFab = $('#chatFab');
     const chatClose = $('#chatCloseBtn');
     const toggleChatPanel = () => {
@@ -3831,7 +3831,7 @@ function setupSubPopupEvents() {
         renderGlobalChat();
         newChatCaptcha();
         scrollChatToBottom();
-        // KHĂ”NG tá»± focus Ă´ nháº­p â†’ trĂ¡nh bĂ n phĂ­m áº£o tá»± báº­t trĂªn Ä‘iá»‡n thoáº¡i
+        // KHÔNG tự focus ô nhập → tránh bàn phím ảo tự bật trên điện thoại
       }
     };
     if (chatFab) {
@@ -3847,7 +3847,7 @@ function setupSubPopupEvents() {
       if (e.key === 'Escape' && State.chatExpanded) toggleChatPanel();
     });
     $('#chatDock').addEventListener('click', (e) => {
-      // Click nhĂ£n anime trong chat (cáº£ preview láº«n list) â†’ má»Ÿ modal chi tiáº¿t
+      // Click nhãn anime trong chat (cả preview lẫn list) → mở modal chi tiết
       const tag = e.target.closest('[data-anime-id]');
       if (tag) {
         e.preventDefault();
@@ -3855,14 +3855,14 @@ function setupSubPopupEvents() {
         if (a) openAnimeDetail(a);
         return;
       }
-      // NĂºt tráº£ lá»i báº±ng trĂ­ch dáº«n (ai cÅ©ng dĂ¹ng Ä‘Æ°á»£c, ká»ƒ cáº£ chÆ°a Ä‘Äƒng nháº­p)
+      // Nút trả lời bằng trích dẫn (ai cũng dùng được, kể cả chưa đăng nhập)
       const q = e.target.closest('[data-quote-src]');
       if (q) {
         e.preventDefault();
         quoteIntoChat(q.dataset.quoteAuthor, q.dataset.quoteSrc);
         return;
       }
-      // NĂºt xem thĂªm / thu gá»n bĂ¬nh luáº­n dĂ i
+      // Nút xem thêm / thu gọn bình luận dài
       const tg = e.target.closest('.long-text-toggle');
       if (tg) { toggleLongText(tg); return; }
       // Admin actions trong chat
@@ -3870,14 +3870,14 @@ function setupSubPopupEvents() {
       if (btn) handleChatAdminAction(btn.dataset.cact2, btn.dataset.id);
     });
 
-    // Báº¥m bĂªn ngoĂ i khung chat â†’ áº©n khung chat (ná»™i dung Ä‘ang nháº­p váº«n giá»¯ láº¡i)
+    // Bấm bên ngoài khung chat → ẩn khung chat (nội dung đang nhập vẫn giữ lại)
     document.addEventListener('click', (e) => {
       if (!State.chatExpanded) return;
       if (e.target.closest('#chatDock') || e.target.closest('#chatFab')) return;
       if (State.chatExpanded) toggleChatPanel();
     });
 
-    // Admin: má»Ÿ panel
+    // Admin: mở panel
     $('#adminBtn').addEventListener('click', () => {
       openModal('adminModal');
       renderAdminAnimeList();
@@ -3922,7 +3922,7 @@ function setupSubPopupEvents() {
       adminCommentAction(btn.dataset.cact, btn.dataset.id);
     });
 
-    // NĂºt thĂªm anime, bĂ i hĂ¡t
+    // Nút thêm anime, bài hát
     $('#addAnimeBtn').addEventListener('click', openAddAnimeForm);
     $('#addSongBtn').addEventListener('click', () => openSongForm(null));
 
@@ -3931,22 +3931,22 @@ function setupSubPopupEvents() {
     $('#animeForm').addEventListener('submit', saveAnime);
     $('#songForm').addEventListener('submit', saveSong);
 
-    // Seiyuu thĂªm dĂ²ng
+    // Seiyuu thêm dòng
     $('#addSeiyuuBtn').addEventListener('click', () => {
       const wrap = $('#afSeiyuuList');
       const row = document.createElement('div');
       row.className = 'seiyuu-editor-row';
       row.innerHTML =
-        '<input type="text" class="input" data-seiyuu="name" placeholder="TĂªn Seiyuu" />' +
-        '<input type="text" class="input" data-seiyuu="character" placeholder="NhĂ¢n váº­t" />' +
-        '<input type="text" class="input" data-seiyuu="image" placeholder="áº¢nh Seiyuu URL" />' +
-        '<input type="text" class="input" data-seiyuu="charImage" placeholder="áº¢nh nhĂ¢n váº­t URL" />' +
-        '<button type="button" class="seiyuu-remove" title="XĂ³a">âœ•</button>';
+        '<input type="text" class="input" data-seiyuu="name" placeholder="Tên Seiyuu" />' +
+        '<input type="text" class="input" data-seiyuu="character" placeholder="Nhân vật" />' +
+        '<input type="text" class="input" data-seiyuu="image" placeholder="Ảnh Seiyuu URL" />' +
+        '<input type="text" class="input" data-seiyuu="charImage" placeholder="Ảnh nhân vật URL" />' +
+        '<button type="button" class="seiyuu-remove" title="Xóa">✕</button>';
       row.querySelector('.seiyuu-remove').addEventListener('click', () => row.remove());
       wrap.appendChild(row);
     });
 
-    // AniList tĂ¬m kiáº¿m (input id = jikanQuery)
+    // AniList tìm kiếm (input id = jikanQuery)
     $('#jikanSearchBtn').addEventListener('click', () => {
       const q = $('#jikanQuery').value.trim();
       if (q) anilistSearch(q);
@@ -3966,9 +3966,9 @@ function setupSubPopupEvents() {
         $('#jikanQuery').value = (it.title && (it.title.english || it.title.romaji)) || '';
         applyAnilistToForm(it);
         hi('jikanResults');
-        toast('ÄĂ£ Ä‘iá»n dá»¯ liá»‡u tá»« AniList âœ…', 'success');
+        toast('Đã điền dữ liệu từ AniList ✅', 'success');
       } catch (err) {
-        toast('Lá»—i phĂ¢n tĂ­ch dá»¯ liá»‡u.', 'error');
+        toast('Lỗi phân tích dữ liệu.', 'error');
       }
     });
 
@@ -3982,9 +3982,9 @@ function setupSubPopupEvents() {
         const res = await uploadImageToCloudinary(file);
         $('#af_poster').value = res.secure_url || res.url || '';
         updatePosterPreview();
-        toast('ÄĂ£ táº£i poster lĂªn âœ…', 'success');
+        toast('Đã tải poster lên ✅', 'success');
       } catch (err) {
-        toast('Lá»—i táº£i áº£nh: ' + err.message, 'error', 5000);
+        toast('Lỗi tải ảnh: ' + err.message, 'error', 5000);
       }
       e.target.value = '';
     });
@@ -3992,24 +3992,24 @@ function setupSubPopupEvents() {
     // Export backup
     $('#exportBackupBtn').addEventListener('click', exportBackup);
 
-    // Láº¥y áº£nh nhĂ¢n váº­t cho toĂ n bá»™ anime cÅ© (admin)
+    // Lấy ảnh nhân vật cho toàn bộ anime cũ (admin)
     $('#backfillCharsBtn').addEventListener('click', () => backfillCharacterImages());
 
     // Comment actions trong modal anime (delegate)
     $('#animeModal').addEventListener('click', (e) => {
-      // NĂºt tráº£ lá»i báº±ng trĂ­ch dáº«n (ai cÅ©ng dĂ¹ng Ä‘Æ°á»£c, ká»ƒ cáº£ chÆ°a Ä‘Äƒng nháº­p)
+      // Nút trả lời bằng trích dẫn (ai cũng dùng được, kể cả chưa đăng nhập)
       const q = e.target.closest('[data-quote-src]');
       if (q) {
         e.preventDefault();
         quoteIntoComment(q.dataset.quoteAuthor, q.dataset.quoteSrc);
         return;
       }
-      // NĂºt xem thĂªm / thu gá»n bĂ¬nh luáº­n dĂ i
+      // Nút xem thêm / thu gọn bình luận dài
       const tg = e.target.closest('.long-text-toggle');
       if (tg) { toggleLongText(tg); return; }
       const btn = e.target.closest('[data-act]');
       if (btn) handleCommentAction(btn.dataset.act, btn.dataset.id);
-      // Thá»ƒ loáº¡i: nĂºt ">" má»Ÿ/Ä‘Ă³ng toĂ n bá»™
+      // Thể loại: nút ">" mở/đóng toàn bộ
       const gmore = e.target.closest('[data-genre-more]');
       if (gmore) {
         const wrap = gmore.closest('.genre-chips');
@@ -4017,29 +4017,29 @@ function setupSubPopupEvents() {
           const open = wrap.classList.toggle('open');
           const caret = wrap.querySelector('[data-more-caret]');
           const label = wrap.querySelector('[data-more-label]');
-          if (caret) caret.textContent = open ? 'â–´' : 'â–¾';
+          if (caret) caret.textContent = open ? '▴' : '▾';
           if (label) {
-            label.textContent = open ? 'Thu gá»n' : (wrap.querySelectorAll('.chip-btn').length - 5) + ' thá»ƒ loáº¡i';
+            label.textContent = open ? 'Thu gọn' : (wrap.querySelectorAll('.chip-btn').length - 5) + ' thể loại';
           }
         }
         return;
       }
-      // Icon tráº¡ng thĂ¡i xem cá»§a tĂ´i â€” báº¥m lĂ  lÆ°u liá»n (â³ lÆ°u "Äang xem" + má»Ÿ popup chá»n táº­p)
+      // Icon trạng thái xem của tôi — bấm là lưu liền (⏳ lưu "Đang xem" + mở popup chọn tập)
       const watchIco = e.target.closest('.watch-ico');
       if (watchIco && watchIco.dataset.status) {
         const tracker = $('#myTracker');
         if (tracker && tracker.dataset.anime) {
-          if (watchIco.dataset.status === 'Äang xem') {
+          if (watchIco.dataset.status === 'Đang xem') {
             e.__popOpened = true;
             openEpisodePop(watchIco, tracker.dataset.anime);
-            saveMyTracker(tracker.dataset.anime, { my_status: 'Äang xem' });
+            saveMyTracker(tracker.dataset.anime, { my_status: 'Đang xem' });
           } else {
             saveMyTracker(tracker.dataset.anime, { my_status: watchIco.dataset.status });
           }
         }
         return;
       }
-      // NĂºt â™¥ trong tracker má»Ÿ popup cháº¥m Ä‘iá»ƒm
+      // Nút ♥ trong tracker mở popup chấm điểm
       const rateBtn = e.target.closest('#myRatingBtn');
       if (rateBtn) {
         const tracker = $('#myTracker');
@@ -4051,16 +4051,16 @@ function setupSubPopupEvents() {
       }
     });
 
-    // Popup mini (chá»n táº­p / cháº¥m â™¥): xá»­ lĂ½ chá»n + Ä‘Ă³ng khi báº¥m bĂªn ngoĂ i
+    // Popup mini (chọn tập / chấm ♥): xử lý chọn + đóng khi bấm bên ngoài
     document.addEventListener('click', (e) => {
-      // Menu tráº¡ng thĂ¡i (đŸŒ¸ trĂªn card): chá»n 1 â€” "Äang xem" má»Ÿ tiáº¿p popup chá»n táº­p
+      // Menu trạng thái (🌸 trên card): chọn 1 — "Đang xem" mở tiếp popup chọn tập
       const st = e.target.closest('#statusPop .status-opt');
       if (st) {
         const pop = $('#statusPop');
         const id = pop && pop.dataset.anime;
         if (id) {
           const lbl = String(st.dataset.status || '');
-          if (lbl === 'Äang xem') {
+          if (lbl === 'Đang xem') {
             e.__popOpened = true;
             const r = st.getBoundingClientRect();
             closeMiniPop();
@@ -4076,11 +4076,11 @@ function setupSubPopupEvents() {
               epP.style.top = top + 'px';
             }
             const a = State.animes.find((x) => String(x.id) === String(id));
-            if (a && myStatusMeta(a.my_status).cls !== 'my-watching') saveMyTracker(id, { my_status: 'Äang xem' });
+            if (a && myStatusMeta(a.my_status).cls !== 'my-watching') saveMyTracker(id, { my_status: 'Đang xem' });
           } else {
             closeMiniPop();
             saveMyTracker(id, { my_status: lbl }).then((ok) => {
-              if (ok) toast('ÄĂ£ Ä‘áº·t tráº¡ng thĂ¡i: ' + lbl, 'success');
+              if (ok) toast('Đã đặt trạng thái: ' + lbl, 'success');
             });
           }
         }
@@ -4102,15 +4102,15 @@ function setupSubPopupEvents() {
     });
   }
 
-  /* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  /* ──────────────────────────────────────────────────────
      20. SWITCH TAB (Anime / Music / Chat All)
-     â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
-  // Táº£i chat 1 láº§n khi má»Ÿ web â€” khĂ´ng tá»± lĂ m má»›i Ä‘á»‹nh ká»³ (chá»‰ lĂ m má»›i khi táº£i láº¡i trang)
+     ────────────────────────────────────────────────────── */
+  // Tải chat 1 lần khi mở web — không tự làm mới định kỳ (chỉ làm mới khi tải lại trang)
   function refreshChat() {
     loadGlobalChat();
   }
 
-  // Upload áº£nh trong chat chung
+  // Upload ảnh trong chat chung
   async function handleChatImageUpload() {
     const input = $('#chatUploadImgInput');
     const file = input.files && input.files[0];
@@ -4118,13 +4118,13 @@ function setupSubPopupEvents() {
     try {
       const result = await uploadImageToCloudinary(file);
       const url = result.secure_url || result.url;
-      if (!url) throw new Error('KhĂ´ng láº¥y Ä‘Æ°á»£c URL áº£nh.');
+      if (!url) throw new Error('Không lấy được URL ảnh.');
       const box = $('#chatBox');
-      const imgMd = '![' + esc(file.name || 'áº£nh') + '](' + esc(url) + ')';
+      const imgMd = '![' + esc(file.name || 'ảnh') + '](' + esc(url) + ')';
       box.value = (box.value || '') + (box.value ? '\n' : '') + imgMd;
-      toast('ÄĂ£ táº£i áº£nh lĂªn âœ…', 'success');
+      toast('Đã tải ảnh lên ✅', 'success');
     } catch (err) {
-      toast('Lá»—i táº£i áº£nh: ' + err.message, 'error', 5000);
+      toast('Lỗi tải ảnh: ' + err.message, 'error', 5000);
     }
     input.value = '';
   }
@@ -4137,9 +4137,9 @@ function setupSubPopupEvents() {
     $$('.nav-tab[data-tab]').forEach((b) => {
       b.classList.toggle('active', b.dataset.tab === tabName);
     });
-    // NĂºt SUB bong bĂ³ng cĂ i Ä‘áº·t phá»¥ Ä‘á»: chá»‰ hiá»‡n khi á»Ÿ tab Song (music)
+    // Nút SUB bong bóng cài đặt phụ đề: chỉ hiện khi ở tab Song (music)
     document.body.classList.toggle('is-song', tabName === 'music');
-    // ÄĂ³ng popup cĂ i Ä‘áº·t phá»¥ Ä‘á» náº¿u Ä‘ang má»Ÿ khi rá»i tab Song
+    // Đóng popup cài đặt phụ đề nếu đang mở khi rời tab Song
     if (tabName !== 'music') {
       const sp = _subPopupEl;
       const fab = $('#subsSettingsBtn');
@@ -4147,13 +4147,13 @@ function setupSubPopupEvents() {
         hideSubPanel();
         if (fab) fab.setAttribute('aria-expanded', 'false');
       }
-      // ThoĂ¡t fullscreen video náº¿u Ä‘ang báº­t
+      // Thoát fullscreen video nếu đang bật
       if (document.fullscreenElement) {
         if (document.exitFullscreen) document.exitFullscreen();
         else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
       }
     }
-    // Äá»•i brand theo tab: KullAnime hoáº·c KullSong
+    // Đổi brand theo tab: KullAnime hoặc KullSong
     const brand = $('#brandName');
     if (brand) {
       brand.innerHTML = tabName === 'anime' ? 'Kull<em>Anime</em>' : 'Kull<em>Song</em>';
@@ -4173,30 +4173,30 @@ function setupSubPopupEvents() {
     return txt.value;
   }
 
-  /* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-     21. KHá»I Táº O APP
-     â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+  /* ──────────────────────────────────────────────────────
+     21. KHỞI TẠO APP
+     ────────────────────────────────────────────────────── */
   async function init() {
     await initSupabase();
-    ensureSubSettings(); // náº¡p cĂ i Ä‘áº·t phá»¥ Ä‘á» toĂ n cá»¥c tá»« localStorage
-    loadPlayerPrefs();   // náº¡p tĂ¹y chá»n tá»± Ä‘á»™ng / ngáº«u nhiĂªn tá»« localStorage
+    ensureSubSettings(); // nạp cài đặt phụ đề toàn cục từ localStorage
+    loadPlayerPrefs();   // nạp tùy chọn tự động / ngẫu nhiên từ localStorage
     bindEvents();
     updatePlayerControlsUI();
-    // KhĂ´i phá»¥c tab Ä‘ang active (máº·c Ä‘á»‹nh anime)
+    // Khôi phục tab đang active (mặc định anime)
     switchTab('anime');
-    // Táº£i dá»¯ liá»‡u cĂ´ng khai
+    // Tải dữ liệu công khai
     await Promise.all([loadAnimes(), loadSongs()]);
     fetchSubsFiles();
     updateLoginUI();
     refreshAuthState();
-    // Khá»Ÿi Ä‘á»™ng chat chung (sticky bar) + captcha chat
+    // Khởi động chat chung (sticky bar) + captcha chat
     newChatCaptcha();
     refreshChat();
-    // Dá»¯ liá»‡u cĂ´ng khai chá»‰ táº£i 1 láº§n khi má»Ÿ web â€” khĂ´ng tá»± lĂ m má»›i Ä‘á»‹nh ká»³
-    // (trĂ¡nh "chá»›p" láº¡i giao diá»‡n khi trang má»Ÿ lĂ¢u). LĂ m má»›i khi táº£i láº¡i trang.
+    // Dữ liệu công khai chỉ tải 1 lần khi mở web — không tự làm mới định kỳ
+    // (tránh "chớp" lại giao diện khi trang mở lâu). Làm mới khi tải lại trang.
   }
 
-  // Báº¯t Ä‘áº§u khi DOM sáºµn sĂ ng
+  // Bắt đầu khi DOM sẵn sàng
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', init);
   } else {
