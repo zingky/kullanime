@@ -1160,9 +1160,17 @@ html[data-theme="light"] .modal { background: rgba(255, 255, 255, 0.72); }
   width: 24px; height: 24px; border-radius: 7px; cursor: pointer; font-size: 11px; line-height: 1;
   display: inline-flex; align-items: center; justify-content: center;
   transition: all 0.15s ease; flex-shrink: 0;
-  margin-left: auto;
 }
 .sub-panel-close:hover { color: var(--danger); border-color: rgba(239, 68, 68, 0.45); }
+/* Nhóm nút góc phải header: Reset video này + ✕ đóng (đẩy sát phải) */
+.sub-header-actions { display: inline-flex; align-items: center; gap: 6px; margin-left: auto; flex-shrink: 0; }
+.sub-reset-ctx {
+  border: 1px solid rgba(255, 213, 74, 0.4); background: rgba(255, 213, 74, 0.1); color: #ffd54a;
+  height: 24px; padding: 0 8px; border-radius: 7px; cursor: pointer;
+  font-size: 10px; font-weight: 700; line-height: 1; white-space: nowrap;
+  display: inline-flex; align-items: center; gap: 3px; flex-shrink: 0; transition: all 0.15s ease;
+}
+.sub-reset-ctx:hover { background: rgba(255, 213, 74, 0.22); border-color: rgba(255, 213, 74, 0.65); }
 .sub-panel-body {
   flex: 0 1 auto; min-height: 0;
   max-height: min(56vh, 460px);
@@ -1213,6 +1221,11 @@ html[data-theme="light"] .modal { background: rgba(255, 255, 255, 0.72); }
 .ass-cue { transition: opacity 0.15s ease; }
 /* Hàng Cỡ chữ CHUNG (trên 3 tab karaoke) */
 .sub-panel .k-fs-row input[type="range"] { flex: 1; }
+/* Hàng "Dòng cách" (chỉ ô nhập số, không thanh trượt) — đẩy ô số sát phải, thêm % */
+.sub-panel .k-ls-row { display: flex; align-items: center; justify-content: flex-end; gap: 6px; margin-bottom: 6px; }
+.sub-panel .k-ls-row label { width: auto; margin-right: auto; }
+.sub-panel .k-ls-row .num-in { width: 56px; max-width: 56px; }
+.sub-panel .k-ls-row .ls-unit { color: #aaa; font-size: .75em; font-weight: 700; width: 14px; }
 /* Karaoke sections: stack 3 panels dọc, không còn inner tabs */
 .k-section { margin-bottom: 6px; }
 .k-section-label {
@@ -1472,7 +1485,7 @@ select.input option { background: #141a2d; color: var(--text); }
   -webkit-appearance: none; appearance: none; height: 6px;
   background: rgba(255,255,255,0.16); border-radius: 999px; outline: none; cursor: pointer;
 }
-.sub-panel input[type="range"]::-webkit-slider-runnable-track { height: 6px; background: transparent; border-radius: 999px; }
+.sub-panel input[type="range"]::-webkit-slider-runnable-track { height: 6px; background: rgba(255,255,255,0.16); border-radius: 999px; }
 .sub-panel input[type="range"]::-webkit-slider-thumb {
   -webkit-appearance: none; appearance: none; width: 16px; height: 16px; margin-top: -5px;
   border-radius: 50%; border: none;
