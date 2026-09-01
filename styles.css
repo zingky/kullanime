@@ -1548,7 +1548,25 @@ select.input option { background: #141a2d; color: var(--text); }
   display: flex; align-items: center; justify-content: space-between; gap: 8px;
   padding: 8px 2px 0; margin-top: 8px; border-top: 1px solid rgba(255,255,255,0.08);
 }
-.sub-style-headbar .sub-styles-title { color: #ffaa00; font-weight: 800; font-size: 11px; display: flex; align-items: center; gap: 6px; }
+.sub-style-headbar-actions {
+  display: flex; align-items: center; gap: 6px; flex: 1; min-width: 0;
+}
+.headbar-style-name {
+  font-size: 11px; font-weight: 700; color: #ffd54a; white-space: nowrap;
+  background: rgba(255,213,74,0.12); border: 1px solid rgba(255,213,74,0.3);
+  padding: 2px 7px; border-radius: 999px; max-width: 120px; overflow: hidden;
+  text-overflow: ellipsis; flex-shrink: 0;
+}
+.headbar-btn {
+  display: inline-flex; align-items: center; gap: 3px;
+  padding: 3px 8px; border: 1px solid rgba(255,255,255,0.12); border-radius: 999px;
+  background: rgba(255,255,255,0.06); color: #c6cedb; cursor: pointer;
+  font-size: 11px; font-weight: 600; white-space: nowrap; transition: background .15s, color .15s;
+}
+.headbar-btn:hover { background: rgba(255,255,255,0.12); color: #fff; }
+.headbar-vis-btn { border-color: rgba(62,166,255,0.3); }
+.headbar-reset-btn { border-color: rgba(255,170,0,0.3); color: #ffaa00; }
+.headbar-reset-btn:hover { background: rgba(255,170,0,0.12); color: #ffcc44; }
 .sub-style-headbar #sub-reset-all-styles { cursor: pointer; font-size: 11px; color: #ffaa00; font-weight: 700; opacity: .85; transition: opacity .15s; white-space: nowrap; }
 .sub-style-headbar #sub-reset-all-styles:hover { opacity: 1; text-decoration: underline; }
 .sub-no-style {
@@ -1585,6 +1603,7 @@ select.input option { background: #141a2d; color: var(--text); }
 }
 .style-chip.chip-hidden { opacity: .45; }
 .style-chip .style-chip-name { max-width: 120px; overflow: hidden; text-overflow: ellipsis; }
+.style-chip .style-chip-marquee { width: 10ch; max-width: 10ch; overflow: hidden; display: inline-flex; white-space: nowrap; flex-shrink: 0; }
 .style-chip .style-chip-eye { font-size: 10px; cursor: pointer; flex-shrink: 0; opacity: .85; }
 .style-chip .style-chip-eye:hover { opacity: 1; transform: scale(1.15); }
 .style-chip .sub-reset-style { font-size: 9px; color: #ffaa00; cursor: pointer; flex-shrink: 0; opacity: .75; }
