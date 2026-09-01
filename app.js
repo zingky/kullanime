@@ -3127,7 +3127,7 @@
   }
 
   // Render danh sách style dạng thanh tab NGANG (cuộn được) + panel chỉnh chi tiết
-  // 1) Hàng tab ngang: mỗi style = 1 chip (tên + 👁️ ẩn/hiện + ⟳ reset)
+  // 1) Hàng tab ngang: mỗi style = 1 chip (tên style, marquee nếu dài)
   // 2) Panel chi tiết: hiển thị các thanh chỉnh cho style đang chọn
   // 3) Headbar "🎨 Style … ↺ ALL" được đặt dưới toàn bộ (xem buildSubPopupHTML)
   // ── Widget tăng/giảm nhanh (▲▼) cho ô nhập số KHÔNG có thanh trượt ──
@@ -3292,7 +3292,7 @@
     }
   }
 
-  // Reset một style về vị trí / màu gốc (dùng bởi chip ⟳ và nút ↺ ALL)
+  // Reset một style về vị trí / màu gốc (dùng bởi nút Reset Style và ↺ ALL)
   function resetOneStyle(s) {
     const a = s.origAlign || s.align || 2;
     const mL = (s.origMarginL !== undefined && s.origMarginL !== null) ? s.origMarginL : (s.marginL || 10);
