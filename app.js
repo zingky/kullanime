@@ -1599,7 +1599,7 @@
       ? (State.subOverlayHeight / pY) : 1;
     // Chỉ giữ floor rất thấp chống trường hợp overlay chưa đo được (~0) lúc vừa phát
     if (scaleH < 0.1) scaleH = 0.1;
-    const customResize = getFontResize(gs.fontFamily || '') || 1;
+    const customResize = getFontResize(isO ? (st.fontName || gs.fontFamily || '') : (gs.fontFamily || '')) || 1;
     const textZoom = (gs.textZoom > 0 && gs.textZoom <= 3) ? gs.textZoom : 0.9;
 
     // ---- Font size hiệu dụng (base * scaleH * customResize * textZoom) ----
@@ -1790,7 +1790,9 @@
     // Khi ở tab "Use Style": karaoke lấy cỡ chữ theo từng style trong file (baseFs = st.fontSize),
     // độc lập với gs.fontSize. Khi ở tab "Use Global": dùng gs.fontSize.
     const useStyleKaraFs = (k, fallback) => {
-      const raw = (isO && st.origFontSize) ? (baseFs || masterFs) : ((gs.fontSize != null && gs.fontSize > 0) ? gs.fontSize : (fallback || 70));
+      // isO → dùng baseFs (đã được set = st.fontSize ở dòng 1610),
+      // ngược lại dùng gs.fontSize (bảng karaoke tabs bên Use Global).
+      const raw = isO ? (baseFs || masterFs) : ((gs.fontSize != null && gs.fontSize > 0) ? gs.fontSize : (fallback || 70));
       const minFs = Math.max(6, (State.subOverlayHeight || 0) * 0.025);
       return Math.max(minFs, raw * scaleH * customResize * textZoom * ((gs.fontScale != null ? gs.fontScale : 100) / 100));
     };
