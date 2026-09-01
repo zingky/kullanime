@@ -1145,8 +1145,172 @@
     spanWrap.innerText = lineText;
   }
 
+  // ============ Bổ sung đủ toàn bộ hiệu ứng từ extension engine-css.js ============
+
+  // Breathe / Zoom Pulse
+  function renderBreathe(spanWrap, lineText, ow, bl, oc, c1) {
+    spanWrap.style.display = 'inline-block';
+    spanWrap.style.position = 'relative';
+    spanWrap.style.color = c1;
+    spanWrap.style.webkitTextStroke = 'none';
+    spanWrap.style.textShadow = effShadow(ow, bl, oc);
+    const speed = effSpeed('breathe', 3) * 0.06;
+    const scale = 1 + Math.sin(effT() * speed) * 0.05;
+    spanWrap.style.transform = 'scale(' + scale + ')';
+    spanWrap.innerText = lineText;
+  }
+
+  // Jello (nhún nhảy khi xuất hiện rồi ổn định)
+  function renderJello(spanWrap, lineText, ow, bl, oc, c1) {
+    spanWrap.style.display = 'inline-block';
+    spanWrap.style.position = 'relative';
+    spanWrap.style.color = c1;
+    spanWrap.style.webkitTextStroke = 'none';
+    spanWrap.style.textShadow = effShadow(ow, bl, oc);
+    const speed = effSpeed('jello', 6) * 0.2;
+    const age = (State.subsFrame || 0) % 60;
+    let scaleX = 1, scaleY = 1;
+    if (age < 12) {
+      const t = age / 12;
+      scaleX = 1 - Math.sin(t * Math.PI * 2) * 0.15 * (1 - t);
+      scaleY = 1 + Math.sin(t * Math.PI * 2) * 0.1 * (1 - t);
+    } else {
+      const t = effT() * speed;
+      scaleX = 1 + Math.sin(t * 2) * 0.01;
+      scaleY = 1 - Math.sin(t * 2) * 0.005;
+    }
+    spanWrap.style.transform = 'scale(' + scaleX + ', ' + scaleY + ')';
+    spanWrap.innerText = lineText;
+  }
+
+  // Typewriter: 1 lần duy nhất theo thời gian dòng đã hiển thị (không lặp)
+  function renderTypewriter(spanWrap, lineText, ow, bl, oc, c1, elapsedMs) {
+    spanWrap.style.display = 'inline-block';
+    spanWrap.style.position = 'relative';
+    spanWrap.style.color = c1;
+    spanWrap.style.webkitTextStroke = 'none';
+    spanWrap.style.textShadow = effShadow(ow, bl, oc);
+    spanWrap.style.overflow = 'hidden';
+    spanWrap.style.whiteSpace = 'nowrap';
+    const speed = effSpeed('typewriter', 10) * 0.03;
+    const timeElapsedMs = Math.max(0, Number(elapsedMs) || 0);
+    const charCount = Math.min(Math.floor(timeElapsedMs / (200 / speed)), lineText.length);
+    spanWrap.innerText = lineText.slice(0, charCount) || '';
+  }
+
+  // Pulse / Heartbeat (nhịp đập đôi)
+  function renderPulse(spanWrap, lineText, ow, bl, oc, c1) {
+    spanWrap.style.display = 'inline-block';
+    spanWrap.style.position = 'relative';
+    spanWrap.style.color = c1;
+    spanWrap.style.webkitTextStroke = 'none';
+    spanWrap.style.textShadow = effShadow(ow, bl, oc);
+    const speed = effSpeed('pulse', 6) * 0.15;
+    const t = effT() * speed;
+    const phase = t % (Math.PI * 2);
+    let scale = 1;
+    if (phase < 0.15) scale = 1 + 0.08;
+    else if (phase < 0.3) scale = 1 - 0.02;
+    else if (phase < 0.45) scale = 1 + 0.05;
+    spanWrap.style.transform = 'scale(' + scale + ')';
+    spanWrap.innerText = lineText;
+  }
+
+  // Shake / Quake (rung ngẫu nhiên)
+  function renderShake(spanWrap, lineText, ow, bl, oc, c1) {
+    spanWrap.style.display = 'inline-block';
+    spanWrap.style.position = 'relative';
+    spanWrap.style.color = c1;
+    spanWrap.style.webkitTextStroke = 'none';
+    spanWrap.style.textShadow = effShadow(ow, bl, oc);
+    const intensity = effSpeed('shake', 8) * 0.15;
+    const dx = (Math.random() - 0.5) * intensity * 2;
+    const dy = (Math.random() - 0.5) * intensity * 2;
+    spanWrap.style.transform = 'translate(' + dx + 'px, ' + dy + 'px)';
+    spanWrap.innerText = lineText;
+  }
+
+  // Glitch (lỗi hình ảnh đỏ/xanh lục chớp chớp)
+  function renderGlitch(spanWrap, lineText, ow, bl, oc, c1) {
+    spanWrap.innerHTML = '';
+    spanWrap.style.display = 'inline-block';
+    spanWrap.style.position = 'relative';
+    const speed = effSpeed('glitch', 5) * 0.05;
+    const glitchFrame = Math.sin(effT() * speed);
+    const isGlitch = Math.abs(glitchFrame) > 0.85;
+    const mainSpan = document.createElement('span');
+    mainSpan.textContent = lineText;
+    mainSpan.style.cssText = 'color:' + c1 + ';text-shadow:' + effShadow(ow, bl, oc) + ';position:relative;z-index:2;';
+    spanWrap.appendChild(mainSpan);
+    if (isGlitch) {
+      const glitchRange = glitchFrame * 6;
+      const red = document.createElement('span');
+      red.textContent = lineText;
+      red.style.cssText = 'position:absolute;left:' + glitchRange + 'px;top:0;color:#ff0000;opacity:0.7;z-index:1;text-shadow:none;';
+      spanWrap.appendChild(red);
+      const green = document.createElement('span');
+      green.textContent = lineText;
+      green.style.cssText = 'position:absolute;left:' + (-glitchRange) + 'px;top:0;color:#00ff00;opacity:0.7;z-index:1;text-shadow:none;';
+      spanWrap.appendChild(green);
+    }
+  }
+
+  // Ghosting / Drunk (đi kèm bóng ma lệch)
+  function renderGhosting(spanWrap, lineText, ow, bl, oc, c1) {
+    spanWrap.innerHTML = '';
+    spanWrap.style.display = 'inline-block';
+    spanWrap.style.position = 'relative';
+    const mainSpan = document.createElement('span');
+    mainSpan.textContent = lineText;
+    mainSpan.style.cssText = 'color:' + c1 + ';text-shadow:' + effShadow(ow, bl, oc) + ';position:relative;z-index:3;';
+    spanWrap.appendChild(mainSpan);
+    const speed = effSpeed('ghosting', 3) * 0.08;
+    const t = effT() * speed;
+    const offX = Math.sin(t) * 15;
+    const offY = Math.cos(t * 0.7) * 8;
+    const g1 = document.createElement('span');
+    g1.textContent = lineText;
+    g1.style.cssText = 'position:absolute;left:' + offX + 'px;top:' + offY + 'px;color:' + c1 + ';opacity:0.2;z-index:1;text-shadow:none;filter:blur(3px);';
+    spanWrap.appendChild(g1);
+    const g2 = document.createElement('span');
+    g2.textContent = lineText;
+    g2.style.cssText = 'position:absolute;left:' + (-offX * 0.6) + 'px;top:' + (-offY * 0.6) + 'px;color:' + c1 + ';opacity:0.15;z-index:2;text-shadow:none;filter:blur(5px);';
+    spanWrap.appendChild(g2);
+  }
+
+  // Water Reflection (chữ + bóng phản chiếu lộn ngược mờ)
+  function renderWaterReflection(spanWrap, lineText, ow, bl, oc, c1) {
+    spanWrap.innerHTML = '';
+    spanWrap.style.display = 'inline-block';
+    spanWrap.style.position = 'relative';
+    const mainSpan = document.createElement('span');
+    mainSpan.textContent = lineText;
+    mainSpan.style.cssText = 'color:' + c1 + ';text-shadow:' + effShadow(ow, bl, oc) + ';display:block;';
+    spanWrap.appendChild(mainSpan);
+    const ref = document.createElement('span');
+    ref.textContent = lineText;
+    ref.style.cssText = 'display:block;color:' + c1 + ';text-shadow:' + effShadow(ow, bl, oc) + ';transform:scaleY(-1);opacity:0.35;filter:blur(2px);margin-top:4px;';
+    spanWrap.appendChild(ref);
+  }
+
+  // 3D Block (viền khối cứng 4 lớp)
+  function render3DBlock(spanWrap, lineText, ow, bl, oc, c1) {
+    spanWrap.innerHTML = '';
+    spanWrap.style.display = 'inline-block';
+    spanWrap.style.position = 'relative';
+    spanWrap.style.color = c1;
+    spanWrap.style.webkitTextStroke = 'none';
+    spanWrap.style.textShadow = [
+      '1px 1px 0 ' + oc,
+      '2px 2px 0 ' + oc,
+      '3px 3px 0 ' + oc,
+      '4px 4px 0 ' + oc
+    ].join(',');
+    spanWrap.innerText = lineText;
+  }
+
   // Dispatcher hiệu ứng cho 1 dòng không-karaoke. Nhận spanWrap rỗng rồi đổ nội dung.
-  function renderAssEffect(spanWrap, eff, lineText, ow, bl, oc, c1) {
+  function renderAssEffect(spanWrap, eff, lineText, ow, bl, oc, c1, elapsedMs) {
     if (!eff || eff === 'none') { spanWrap.innerText = lineText; return; }
     if (eff === 'rainbow_outline') renderRainbowOutline(spanWrap, lineText, ow, bl);
     else if (eff === 'rainbow_outline_rgb') renderRainbowOutlineRgb(spanWrap, lineText, ow, bl);
@@ -1158,6 +1322,15 @@
     else if (eff === 'golden') renderGolden(spanWrap, lineText, ow, bl);
     else if (eff === 'float_hover') renderFloatHover(spanWrap, lineText, ow, bl, oc, c1);
     else if (eff === 'glow_pulse') renderGlowPulse(spanWrap, lineText, ow, bl, oc, c1);
+    else if (eff === 'breathe') renderBreathe(spanWrap, lineText, ow, bl, oc, c1);
+    else if (eff === 'jello') renderJello(spanWrap, lineText, ow, bl, oc, c1);
+    else if (eff === 'typewriter') renderTypewriter(spanWrap, lineText, ow, bl, oc, c1, elapsedMs);
+    else if (eff === 'pulse') renderPulse(spanWrap, lineText, ow, bl, oc, c1);
+    else if (eff === 'shake') renderShake(spanWrap, lineText, ow, bl, oc, c1);
+    else if (eff === 'glitch') renderGlitch(spanWrap, lineText, ow, bl, oc, c1);
+    else if (eff === 'ghosting') renderGhosting(spanWrap, lineText, ow, bl, oc, c1);
+    else if (eff === 'water_reflection') renderWaterReflection(spanWrap, lineText, ow, bl, oc, c1);
+    else if (eff === 'd3d_block') render3DBlock(spanWrap, lineText, ow, bl, oc, c1);
     else { spanWrap.style.color = c1; spanWrap.style.textShadow = effShadow(ow, bl, oc); spanWrap.innerText = lineText; }
   }
 
@@ -1637,7 +1810,180 @@
     const kActiveBlur = ((gs.kActive && gs.kActive.blur != null) ? Number(gs.kActive.blur) : 6) * scaleH;
     const kActiveZoom = (gs.kActive && gs.kActive.zoom != null) ? Number(gs.kActive.zoom) : 1.1;
 
+    // ===== KARAOKE + HIỆU ỨNG (ưu tiên effect trước) =====
+    const karaEff = (gs.specialEffect && gs.specialEffect !== 'none') ? gs.specialEffect : null;
+    let _karaCharIdx = 0;
+
+    // Áp hiệu ứng per-âm-tiết lên span (giữ zoom + thời điểm hát). Mirror extension addChar.
+    const applyEffToKaraSyl = (span, eff, txt, useC1, useC3, useOutl, useBl, useZoom) => {
+      const txt2 = txt || '';
+      span.style.transform = 'scale(' + useZoom + ')';
+      if (eff === 'rainbow_outline') {
+        const speedMul = effSpeed('rainbow_outline', 1) * 0.8;
+        const hue = ((State.subsFrame * speedMul) + (_karaCharIdx * 15)) % 360;
+        span.style.color = '#ffffff';
+        if (useOutl > 0) { span.style.textShadow = effShadow(useOutl, useBl, '#ff0000'); span.style.filter = 'hue-rotate(' + hue + 'deg)'; }
+      } else if (eff === 'rainbow_outline_rgb') {
+        span.style.color = '#ffffff';
+        span.style.webkitTextStroke = 'none';
+        const speedMul = effSpeed('rainbow_outline_rgb', 1) * 1.2;
+        const charShift = (200 - ((State.subsFrame * speedMul) % 200) + _karaCharIdx * 5) % 200;
+        if (useOutl > 0) {
+          span.style.background = 'linear-gradient(90deg,#ff0000,#ff7f00,#ffff00,#00ff00,#0000ff,#4b0082,#9400d3,#ff0000)';
+          span.style.backgroundSize = '200% auto';
+          span.style.backgroundPosition = charShift + '% 50%';
+          span.style.webkitBackgroundClip = 'text'; span.style.backgroundClip = 'text';
+          span.style.color = 'transparent';
+          span.style.webkitTextStroke = Math.max(useOutl, 1) * 2 + 'px transparent';
+          span.style.paintOrder = 'stroke fill';
+          span.style.textShadow = effShadow(useOutl, useBl, 'transparent');
+        }
+      } else if (eff === 'rainbow_text') {
+        const speedMul = effSpeed('rainbow_text', 1) * 1.2;
+        const lineShift = 200 - ((State.subsFrame * speedMul) % 200);
+        if (useOutl > 0) span.style.textShadow = effShadow(useOutl, useBl, useC3);
+        span.style.background = 'linear-gradient(90deg,#ff0000,#ff7f00,#ffff00,#00ff00,#0000ff,#4b0082,#9400d3,#ff0000)';
+        span.style.backgroundSize = '200% auto';
+        span.style.backgroundPosition = lineShift + '% 50%';
+        span.style.webkitBackgroundClip = 'text'; span.style.backgroundClip = 'text';
+        span.style.color = 'transparent';
+        span.style.webkitTextFillColor = 'transparent';
+      } else if (eff === 'sine_wave') {
+        span.style.color = useC1;
+        span.style.textShadow = effShadow(useOutl, useBl, useC3);
+        const amp = (gs.sineWaveAmplitude != null ? gs.sineWaveAmplitude : 2);
+        const speed = effSpeed('sine_wave', 8) * 0.3;
+        const yOff = Math.sin(effT() * speed + _karaCharIdx * 0.5) * -amp;
+        span.style.transform = 'scale(' + useZoom + ') translateY(' + yOff + 'px)';
+      } else if (eff === 'shine_sweep' || eff === 'water_reflection' || eff === 'typewriter' ||
+                 eff === 'float_hover' || eff === 'breathe' || eff === 'jello' || eff === 'pulse' || eff === 'shake') {
+        span.style.color = useC1;
+        span.style.textShadow = effShadow(useOutl, useBl, useC3);
+      } else if (eff === 'split_color') {
+        span.style.color = 'transparent';
+        span.style.textShadow = effShadow(useOutl, useBl, useC3);
+        span.style.background = 'linear-gradient(180deg, #ffffff 0%, #ffffff 50%, #4488ff 50%, #4488ff 100%)';
+        span.style.webkitBackgroundClip = 'text'; span.style.backgroundClip = 'text';
+      } else if (eff === 'retro_80s') {
+        span.style.color = '#ff44ff';
+        span.style.textShadow = ['2px 2px 0 #00ffff','4px 4px 0 #00ffff','6px 6px 0 #00ffff','8px 8px 0 #00ffff','10px 10px 0 #00ffff', '0 0 ' + Math.max(useBl, 2) + 'px #ff44ff'].join(',');
+        span.style.fontWeight = 'bold';
+      } else if (eff === 'golden') {
+        span.style.color = 'transparent';
+        span.style.textShadow = effShadow(useOutl, useBl, '#8b6914');
+        span.style.background = 'linear-gradient(180deg, #d4a017 0%, #fff8dc 30%, #d4a017 50%, #b8860b 70%, #d4a017 100%)';
+        span.style.webkitBackgroundClip = 'text'; span.style.backgroundClip = 'text';
+      } else if (eff === 'd3d_block') {
+        const shadows = [];
+        for (let i = 1; i <= 4; i++) shadows.push(i + 'px ' + i + 'px 0 ' + useC3);
+        span.style.color = useC1;
+        span.style.textShadow = shadows.join(',');
+      } else if (eff === 'glow_pulse') {
+        const speed = effSpeed('glow_pulse', 5) * 0.08;
+        const breathe = 0.5 + Math.sin(effT() * speed) * 0.5;
+        const pulseBlur = Math.max(0, useBl * breathe);
+        const pulseOw = Math.max(0, useOutl * (0.5 + breathe * 0.5));
+        span.style.color = useC1;
+        span.style.textShadow = effShadow(pulseOw, pulseBlur, useC3);
+      } else {
+        span.style.color = useC1;
+        span.style.textShadow = effShadow(useOutl, useBl, useC3);
+      }
+      _karaCharIdx += txt2.length;
+    };
+
+    const karaEffText = (s) => (s === ' ' ? '\u00A0' : s);
+
+    // Áp hiệu ứng mức cả dòng lên lineDiv (đã chứa các span âm tiết).
+    const applyKaraLineEffect = (lineDiv, eff, lineText) => {
+      if (!eff) return;
+      if (eff === 'shine_sweep') {
+        const wrapper = document.createElement('span');
+        wrapper.style.cssText = 'display:inline-block;position:relative;white-space:pre;';
+        while (lineDiv.firstChild) wrapper.appendChild(lineDiv.firstChild);
+        lineDiv.appendChild(wrapper);
+        const speed = effSpeed('shine_sweep', 4) * 0.08;
+        const pos = ((State.subsFrame * speed * 100) % 200) - 50;
+        const shine = document.createElement('div');
+        shine.textContent = lineText;
+        shine.style.cssText = 'position:absolute;left:0;top:0;width:100%;height:100%;color:#fff;pointer-events:none;white-space:pre;z-index:10;text-shadow:none;-webkit-mask-image:linear-gradient(90deg,transparent 28%,#000 48%,#000 52%,transparent 72%);-webkit-mask-size:200% auto;-webkit-mask-position:' + pos + '% 50%;mask-image:linear-gradient(90deg,transparent 28%,#000 48%,#000 52%,transparent 72%);mask-size:200% auto;mask-position:' + pos + '% 50%;';
+        wrapper.appendChild(shine);
+      } else if (eff === 'float_hover') {
+        const speed = effSpeed('float_hover', 5) * 0.1;
+        const yOff = Math.sin(effT() * speed) * 8;
+        lineDiv.style.transform = 'translateY(' + yOff + 'px)';
+      } else if (eff === 'breathe') {
+        const speed = effSpeed('breathe', 3) * 0.06;
+        const scale = 1 + Math.sin(effT() * speed) * 0.05;
+        lineDiv.style.transform = 'scale(' + scale + ')';
+      } else if (eff === 'jello') {
+        const age = (State.subsFrame || 0) % 60;
+        let scaleX = 1, scaleY = 1;
+        if (age < 12) { const t = age / 12; scaleX = 1 - Math.sin(t * Math.PI * 2) * 0.15 * (1 - t); scaleY = 1 + Math.sin(t * Math.PI * 2) * 0.1 * (1 - t); }
+        else { const t = effT(); scaleX = 1 + Math.sin(t * 2) * 0.01; scaleY = 1 - Math.sin(t * 2) * 0.005; }
+        lineDiv.style.transform = 'scale(' + scaleX + ', ' + scaleY + ')';
+      } else if (eff === 'pulse') {
+        const t = effT();
+        const phase = t % (Math.PI * 2);
+        let scale = 1;
+        if (phase < 0.15) scale = 1 + 0.08;
+        else if (phase < 0.3) scale = 1 - 0.02;
+        else if (phase < 0.45) scale = 1 + 0.05;
+        lineDiv.style.transform = 'scale(' + scale + ')';
+      } else if (eff === 'shake') {
+        const intensity = effSpeed('shake', 8) * 0.15;
+        const dx = (Math.random() - 0.5) * intensity * 2;
+        const dy = (Math.random() - 0.5) * intensity * 2;
+        lineDiv.style.transform = 'translate(' + dx + 'px, ' + dy + 'px)';
+      } else if (eff === 'glitch') {
+        const speed = effSpeed('glitch', 5) * 0.05;
+        const glitchFrame = Math.sin(effT() * speed);
+        const isGlitch = Math.abs(glitchFrame) > 0.85;
+        if (isGlitch) {
+          const glitchRange = glitchFrame * 6;
+          const rDiv = document.createElement('div');
+          rDiv.style.cssText = 'position:absolute;left:' + glitchRange + 'px;top:0;color:#ff0000;opacity:0.6;z-index:1;pointer-events:none;white-space:pre;';
+          rDiv.textContent = lineText;
+          lineDiv.appendChild(rDiv);
+          const gDiv = document.createElement('div');
+          gDiv.style.cssText = 'position:absolute;left:' + (-glitchRange) + 'px;top:0;color:#00ff00;opacity:0.6;z-index:1;pointer-events:none;white-space:pre;';
+          gDiv.textContent = lineText;
+          lineDiv.appendChild(gDiv);
+        }
+      } else if (eff === 'ghosting') {
+        lineDiv.style.position = 'relative';
+        const speed = effSpeed('ghosting', 3) * 0.08;
+        const t = effT() * speed;
+        const offX = Math.sin(t) * 15;
+        const offY = Math.cos(t * 0.7) * 8;
+        const g1 = document.createElement('div');
+        g1.style.cssText = 'position:absolute;left:' + offX + 'px;top:' + offY + 'px;color:' + c1 + ';opacity:0.2;z-index:1;filter:blur(3px);pointer-events:none;white-space:pre;';
+        g1.textContent = lineText;
+        lineDiv.appendChild(g1);
+        const g2 = document.createElement('div');
+        g2.style.cssText = 'position:absolute;left:' + (-offX * 0.6) + 'px;top:' + (-offY * 0.6) + 'px;color:' + c1 + ';opacity:0.15;z-index:1;filter:blur(5px);pointer-events:none;white-space:pre;';
+        g2.textContent = lineText;
+        lineDiv.appendChild(g2);
+      } else if (eff === 'water_reflection') {
+        const ref = document.createElement('div');
+        ref.textContent = lineText;
+        ref.style.cssText = 'color:' + c1 + ';text-shadow:' + effShadow(ow, bl, c3) + ';transform:scaleY(-1);opacity:0.35;filter:blur(2px);margin-top:4px;pointer-events:none;white-space:pre;';
+        lineDiv.appendChild(ref);
+      } else if (eff === 'typewriter') {
+        const speed = effSpeed('typewriter', 10) * 0.03;
+        const timeElapsedMs = Math.max(0, nowMs);
+        const charCount = Math.min(Math.floor(timeElapsedMs / (200 / speed)), lineText.length);
+        let shown = 0;
+        Array.from(lineDiv.children).forEach((child) => {
+          const tl = child.textContent || '';
+          if (shown >= charCount) { child.style.display = 'none'; return; }
+          shown += tl.length;
+        });
+      }
+    };
+
     if (groups) {
+      _karaCharIdx = 0;
       groups.forEach((g, li) => {
         const lineDiv = makeLineDiv(baseY + li * lineSpacing);
         applyBox(lineDiv);
@@ -1721,11 +2067,20 @@
                 useZoom = Number(k.zoom) || 1.0;
               }
             }
-            applySylStyle(span, useC1, useC3, useOutl, useBl, useZoom, useFs);
+            if (karaEff) {
+              span.textContent = karaEffText(syl.text);
+              applyEffToKaraSyl(span, karaEff, syl.text, useC1, useC3, useOutl, useBl, useZoom);
+            } else {
+              span.textContent = syl.text;
+              applySylStyle(span, useC1, useC3, useOutl, useBl, useZoom, useFs);
+            }
             lineDiv.appendChild(span);
           });
+          // Hiệu ứng mức cả dòng (transform / overlay) — ưu tiên effect trước.
+          if (karaEff) applyKaraLineEffect(lineDiv, karaEff, g.line);
         } else {
           lineDiv.textContent = g.line;
+          if (karaEff) applyKaraLineEffect(lineDiv, karaEff, g.line);
         }
       });
     } else {
@@ -1743,7 +2098,7 @@
           const spanWrap = document.createElement('span');
           spanWrap.style.display = 'inline-block';
           spanWrap.style.fontSize = fs + 'px';
-          renderAssEffect(spanWrap, eff, plain, ow, bl, c3, c1);
+          renderAssEffect(spanWrap, eff, plain, ow, bl, c3, c1, nowMs);
           lineDiv.appendChild(spanWrap);
           return;
         }
@@ -2466,6 +2821,15 @@
     { v: 'retro_80s', l: '🌴 80s Retro' },
     { v: 'golden', l: '🏆 Golden Text' },
     { v: 'float_hover', l: '🎈 Float / Hover' },
+    { v: 'breathe', l: '🌬️ Breathe' },
+    { v: 'jello', l: '🍮 Jello' },
+    { v: 'typewriter', l: '⌨️ Typewriter' },
+    { v: 'pulse', l: '💓 Pulse / Heartbeat' },
+    { v: 'shake', l: '🌊 Shake' },
+    { v: 'glitch', l: '👾 Glitch' },
+    { v: 'ghosting', l: '👻 Ghosting' },
+    { v: 'water_reflection', l: '🪞 Water Reflection' },
+    { v: 'd3d_block', l: '🧊 3D Block' },
     { v: 'glow_pulse', l: '💫 Glow Pulse' }
   ];
   function getEffectOptionsHTML(current) {
