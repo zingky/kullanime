@@ -1604,10 +1604,6 @@ select.input option { background: #141a2d; color: var(--text); }
 .style-chip.chip-hidden { opacity: .45; }
 .style-chip .style-chip-name { max-width: 120px; overflow: hidden; text-overflow: ellipsis; }
 .style-chip .style-chip-marquee { width: 10ch; max-width: 10ch; overflow: hidden; display: inline-flex; white-space: nowrap; flex-shrink: 0; }
-.style-chip .style-chip-eye { font-size: 10px; cursor: pointer; flex-shrink: 0; opacity: .85; }
-.style-chip .style-chip-eye:hover { opacity: 1; transform: scale(1.15); }
-.style-chip .sub-reset-style { font-size: 9px; color: #ffaa00; cursor: pointer; flex-shrink: 0; opacity: .75; }
-.style-chip .sub-reset-style:hover { opacity: 1; }
 
 /* Panel chi tiết cho style đang chọn */
 .style-detail {
@@ -1629,6 +1625,29 @@ select.input option { background: #141a2d; color: var(--text); }
 .sub-panel .adv-lab { font-size: 9px; font-weight: 700; color: #9aa3b8; width: 14px; flex-shrink: 0; }
 .sub-panel .adv-grid input[type="color"] { width: 24px; height: 22px; padding: 0; border: 1px solid rgba(255,255,255,0.15); border-radius: 4px; cursor: pointer; flex-shrink: 0; }
 .sub-panel .adv-grid input[type="number"] { width: 42px; min-width: 0; padding: 2px 3px; font-size: 10px; text-align: center; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.15); border-radius: 5px; color: #eef2ff; flex-shrink: 0; }
+/* Hàng số của style (Cỡ chữ / Viền chữ / Blur): tách riêng khỏi hàng 1C/2C/3C màu */
+.sub-panel .adv-grid.adv-grid-num { margin-top: 6px; flex-wrap: nowrap; }
+.sub-panel .adv-grid.adv-grid-num .adv-cell-num { flex-direction: column; align-items: stretch; gap: 2px; min-width: 0; }
+.sub-panel .adv-grid.adv-grid-num .adv-lab { width: auto; min-width: 0; text-align: center; font-size: 9px; letter-spacing: 0; }
+.sub-panel .adv-grid.adv-grid-num .num-stepper { justify-content: stretch; }
+.sub-panel .adv-grid.adv-grid-num .num-stepper input[type="number"] { width: auto; flex: 1 1 auto; min-width: 20px; }
+/* Nút ▲▼ tăng/giảm nhanh cho ô số không có thanh trượt */
+.sub-panel .num-stepper { display: inline-flex; align-items: center; gap: 1px; flex-shrink: 0; }
+.sub-panel .num-step {
+  width: 18px; height: 22px; padding: 0; border: 1px solid rgba(255,255,255,0.12);
+  background: rgba(255,255,255,0.05); color: #ffd54a; font-size: 9px; line-height: 1;
+  border-radius: 5px; cursor: pointer; flex-shrink: 0;
+  display: inline-flex; align-items: center; justify-content: center;
+  transition: background .12s ease, color .12s ease;
+}
+.sub-panel .num-step:hover { background: rgba(255,213,74,0.15); color: #fff; }
+.sub-panel .num-step:active { transform: translateY(1px); }
+.sub-panel .num-step-dn { color: #9aa3b8; }
+.sub-panel .num-step-dn:hover { background: rgba(248,113,113,0.15); color: #f87171; }
+/* Ô số bên trong bộ ▲▼: gọn lại (thay thế width 43px của .num-in) */
+.sub-panel .num-stepper .num-in { width: 34px !important; max-width: 34px !important; min-width: 26px; font-size: 10px; }
+/* Zoom/In-out của tab karaoke nay có ▲▼ → cho phép xuống hàng khi hẹp */
+.sub-panel .k-colorzoom-row { flex-wrap: wrap; }
 /* Slider mảnh → to & bắt mắt hơn */
 /* Thanh ngang nằm ở pseudo ::-webkit-slider-runnable-track (đảm bảo hiện thanh trượt rõ,
    không chỉ mỗi quả núm — tránh lỗi thanh nền bị mất trên Chrome/Edge */ 

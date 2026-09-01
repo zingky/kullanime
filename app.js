@@ -2878,10 +2878,10 @@
         '<span class="k-col"><i>1c</i><input type="color" data-k="' + key + '" data-type="c1" value="' + (obj.c1 || '#ffffff') + '"></span>' +
         '<span class="k-col"><i>3c</i><input type="color" data-k="' + key + '" data-type="c3" value="' + (obj.c3 || '#000000') + '"></span>' +
         '<label class="k-zoom-lab" style="white-space:nowrap;">Zoom</label>' +
-        '<input type="number" data-k="' + key + '" data-type="zoom" value="' + zoomPct + '" class="num-in" step="5" min="20" max="300"><span class="sub-pct">%</span>' +
+        numStepperHTML('<input type="number" data-k="' + key + '" data-type="zoom" value="' + zoomPct + '" class="num-in" step="5" min="20" max="300">', 5) + '<span class="sub-pct">%</span>' +
         (isAct ? '<span class="sub-foot-sep"></span>' +
           '<span class="k-inout-lab" style="white-space:nowrap;">In/Out</span>' +
-          '<input type="number" data-k="' + key + '" data-type="zDur" value="' + (obj.zDur != null ? obj.zDur : 100) + '" class="num-in" step="10" min="0">' +
+          numStepperHTML('<input type="number" data-k="' + key + '" data-type="zDur" value="' + (obj.zDur != null ? obj.zDur : 100) + '" class="num-in" step="10" min="0">', 10) +
           '<span class="sub-pct">ms</span>' : '') +
       '</div>';
   }
@@ -3010,9 +3010,9 @@
           '<div class="sub-foot-row sub-ts-row sub-ft-fade-ts">' +
             '<div class="sub-fade-group">' +
               '<label class="sub-fade-lab">Fade In:</label>' +
-              '<input type="number" id="g-fadIn" value="' + (gs.fadIn || 200) + '" class="num-in sub-fade-in" min="0" max="2000">' +
+              numStepperHTML('<input type="number" id="g-fadIn" value="' + (gs.fadIn || 200) + '" class="num-in sub-fade-in" min="0" max="2000" step="10">', 10) +
               '<label class="sub-fade-out-lab">Out:</label>' +
-              '<input type="number" id="g-fadOut" value="' + (gs.fadOut || 200) + '" class="num-in sub-fade-out" min="0" max="2000">' +
+              numStepperHTML('<input type="number" id="g-fadOut" value="' + (gs.fadOut || 200) + '" class="num-in sub-fade-out" min="0" max="2000" step="10">', 10) +
             '</div>' +
             '<div class="sub-ts-bar">' +
               '<span class="sub-ts-ico" title="Timeshift">⏱</span>' +
@@ -3130,6 +3130,44 @@
   // 1) Hàng tab ngang: mỗi style = 1 chip (tên + 👁️ ẩn/hiện + ⟳ reset)
   // 2) Panel chi tiết: hiển thị các thanh chỉnh cho style đang chọn
   // 3) Headbar "🎨 Style … ↺ ALL" được đặt dưới toàn bộ (xem buildSubPopupHTML)
+  // ── Widget tăng/giảm nhanh (▲▼) cho ô nhập số KHÔNG có thanh trượt ──
+  // Dùng trong menu cài đặt phụ đề (Style tab, Global tab, All tab). Bọc input number
+  // với 2 nút mũi tên tăng/giảm theo bước cho sẵn; click nút sẽ điều chỉnh giá trị
+  // và phát sự kiện input để logic renderer cập nhật như gõ tay.
+  function numStepperHTML(inputHTML, step) {
+    return '<span class="num-stepper">' +
+        '<button type="button" class="num-step num-step-dn" data-step="' + step + '" title="Giảm ' + step + '" tabindex="-1">▼</button>' +
+        inputHTML +
+        '<button type="button" class="num-step num-step-up" data-step="' + step + '" title="Tăng ' + step + '" tabindex="-1">▲</button>' +
+      '</span>';
+  }
+  // Delegate: bấm ▲▼ trong popup cài đặt → tăng/giảm ô số liền kề rồi phát 'input'
+  function wireNumSteppers(root) {
+    if (!root) return;
+    if (root.__numSteppersWired) return;
+    root.__numSteppersWired = true;
+    root.addEventListener('click', (e) => {
+      const btn = e.target.closest('.num-step');
+      if (!btn) return;
+      e.preventDefault();
+      const stepBox = btn.closest('.num-stepper');
+      if (!stepBox) return;
+      const input = stepBox.querySelector('input[type="number"], input:not([type])');
+      if (!input) return;
+      const delta = btn.classList.contains('num-step-up') ? 1 : -1;
+      const step = parseFloat(btn.dataset.step) || 1;
+      let v = parseFloat(input.value);
+      if (!isFinite(v)) v = 0;
+      v = Math.round((v + delta * step) * 100) / 100;
+      const min = input.hasAttribute('min') ? parseFloat(input.min) : -Infinity;
+      const max = input.hasAttribute('max') ? parseFloat(input.max) : Infinity;
+      if (!isNaN(min) && v < min) v = min;
+      if (!isNaN(max) && v > max) v = max;
+      input.value = v;
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+  }
+
   function renderSubStyleItems() {
     const container = $('#sub-style-items');
     if (!container) return;
@@ -3170,35 +3208,14 @@
       var chipName = sName.length > 10
         ? '<span class="style-chip-name style-chip-marquee" title="' + esc(sName) + '"><span class="sub-ctx-scroll"><span class="sub-ctx-text">' + esc(sName) + '</span><span class="sub-ctx-text">' + esc(sName) + '</span></span></span>'
         : '<span class="style-chip-name">' + esc(sName) + '</span>';
-      chip.innerHTML =
-        chipName +
-        '<span class="style-chip-eye" data-style="' + esc(sName) + '" title="Ẩn / hiện style này">' + (s.visible ? '👁️' : '🚫') + '</span>' +
-        '<span class="sub-reset-style" data-style="' + esc(sName) + '" title="Reset style này về gốc">⟳</span>';
+      chip.innerHTML = chipName;
       // Chọn chip → hiện panel chi tiết của style đó
-      chip.addEventListener('click', (e) => {
+      chip.addEventListener('click', () => {
         if (tabRow._dragged) { tabRow._dragged = false; return; }
-        if (e.target.closest('.style-chip-eye') || e.target.closest('.sub-reset-style')) return;
         if (State._subActiveStyle === sName) return;
         State._subActiveStyle = sName;
         renderSubStyleItems();
       });
-      // 👁️ ẩn / hiện trực tiếp trên chip (không render lại toàn bộ)
-      chip.querySelector('.style-chip-eye').onclick = (e) => {
-        e.stopPropagation();
-        s.visible = !s.visible;
-        chip.classList.toggle('chip-hidden', !s.visible);
-        e.target.textContent = s.visible ? '👁️' : '🚫';
-        saveSubSettings();
-        if (State.subsEnabled) updateCurrentSubtitle();
-      };
-      // ⟳ reset riêng style này
-      chip.querySelector('.sub-reset-style').onclick = (e) => {
-        e.stopPropagation();
-        resetOneStyle(s);
-        saveSubSettings();
-        renderSubStyleItems();
-        if (State.subsEnabled) updateCurrentSubtitle();
-      };
       tabRow.appendChild(chip);
     });
     container.appendChild(tabRow);
@@ -3206,7 +3223,6 @@
     // Kéo chuột để cuộn ngang trên desktop
     let isDown = false, startX = 0, scrollLeft = 0;
     tabRow.addEventListener('mousedown', (e) => {
-      if (e.target.closest('.style-chip-eye') || e.target.closest('.sub-reset-style')) return;
       isDown = true; startX = e.pageX - tabRow.offsetLeft; scrollLeft = tabRow.scrollLeft;
     });
     tabRow.addEventListener('mouseleave', () => { isDown = false; tabRow.classList.remove('dragging'); });
@@ -3244,9 +3260,11 @@
             '<div class="adv-cell"><span class="adv-lab">1C</span><input type="color" data-style="' + esc(active) + '" data-type="color1" value="' + (s.color1 || '#ffffff') + '"></div>' +
             '<div class="adv-cell"><span class="adv-lab">2C</span><input type="color" data-style="' + esc(active) + '" data-type="color2" value="' + (s.color2 || '#ffffff') + '"></div>' +
             '<div class="adv-cell"><span class="adv-lab">3C</span><input type="color" data-style="' + esc(active) + '" data-type="color3" value="' + (s.color3 || '#000000') + '"></div>' +
-            '<div class="adv-cell"><span class="adv-lab">S</span><input type="number" data-style="' + esc(active) + '" data-type="fontSize" min="10" max="200" step="1" value="' + (s.fontSize || s.origFontSize || 25) + '"></div>' +
-            '<div class="adv-cell"><span class="adv-lab">O</span><input type="number" data-style="' + esc(active) + '" data-type="outlineWidth" min="0" max="30" step="0.5" value="' + (s.outlineWidth || 2) + '"></div>' +
-            '<div class="adv-cell"><span class="adv-lab">B</span><input type="number" data-style="' + esc(active) + '" data-type="blur" min="0" max="50" step="0.5" value="' + (s.blur != null ? s.blur : 2) + '"></div>' +
+          '</div>' +
+          '<div class="adv-grid adv-grid-num">' +
+            '<div class="adv-cell adv-cell-num"><span class="adv-lab">Cỡ chữ</span>' + numStepperHTML('<input type="number" data-style="' + esc(active) + '" data-type="fontSize" min="10" max="200" step="1" value="' + (s.fontSize || s.origFontSize || 25) + '">', 1) + '</div>' +
+            '<div class="adv-cell adv-cell-num"><span class="adv-lab">Viền chữ</span>' + numStepperHTML('<input type="number" data-style="' + esc(active) + '" data-type="outlineWidth" min="0" max="30" step="1" value="' + (s.outlineWidth || 2) + '">', 1) + '</div>' +
+            '<div class="adv-cell adv-cell-num"><span class="adv-lab">Blur</span>' + numStepperHTML('<input type="number" data-style="' + esc(active) + '" data-type="blur" min="0" max="50" step="1" value="' + (s.blur != null ? s.blur : 2) + '">', 1) + '</div>' +
           '</div>';
     container.appendChild(detail);
 
@@ -3292,6 +3310,9 @@
 function setupSubPopupEvents() {
     const popup = _subPopupEl;
     if (!popup) return;
+
+    // API tăng/giảm ▲▼ cho các ô số không có thanh trượt
+    wireNumSteppers(popup);
 
     // ── Khởi tạo liquid-glass indicator cho các tab bar ──
     const mtabs = popup.querySelector('.sub-mtabs');
