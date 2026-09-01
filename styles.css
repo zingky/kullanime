@@ -128,10 +128,16 @@ p, h1, h2, h3, h4, h5, h6, li, a, span, div, td, th {
 .brand-name em { font-style: normal; background: var(--grad); -webkit-background-clip: text; background-clip: text; color: transparent; }
 .brand-logo { font-size: 24px; line-height: 1; filter: drop-shadow(0 0 8px rgba(168,85,247,0.6)); flex-shrink: 0; }
 
-.main-nav { display: flex; gap: 4px; background: rgba(255, 255, 255, 0.06); padding: 4px; border-radius: 14px; border: var(--glass-border); }
-.nav-tab { display: inline-flex; align-items: center; gap: 6px; padding: 8px 14px; border: none; background: transparent; color: var(--text-dim); border-radius: 11px; cursor: pointer; font-weight: 600; font-size: 14px; transition: all 0.18s ease; white-space: nowrap; }
-.nav-tab:hover { color: var(--text); background: rgba(255,255,255,0.05); }
-.nav-tab.active { background: var(--grad); color: #fff; box-shadow: 0 6px 18px rgba(168, 85, 247, 0.45); }
+.main-nav { position: relative; display: flex; gap: 4px; background: rgba(255, 255, 255, 0.06); padding: 4px; border-radius: 14px; border: var(--glass-border); overflow: visible; }
+.nav-ind {
+  position: absolute; top: 4px; left: 4px; height: calc(100% - 8px); z-index: 0;
+  background: var(--grad); border-radius: 11px; box-shadow: 0 6px 18px rgba(168, 85, 247, 0.45);
+  transition: transform .3s cubic-bezier(.22,.68,.35,1.08), width .3s cubic-bezier(.22,.68,.35,1.08);
+  will-change: transform, width; pointer-events: none;
+}
+.nav-tab { position: relative; z-index: 1; display: inline-flex; align-items: center; gap: 6px; padding: 8px 14px; border: none; background: transparent; color: var(--text-dim); border-radius: 11px; cursor: pointer; font-weight: 600; font-size: 14px; transition: color 0.18s ease; white-space: nowrap; }
+.nav-tab:hover { color: var(--text); }
+.nav-tab.active { color: #fff; }
 .nav-tab .tab-icon { font-size: 16px; }
 .header-actions { display: flex; align-items: center; gap: 8px; }
 
@@ -347,10 +353,16 @@ select.input { appearance: none; -webkit-appearance: none; background-image: url
 .sub-panel input[type="color"] { width: 31px; height: 25px; border: 1px solid #444; background: rgba(255,255,255,0.1); padding: 2px; cursor: pointer; border-radius: 3px; }
 .sub-panel select { background: #222 !important; color: #fff !important; border: 1px solid #555 !important; border-radius: 3px; font-size: 11px; padding: 2px 4px; }
 .sub-panel select option { background: #222; color: #fff; }
-.sub-panel .pill-tabs { display: flex; gap: 4px; margin-bottom: 8px; }
-.sub-panel .pill-tab { flex: 1; padding: 6px 4px; border-radius: 20px; border: 1px solid rgba(255,255,255,0.15); background: rgba(255,255,255,0.05); color: #aaa; font-size: 10px; font-weight: bold; cursor: pointer; text-align: center; transition: all .2s ease; user-select: none; }
-.sub-panel .pill-tab:hover { background: rgba(255,255,255,0.1); color: #fff; }
-.sub-panel .pill-tab.active { background: #3ea6ff; border-color: #3ea6ff; color: #fff; box-shadow: 0 0 12px rgba(62,166,255,0.3); }
+.sub-panel .pill-tabs { position: relative; display: flex; gap: 4px; margin-bottom: 8px; }
+.sub-panel .pill-ind {
+  position: absolute; top: 0; left: 0; height: 100%; z-index: 0;
+  background: #3ea6ff; border-radius: 20px; box-shadow: 0 0 12px rgba(62,166,255,0.3);
+  transition: transform .3s cubic-bezier(.22,.68,.35,1.08), width .3s cubic-bezier(.22,.68,.35,1.08);
+  will-change: transform, width; pointer-events: none;
+}
+.sub-panel .pill-tab { position: relative; z-index: 1; flex: 1; padding: 6px 4px; border-radius: 20px; border: 1px solid rgba(255,255,255,0.15); background: rgba(255,255,255,0.05); color: #aaa; font-size: 10px; font-weight: bold; cursor: pointer; text-align: center; transition: color .2s ease; user-select: none; }
+.sub-panel .pill-tab:hover { color: #fff; }
+.sub-panel .pill-tab.active { color: #fff; }
 .sub-panel .pill-panel { display: none; animation: subFadeIn .2s ease; }
 .sub-panel .pill-panel.open { display: block; }
 @keyframes subFadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
@@ -1230,7 +1242,7 @@ html[data-theme="light"] .modal { background: rgba(255, 255, 255, 0.72); }
   background: rgba(255, 255, 255, 0.03); flex-shrink: 0; font-size: 10px;
 }
 .sub-panel-footer .sub-foot-row {
-  display: flex; align-items: center; gap: 5px; flex-wrap: nowrap;
+  display: flex; align-items: center; gap: 5px; flex-wrap: wrap;
   background: rgba(255,255,255,0.05); padding: 4px 6px; border-radius: 5px;
 }
 .sub-panel-footer .sub-foot-row label { color: #aaa; font-weight: bold; font-size: .75em; white-space: nowrap; }
@@ -1456,24 +1468,45 @@ select.input option { background: #141a2d; color: var(--text); }
 .sub-ts-bar #sub-ts-zero { border-color: rgba(255,107,107,.4); color: #ff8e8e; }
 
 .sub-mtabs {
-  display: flex; gap: 4px; padding: 4px; margin-bottom: 10px;
+  position: relative; z-index: 2; display: flex; gap: 4px; padding: 4px; margin-bottom: 10px;
   background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1);
   border-radius: 14px;
+  overflow-x: auto; scrollbar-width: none; -ms-overflow-style: none;
+  scroll-snap-type: x proximity; -webkit-overflow-scrolling: touch;
+}
+.sub-mtabs::-webkit-scrollbar { display: none; }
+.sub-mtab-ind {
+  position: absolute; top: 4px; left: 4px; height: calc(100% - 8px); z-index: 0;
+  background: linear-gradient(135deg, #3ea6ff, #6366f1); border-radius: 11px;
+  box-shadow: 0 4px 14px rgba(62,166,255,0.35);
+  transition: transform .3s cubic-bezier(.22,.68,.35,1.08), width .3s cubic-bezier(.22,.68,.35,1.08);
+  will-change: transform, width; pointer-events: none;
 }
 .sub-mtab {
-  flex: 1; padding: 8px 4px; border-radius: 11px; border: none; cursor: pointer;
+  position: relative; z-index: 1; flex: 1 0 84px; min-width: 84px; padding: 8px 4px; border-radius: 11px; border: none; cursor: pointer;
   background: transparent; color: #9aa3b8; font-size: 11px; font-weight: 700;
-  text-align: center; transition: all .18s ease; user-select: none;
+  text-align: center; transition: color .18s ease; user-select: none;
+  scroll-snap-align: center;
 }
-.sub-mtab:hover { color: #fff; background: rgba(255,255,255,0.07); }
-.sub-mtab.active {
-  background: linear-gradient(135deg, #3ea6ff, #6366f1); color: #fff;
-  box-shadow: 0 4px 14px rgba(62,166,255,0.35);
+.sub-mtab:hover { color: #fff; }
+.sub-mtab.active { color: #fff; }
+/* Mode-on: luôn highlight 1 trong 2 tab Global/Style theo mode đang chọn (kể cả khi All/Effect mở) */
+.sub-mtab.mode-on:not(.active) {
+  color: #cfd6ff; background: rgba(62,166,255,0.14);
+  box-shadow: inset 0 0 0 1px rgba(62,166,255,0.35);
 }
+.sub-mtab.mode-on:not(.active)::after {
+  content: '●'; display: inline-block; margin-left: 4px; font-size: 7px;
+  vertical-align: middle; color: #3ea6ff;
+}
+/* Thanh tab cuộn ngang: chống ngắn hơn tổng chiều rộng 4 tab khi panel hẹp */
+.sub-mtab:last-child { scroll-snap-align: end; }
 .sub-mtab-panel { animation: subFadeIn .2s ease; }
-/* Căn đều nội dung cả 2 tab: thêm padding ngang để nội dung align với timeshift bar + tab header */
+/* Căn đều nội dung các tab: thêm padding ngang để nội dung align với timeshift bar + tab header */
 .sub-mtab-panel[data-m="styles"] { padding: 4px 2px 0; }
 .sub-mtab-panel[data-m="effect"] { padding: 4px 2px 0; }
+.sub-mtab-panel[data-m="all"] { padding: 2px 2px 0; }
+.sub-mtab-panel[data-m="all"] .sub-panel-footer { border:none; background:transparent; padding: 0; }
 #sub-style-items { display: flex; flex-direction: column; gap: 8px; }
 /* ---- Tab Effect ---- */
 .sub-panel .sub-mtab-panel[data-m="effect"] select {

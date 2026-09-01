@@ -1471,7 +1471,7 @@
         const end = parseAssTime((p[2] || '').trim());
         if (start == null || end == null) continue;
         const style = (p[3] || '').trim();
-        const rawText = p.slice(9).join(',').trim();
+        const rawText = p.slice(9).join(',').trim().replace(/\\h/g, ' ');
         if (!rawText) continue;
         subtitles.push(assembleCue(rawText, style, styleSettings, playResX, playResY, start, end));
       }
@@ -2088,7 +2088,7 @@
       (cue.rawLines || []).forEach((ln, li) => {
         const lineDiv = makeLineDiv(baseY + li * lineSpacing);
         applyBox(lineDiv);
-        const plain = String(ln).replace(/\{[^}]*\}/g, '');
+        const plain = String(ln).replace(/\{[^}]*\}/g, ' ').replace(/\\h/g, ' ');
 
         if (eff) {
           // Hiệu ứng đặc biệt: lineDiv giữ vị trí/cỡ chữ, nội dung nằm trong spanWrap.
@@ -2983,14 +2983,59 @@
         '<button type="button" class="sub-gtb-reset" id="sub-gtb-reset" title="Về mặc định: cỡ 100%, bỏ chọn B/I/U/S, font mặc định">⟳</button>' +
       '</div>' +
 
-      // ---------- 3 tab lớn: Cài đặt chung / Cài đặt từng style / Hiệu ứng ----------
+      // ---------- 4 tab lớn: All / Global / Style / Effect ----------
       '<div class="sub-mtabs" role="tablist">' +
-        '<button type="button" class="sub-mtab' + (activeM === 'common' ? ' active' : '') + '" data-m="common" role="tab">🌍 Use Global</button>' +
-        '<button type="button" class="sub-mtab' + (activeM === 'styles' ? ' active' : '') + '" data-m="styles" role="tab">🎨 Use Style</button>' +
+        '<span class="sub-mtab-ind" aria-hidden="true"></span>' +
+        '<button type="button" class="sub-mtab' + (activeM === 'all' ? ' active' : '') + '" data-m="all" role="tab">🗂 All</button>' +
+        '<button type="button" class="sub-mtab' + (activeM === 'common' ? ' active' : '') + (useCommon ? ' mode-on' : '') + '" data-m="common" role="tab">🌍 Global</button>' +
+        '<button type="button" class="sub-mtab' + (activeM === 'styles' ? ' active' : '') + (!useCommon ? ' mode-on' : '') + '" data-m="styles" role="tab">🎨 Style</button>' +
         '<button type="button" class="sub-mtab' + (activeM === 'effect' ? ' active' : '') + '" data-m="effect" role="tab">✨ Effect</button>' +
       '</div>' +
 
-      // ---------- Panel 1: Cài đặt chung (chỉ 3 tab karaoke: Pre / Active / Post) ----------
+      // ---------- Panel 0: All (Fade + Box + LetterSpacing + Timeshift + Reset + Actions) ----------
+      '<div class="sub-mtab-panel" data-m="all" role="tabpanel" style="display:' + (activeM === 'all' ? 'block' : 'none') + ';">' +
+        '<div class="sub-panel-footer">' +
+          // ---- Hàng 1: Fade In/Out + Timeshift ----
+          '<div class="sub-foot-row">' +
+            '<label class="sub-fade-lab">Fade In:</label>' +
+            '<input type="number" id="g-fadIn" value="' + (gs.fadIn || 200) + '" class="num-in sub-fade-in" min="0" max="2000">' +
+            '<label class="sub-fade-out-lab">Out:</label>' +
+            '<input type="number" id="g-fadOut" value="' + (gs.fadOut || 200) + '" class="num-in sub-fade-out" min="0" max="2000">' +
+            '<span class="sub-foot-sep"></span>' +
+            '<div class="sub-ts-bar">' +
+              '<span class="sub-ts-ico" title="Timeshift">⏱</span>' +
+              '<button type="button" id="sub-ts-dec" title="Lùi 100ms">−</button>' +
+              '<input type="text" id="sub-ts-input" value="' + (State.timeShiftMs || 0) + '" inputmode="numeric" aria-label="Timeshift (ms)">' +
+              '<span class="sub-ts-ms">ms</span>' +
+              '<button type="button" id="sub-ts-inc" title="Tiến 100ms">+</button>' +
+              '<button type="button" id="sub-ts-zero" title="Đặt lại về 0">⟳</button>' +
+              '<button type="button" id="sub-ts-dl" title="Tải file .ass đã shift time" style="color:#5eead4">💾</button>' +
+            '</div>' +
+          '</div>' +
+          // ---- Hàng 2: Hộp nền + Khoảng cách chữ ----
+          '<div class="sub-foot-row">' +
+            '<label class="sub-box-lab"><input type="checkbox" id="g-useBox" ' + (gs.useBox ? 'checked' : '') + '> Hộp</label>' +
+            '<input type="color" id="g-boxColor" value="' + (gs.boxColor || '#000000') + '">' +
+            '<input type="range" id="g-boxBlur" min="0" max="50" step="1" value="' + (gs.boxBlur != null ? gs.boxBlur : 0) + '" class="sub-box-blur">' +
+            '<span class="sub-foot-sep"></span>' +
+            '<label class="sub-lsp-lab">K/C chữ</label>' +
+            '<input type="range" id="g-letterSpacing" min="-5" max="20" step="0.1" value="' + (gs.letterSpacing != null ? gs.letterSpacing : 0.9) + '" class="sub-letter-spacing">' +
+            '<input type="number" id="g-letterSpacingVal" min="-5" max="20" step="0.1" value="' + (gs.letterSpacing != null ? gs.letterSpacing : 0.9) + '" class="num-in sub-lsp-val">' +
+          '</div>' +
+          // ---- Hàng 3: Reset Global + Actions ----
+          '<div class="sub-foot-row sub-ts-row">' +
+            '<button type="button" id="sub-settings-reset" class="sub-reset-global-btn" title="Reset cài đặt chung (Global) về mặc định">↺ Reset Global</button>' +
+            '<span class="sub-foot-sep"></span>' +
+            '<div class="sub-foot-actions">' +
+              '<label class="sub-foot-lab"><input type="checkbox" id="sub-close-outside" ' + (gs.closeOnClickOutside ? 'checked' : '') + '> Đóng khi click ngoài</label>' +
+              '<button type="button" id="sub-backup" title="Backup settings + cache">💾</button>' +
+              '<button type="button" id="sub-restore" title="Restore từ file JSON">📥</button>' +
+            '</div>' +
+          '</div>' +
+        '</div>' +
+      '</div>' +
+
+      // ---------- Panel 1: Global (chỉ 3 tab karaoke: Pre / Active / Post) ----------
       '<div class="sub-mtab-panel" data-m="common" role="tabpanel" style="display:' + (activeM === 'common' ? 'block' : 'none') + ';">' +
 
         // ---- Cỡ chữ CHUNG: dùng cho cả 3 trạng thái karaoke + style không karaoke ----
@@ -3001,6 +3046,7 @@
         '</div>' +
 
         '<div class="pill-tabs">' +
+          '<span class="pill-ind" aria-hidden="true"></span>' +
           '<div class="pill-tab active" data-pill="settings">🥽 Pre</div>' +
           '<div class="pill-tab" data-pill="karaoke">🎵 Active</div>' +
           '<div class="pill-tab" data-pill="advanced">📤 Post</div>' +
@@ -3017,10 +3063,10 @@
         '</div>' +
       '</div>' +
 
-      // ---------- Panel 2: Use Style ----------
+      // ---------- Panel 2: Style ----------
       '<div class="sub-mtab-panel" data-m="styles" role="tabpanel" style="display:' + (activeM === 'styles' ? 'block' : 'none') + ';">' +
         '<div class="sub-style-headbar">' +
-          '<span class="sub-styles-title">🎨 Use Style <em class="sub-filter-hint">(tự lọc style không có dòng)</em></span>' +
+          '<span class="sub-styles-title">🎨 Style <em class="sub-filter-hint">(tự lọc style không có dòng)</em></span>' +
           '<span id="sub-reset-all-styles" title="Reset tất cả style về vị trí/màu gốc">↺ ALL</span>' +
         '</div>' +
         '<div id="sub-style-items"></div>' +
@@ -3048,49 +3094,19 @@
           '<input type="range" id="g-sineWaveAmplitude" min="2" max="30" step="1" value="' + (gs.sineWaveAmplitude != null ? gs.sineWaveAmplitude : 2) + '">' +
           '<input type="number" id="g-sineWaveAmplitudeVal" value="' + (gs.sineWaveAmplitude != null ? gs.sineWaveAmplitude : 2) + '" class="num-in" step="1" min="2" max="30">' +
         '</div>' +
-        '<div class="sub-effect-hint">Gợi ý: hiệu ứng dùng màu/viền/blur hiện tại; chỉnh ở tab <b>Use Global</b> hoặc <b>Use Style</b>.</div>' +
-      '</div>' +
-
-      // ---------- Footer chung: Fade + Hộp + Reset chung + Timeshift + Actions ----------
-      '<div class="sub-panel-footer">' +
-
-        // ---- Hàng 1: Fade In/Out + Box hộp gộp chung 1 dòng ----
-        '<div class="sub-foot-row">' +
-          '<label class="sub-fade-lab">Fade In:</label>' +
-          '<input type="number" id="g-fadIn" value="' + (gs.fadIn || 200) + '" class="num-in sub-fade-in" min="0" max="2000">' +
-          '<label class="sub-fade-out-lab">Out:</label>' +
-          '<input type="number" id="g-fadOut" value="' + (gs.fadOut || 200) + '" class="num-in sub-fade-out" min="0" max="2000">' +
-          '<span class="sub-foot-sep"></span>' +
-          '<label class="sub-box-lab"><input type="checkbox" id="g-useBox" ' + (gs.useBox ? 'checked' : '') + '> Hộp</label>' +
-          '<input type="color" id="g-boxColor" value="' + (gs.boxColor || '#000000') + '">' +
-          '<input type="range" id="g-boxBlur" min="0" max="50" step="1" value="' + (gs.boxBlur != null ? gs.boxBlur : 0) + '" class="sub-box-blur">' +
-          '<span class="sub-foot-sep"></span>' +
-          '<label class="sub-lsp-lab">K/C chữ</label>' +
-          '<input type="range" id="g-letterSpacing" min="-5" max="20" step="0.1" value="' + (gs.letterSpacing != null ? gs.letterSpacing : 0.9) + '" class="sub-letter-spacing">' +
-          '<input type="number" id="g-letterSpacingVal" min="-5" max="20" step="0.1" value="' + (gs.letterSpacing != null ? gs.letterSpacing : 0.9) + '" class="num-in sub-lsp-val">' +
-        '</div>' +
-        // ---- Hàng 2: Reset chung (Global) + Timeshift ----
-        '<div class="sub-foot-row sub-ts-row">' +
-          '<button type="button" id="sub-settings-reset" class="sub-reset-global-btn" title="Reset cài đặt chung (Global) về mặc định">↺ Reset chung</button>' +
-          '<span class="sub-foot-sep"></span>' +
-          '<div class="sub-ts-bar">' +
-            '<span class="sub-ts-ico" title="Timeshift">⏱</span>' +
-            '<button type="button" id="sub-ts-dec" title="Lùi 100ms">−</button>' +
-            '<input type="text" id="sub-ts-input" value="' + (State.timeShiftMs || 0) + '" inputmode="numeric" aria-label="Timeshift (ms)">' +
-            '<span class="sub-ts-ms">ms</span>' +
-            '<button type="button" id="sub-ts-inc" title="Tiến 100ms">+</button>' +
-            '<button type="button" id="sub-ts-zero" title="Đặt lại về 0">⟳</button>' +
-            '<button type="button" id="sub-ts-dl" title="Tải file .ass đã shift time" style="color:#5eead4">💾</button>' +
-          '</div>' +
-        '</div>' +
-        // ---- Hàng 3: Actions ----
-        '<div class="sub-foot-actions">' +
-          '<label class="sub-foot-lab"><input type="checkbox" id="sub-close-outside" ' + (gs.closeOnClickOutside ? 'checked' : '') + '> Đóng khi click bên ngoài</label>' +
-          '<button type="button" id="sub-backup" title="Backup settings + cache">💾</button>' +
-          '<button type="button" id="sub-restore" title="Restore từ file JSON">📥</button>' +
-        '</div>' +
+        '<div class="sub-effect-hint">Gợi ý: hiệu ứng dùng màu/viền/blur hiện tại; chỉnh ở tab <b>Global</b> hoặc <b>Style</b>.</div>' +
       '</div>';
   }
+
+  // ── Liquid-glass tab indicator:滑动 gradient pill ──
+  function moveTabIndicator(bar, btn) {
+    if (!bar || !btn) return;
+    const ind = bar.querySelector('.sub-mtab-ind, .pill-ind, .nav-ind');
+    if (!ind) return;
+    ind.style.width = btn.offsetWidth + 'px';
+    ind.style.transform = 'translateX(' + btn.offsetLeft + 'px)';
+  }
+
   // Render danh sách style + nút điều chỉnh từng style (port engine-css.js renderStyles)
   function renderSubStyleItems() {
     const container = $('#sub-style-items');
@@ -3189,6 +3205,14 @@ function setupSubPopupEvents() {
     const popup = _subPopupEl;
     if (!popup) return;
 
+    // ── Khởi tạo liquid-glass indicator cho các tab bar ──
+    const mtabs = popup.querySelector('.sub-mtabs');
+    const activeM = popup.querySelector('.sub-mtab.active');
+    if (mtabs && activeM) moveTabIndicator(mtabs, activeM);
+    const ptabs = popup.querySelector('.pill-tabs');
+    const activeP = popup.querySelector('.pill-tab.active');
+    if (ptabs && activeP) moveTabIndicator(ptabs, activeP);
+
     // Panel co dinh kieu chat: khong keo. Dong bang X / Esc / bam ngoai.
 
     // Dong panel khi bam ben ngoai (dang ky 1 lan de tranh trung lap khi setupSubPopupEvents goi lai)
@@ -3211,9 +3235,7 @@ function setupSubPopupEvents() {
       });
     }
 
-    // ===== 3 tab lớn: Cài đặt chung ⇄ Cài đặt từng style ⇄ Hiệu ứng =====
-    // Chọn tab nào thì áp dụng chế độ đó: common → mọi style dùng cài chung,
-    // styles → mỗi style dùng cài riêng; effect → chỉ hiệu ứng (không đổi useGlobalStyles).
+    // ===== 4 tab lớn: All / Global / Style / Effect =====
     popup.querySelectorAll('.sub-mtab').forEach((tab) => {
       tab.onclick = () => {
         const m = tab.dataset.m;
@@ -3225,10 +3247,23 @@ function setupSubPopupEvents() {
             State.styleSettings[name].override = !useCommon;
           });
         }
-        popup.querySelectorAll('.sub-mtab').forEach((x) => x.classList.toggle('active', x === tab));
+        // Cập nhật active + mode-on cho tất cả tab
+        popup.querySelectorAll('.sub-mtab').forEach((x) => {
+          x.classList.toggle('active', x === tab);
+          // mode-on: luôn highlight 1 trong 2 tab Global/Style
+          const isModeTab = (x.dataset.m === 'common' || x.dataset.m === 'styles');
+          if (isModeTab) {
+            const isGlobalMode = !!State.subSettings.useGlobalStyles;
+            x.classList.toggle('mode-on', (x.dataset.m === 'common') === isGlobalMode);
+          }
+        });
         popup.querySelectorAll('.sub-mtab-panel').forEach((p) => {
           p.style.display = (p.dataset.m === m) ? 'block' : 'none';
         });
+        // Cuộn tab vào viewport nếu hẹp + di chuyển indicator
+        const bar = popup.querySelector('.sub-mtabs');
+        if (bar && tab.scrollIntoView) tab.scrollIntoView({ block: 'nearest', inline: 'center', behavior: 'smooth' });
+        moveTabIndicator(bar, tab);
         if (m === 'styles') renderSubStyleItems();
         saveSubSettings();
         if (State.subsEnabled) updateCurrentSubtitle();
@@ -3307,7 +3342,7 @@ function setupSubPopupEvents() {
     }
 
 
-    // Pill tabs (Settings / Karaoke / Advanced)
+    // Pill tabs (Pre / Active / Post) — karaoke
     popup.querySelectorAll('.pill-tab').forEach((t) => {
       t.onclick = () => {
         popup.querySelectorAll('.pill-tab').forEach((x) => x.classList.remove('active'));
@@ -3315,6 +3350,9 @@ function setupSubPopupEvents() {
         t.classList.add('active');
         const panel = popup.querySelector('.pill-panel[data-pill="' + t.dataset.pill + '"]');
         if (panel) panel.classList.add('open');
+        // liquid glass indicator
+        const bar = popup.querySelector('.pill-tabs');
+        moveTabIndicator(bar, t);
       };
     });
 
@@ -5355,7 +5393,15 @@ function setupSubPopupEvents() {
     if (brandBtn) brandBtn.addEventListener('click', () => window.scrollTo({ top: 0, behavior: 'smooth' }));
 
     // Tab Section (Anime / Music) — work với .main-nav có [data-tab]
-    $('.main-nav').addEventListener('click', (e) => {
+    const mainNav = $('.main-nav');
+    // inject liquid-glass indicator cho Anime/Song nếu chưa có
+    if (mainNav && !mainNav.querySelector('.nav-ind')) {
+      const ind = document.createElement('span');
+      ind.className = 'nav-ind';
+      ind.setAttribute('aria-hidden', 'true');
+      mainNav.insertBefore(ind, mainNav.firstChild);
+    }
+    mainNav.addEventListener('click', (e) => {
       const btn = e.target.closest('[data-tab]');
       if (btn) switchTab(btn.dataset.tab);
     });
@@ -6096,6 +6142,12 @@ function setupSubPopupEvents() {
     if (brand) {
       brand.innerHTML = tabName === 'anime' ? 'Kull<em>Anime</em>' : 'Kull<em>Song</em>';
     }
+    // Di chuyển liquid-glass indicator theo tab đang mở
+    const nav = $('.main-nav');
+    const activeBtn = nav && nav.querySelector('.nav-tab[data-tab="' + tabName + '"]');
+    moveTabIndicator(nav, activeBtn);
+    // Lưu tab đang mở vào localStorage
+    try { localStorage.setItem('kullanime_lastTab', tabName); } catch (_e) {}
   }
 
   function closeAllModals() {
@@ -6120,8 +6172,10 @@ function setupSubPopupEvents() {
     loadPlayerPrefs();   // nạp tùy chọn tự động / ngẫu nhiên từ localStorage
     bindEvents();
     updatePlayerControlsUI();
-    // Khôi phục tab đang active (mặc định anime)
-    switchTab('anime');
+    // Khôi phục tab đang active từ cache (mặc định anime)
+    let lastTab = 'anime';
+    try { lastTab = localStorage.getItem('kullanime_lastTab') || 'anime'; } catch (_e) {}
+    switchTab(lastTab);
     // Tải dữ liệu công khai
     await Promise.all([loadAnimes(), loadSongs()]);
     fetchSubsFiles();
