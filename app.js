@@ -2280,14 +2280,25 @@
 
   function updateVideoFsIcon() {
     const fsBtn = $('#videoFullscreenBtn');
-    if (!fsBtn) return;
+    const pcFsBtn = $('#pcSubsFsBtn');
     const fs = !!document.fullscreenElement;
-    fsBtn.classList.toggle('active', fs);
-    fsBtn.setAttribute('aria-label', fs ? 'Thoát toàn màn hình' : 'Phóng to video');
-    fsBtn.setAttribute('title', fs ? 'Thoát toàn màn hình (Esc)' : 'Phóng to video');
-    const enterSvg = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M21 8V5a2 2 0 0 0-2-2h-3"/><path d="M3 16v3a2 2 0 0 0 2 2h3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/></svg>';
-    const exitSvg = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3v3a2 2 0 0 1-2 2H3"/><path d="M21 8h-3a2 2 0 0 1-2-2V3"/><path d="M3 16h3a2 2 0 0 1 2 2v3"/><path d="M16 21v-3a2 2 0 0 1 2-2h3"/></svg>';
-    fsBtn.innerHTML = fs ? exitSvg : enterSvg;
+    if (fsBtn) {
+      fsBtn.classList.toggle('active', fs);
+      fsBtn.setAttribute('aria-label', fs ? 'Thoát toàn màn hình' : 'Phóng to video');
+      fsBtn.setAttribute('title', fs ? 'Thoát toàn màn hình (Esc)' : 'Phóng to video');
+      const enterSvg = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M21 8V5a2 2 0 0 0-2-2h-3"/><path d="M3 16v3a2 2 0 0 0 2 2h3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/></svg>';
+      const exitSvg = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3v3a2 2 0 0 1-2 2H3"/><path d="M21 8h-3a2 2 0 0 1-2-2V3"/><path d="M3 16h3a2 2 0 0 1 2 2v3"/><path d="M16 21v-3a2 2 0 0 1 2-2h3"/></svg>';
+      fsBtn.innerHTML = fs ? exitSvg : enterSvg;
+    }
+    // Đồng bộ icon cho nút fullscreen trong pc-subs
+    if (pcFsBtn) {
+      pcFsBtn.classList.toggle('active', fs);
+      pcFsBtn.setAttribute('aria-label', fs ? 'Thoát toàn màn hình' : 'Phóng to video');
+      pcFsBtn.setAttribute('title', fs ? 'Thoát toàn màn hình (Esc)' : 'Phóng to video');
+      const enterSvg = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M21 8V5a2 2 0 0 0-2-2h-3"/><path d="M3 16v3a2 2 0 0 0 2 2h3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/></svg>';
+      const exitSvg = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3v3a2 2 0 0 1-2 2H3"/><path d="M21 8h-3a2 2 0 0 1-2-2V3"/><path d="M3 16h3a2 2 0 0 1 2 2v3"/><path d="M16 21v-3a2 2 0 0 1 2-2h3"/></svg>';
+      pcFsBtn.innerHTML = fs ? exitSvg : enterSvg;
+    }
   }
 
   // ── Nút fullscreen tự ẩn (cả trong lẫn ngoài fullscreen) ──
@@ -2995,13 +3006,14 @@
       // ---------- Panel 0: All (Fade + Box + LetterSpacing + Timeshift + Reset + Actions) ----------
       '<div class="sub-mtab-panel" data-m="all" role="tabpanel" style="display:' + (activeM === 'all' ? 'block' : 'none') + ';">' +
         '<div class="sub-panel-footer">' +
-          // ---- Hàng 1: Fade In/Out + Timeshift ----
-          '<div class="sub-foot-row">' +
-            '<label class="sub-fade-lab">Fade In:</label>' +
-            '<input type="number" id="g-fadIn" value="' + (gs.fadIn || 200) + '" class="num-in sub-fade-in" min="0" max="2000">' +
-            '<label class="sub-fade-out-lab">Out:</label>' +
-            '<input type="number" id="g-fadOut" value="' + (gs.fadOut || 200) + '" class="num-in sub-fade-out" min="0" max="2000">' +
-            '<span class="sub-foot-sep"></span>' +
+          // ---- Hàng 1: Fade In/Out (sát trái) + Timeshift (sát phải) ----
+          '<div class="sub-foot-row sub-ts-row sub-ft-fade-ts">' +
+            '<div class="sub-fade-group">' +
+              '<label class="sub-fade-lab">Fade In:</label>' +
+              '<input type="number" id="g-fadIn" value="' + (gs.fadIn || 200) + '" class="num-in sub-fade-in" min="0" max="2000">' +
+              '<label class="sub-fade-out-lab">Out:</label>' +
+              '<input type="number" id="g-fadOut" value="' + (gs.fadOut || 200) + '" class="num-in sub-fade-out" min="0" max="2000">' +
+            '</div>' +
             '<div class="sub-ts-bar">' +
               '<span class="sub-ts-ico" title="Timeshift">⏱</span>' +
               '<button type="button" id="sub-ts-dec" title="Lùi 100ms">−</button>' +
@@ -3012,17 +3024,20 @@
               '<button type="button" id="sub-ts-dl" title="Tải file .ass đã shift time" style="color:#5eead4">💾</button>' +
             '</div>' +
           '</div>' +
-          // ---- Hàng 2: Hộp nền + Khoảng cách chữ ----
+          // ---- Hàng 2: Hộp nền ----
           '<div class="sub-foot-row">' +
-            '<label class="sub-box-lab"><input type="checkbox" id="g-useBox" ' + (gs.useBox ? 'checked' : '') + '> Hộp</label>' +
+            '<label class="sub-box-lab"><input type="checkbox" id="g-useBox" ' + (gs.useBox ? 'checked' : '') + '> Hộp nền</label>' +
             '<input type="color" id="g-boxColor" value="' + (gs.boxColor || '#000000') + '">' +
             '<input type="range" id="g-boxBlur" min="0" max="50" step="1" value="' + (gs.boxBlur != null ? gs.boxBlur : 0) + '" class="sub-box-blur">' +
-            '<span class="sub-foot-sep"></span>' +
-            '<label class="sub-lsp-lab">K/C chữ</label>' +
+          '</div>' +
+          // ---- Hàng 3: Khoảng cách chữ ----
+          '<div class="sub-foot-row">' +
+            '<label class="sub-lsp-lab">Khoảng cách chữ</label>' +
             '<input type="range" id="g-letterSpacing" min="-5" max="20" step="0.1" value="' + (gs.letterSpacing != null ? gs.letterSpacing : 0.9) + '" class="sub-letter-spacing">' +
             '<input type="number" id="g-letterSpacingVal" min="-5" max="20" step="0.1" value="' + (gs.letterSpacing != null ? gs.letterSpacing : 0.9) + '" class="num-in sub-lsp-val">' +
+            '<button type="button" id="sub-lsp-reset" class="sub-lsp-reset" title="Reset khoảng cách chữ về mặc định (0.9)">⟳</button>' +
           '</div>' +
-          // ---- Hàng 3: Reset Global + Actions ----
+          // ---- Hàng 4: Reset Global + Actions ----
           '<div class="sub-foot-row sub-ts-row">' +
             '<button type="button" id="sub-settings-reset" class="sub-reset-global-btn" title="Reset cài đặt chung (Global) về mặc định">↺ Reset Global</button>' +
             '<span class="sub-foot-sep"></span>' +
@@ -3103,8 +3118,12 @@
     if (!bar || !btn) return;
     const ind = bar.querySelector('.sub-mtab-ind, .pill-ind, .nav-ind');
     if (!ind) return;
-    ind.style.width = btn.offsetWidth + 'px';
-    ind.style.transform = 'translateX(' + btn.offsetLeft + 'px)';
+    // Đo bằng getBoundingClientRect tương đối so với bar → chính xác cả khi
+    // thanh tab cuộn ngang, và mỗi nút tab luôn bằng nhau (không phụ thuộc nội dung).
+    const br = bar.getBoundingClientRect();
+    const btnR = btn.getBoundingClientRect();
+    ind.style.width = btnR.width + 'px';
+    ind.style.transform = 'translateX(' + (btnR.left - br.left) + 'px)';
   }
 
   // Render danh sách style + nút điều chỉnh từng style (port engine-css.js renderStyles)
@@ -3124,14 +3143,13 @@
       const item = document.createElement('div');
       item.className = 'style-item';
       item.innerHTML = '<div class="style-head">' +
-          '<span class="style-name" title="Font: ' + (s.fontName || 'default') + '">' + sName + '</span>' +
+          '<span class="style-name" title="Font: ' + (s.fontName || 'default') + '">' + sName + (s.visible ? '' : ' <span class="style-hidden-tag">Đang ẩn</span>') + '</span>' +
           '<div class="style-tools">' +
             '<span class="sub-reset-style" data-style="' + sName + '" title="Reset style này về gốc">⟳</span>' +
             '<span class="sub-eye" data-style="' + sName + '" title="Ẩn / hiện style này">' + (s.visible ? '👁️' : '🚫') + '</span>' +
             '<span class="style-chev">▼</span>' +
           '</div>' +
         '</div>' +
-        (s.visible ? '' : '<div class="style-hidden-tag">Đang ẩn</div>') +
         '<div class="sub-style-meta">' +
           '<span>XY:' + (s.posX || 0) + ',' + (s.posY || 0) + '</span>' +
           '<span>1c ' + (s.color1 || '') + '</span>' +
@@ -3174,16 +3192,47 @@
         s.fontSize = s.origFontSize || s.fontSize || 25;
         s.outlineWidth = s.origOutlineWidth || s.outlineWidth || 2;
         saveSubSettings();
+        // Lưu trạng thái đang mở trước khi render lại
+        const openNames = new Set();
+        $$('#sub-style-items .style-item').forEach(el => {
+          const b = el.querySelector('.style-body');
+          if (b && b.style.display === 'block') {
+            const r = el.querySelector('.sub-reset-style');
+            if (r) openNames.add(r.dataset.style);
+          }
+        });
         renderSubStyleItems();
+        // Khôi phục trạng thái đang mở
+        $$('#sub-style-items .style-item').forEach(el => {
+          const r = el.querySelector('.sub-reset-style');
+          if (r && openNames.has(r.dataset.style)) {
+            const b = el.querySelector('.style-body');
+            const c = el.querySelector('.style-chev');
+            if (b) b.style.display = 'block';
+            if (c) c.classList.add('open');
+          }
+        });
         if (State.subsEnabled) updateCurrentSubtitle();
       };
+      // Eye button: toggle ẩn/hiện in-place, KHÔNG gọi renderSubStyleItems()
       item.querySelector('.sub-eye').onclick = (e) => {
         e.stopPropagation();
         s.visible = !s.visible;
         e.target.innerText = s.visible ? '👁️' : '🚫';
         e.target.style.opacity = s.visible ? 1 : 0.3;
+        // Thêm / gỡ badge "Đang ẩn" kế bên tên style
+        const nameEl = item.querySelector('.style-name');
+        if (nameEl) {
+          const existingTag = nameEl.querySelector('.style-hidden-tag');
+          if (s.visible) { if (existingTag) existingTag.remove(); }
+          else if (!existingTag) {
+            const tag = document.createElement('span');
+            tag.className = 'style-hidden-tag';
+            tag.textContent = ' Đang ẩn';
+            nameEl.appendChild(tag);
+          }
+        }
         saveSubSettings();
-        renderSubStyleItems();
         if (State.subsEnabled) updateCurrentSubtitle();
       };
       item.querySelector('.style-head').onclick = (e) => {
@@ -3446,6 +3495,21 @@ function setupSubPopupEvents() {
       if (State.subsEnabled) updateCurrentSubtitle();
       toast('Đã reset cài đặt chung (Global).', 'info', 1800);
     };
+
+    // ── Nút reset khoảng cách chữ (⟳ bên phải slider) ──
+    const lspResetBtn = popup.querySelector('#sub-lsp-reset');
+    if (lspResetBtn) {
+      lspResetBtn.onclick = () => {
+        const defaultLSP = SUB_SETTINGS_DEFAULTS.letterSpacing || 0.9;
+        State.subSettings.letterSpacing = defaultLSP;
+        const lspR = popup.querySelector('#g-letterSpacing');
+        const lspV = popup.querySelector('#g-letterSpacingVal');
+        if (lspR) lspR.value = defaultLSP;
+        if (lspV) lspV.value = defaultLSP;
+        saveSubSettings();
+        if (State.subsEnabled) updateCurrentSubtitle();
+      };
+    }
 
     // Reset tất cả style về vị trí / màu gốc
     const resetAll = popup.querySelector('#sub-reset-all-styles');
@@ -5528,6 +5592,15 @@ function setupSubPopupEvents() {
     document.addEventListener('webkitfullscreenchange', updateVideoFsIcon); // Safari
     // Nút fullscreen: tự ẩn khi nhàn rỗi (cả trong/ngoài fullscreen) + hiện khi chạm/rê gần mép trên
     initVideoFsAutohide();
+
+    // Nút fullscreen trong nhóm pc-subs (kế bên trái nút bật/tắt phụ đề)
+    const pcSubsFsBtn = $('#pcSubsFsBtn');
+    if (pcSubsFsBtn) {
+      pcSubsFsBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        toggleVideoFullscreen();
+      });
+    }
 
     // Điều khiển player: lùi / phát-tạm dừng / kế tiếp / tự động / ngẫu nhiên
     const pcPrev = $('#pcPrev');
