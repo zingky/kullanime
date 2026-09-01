@@ -1468,8 +1468,8 @@ select.input option { background: #141a2d; color: var(--text); }
 .sub-ts-bar #sub-ts-zero { border-color: rgba(255,107,107,.4); color: #ff8e8e; }
 
 .sub-mtabs {
-  position: relative; z-index: 2; display: flex; gap: 4px; padding: 4px; margin-bottom: 10px;
-  background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1);
+  position: sticky; top: 0; z-index: 10; display: flex; gap: 4px; padding: 4px; margin-bottom: 10px;
+  background: rgba(13,17,30,0.97); border: 1px solid rgba(255,255,255,0.1);
   border-radius: 14px;
   overflow-x: auto; scrollbar-width: none; -ms-overflow-style: none;
   scroll-snap-type: x proximity; -webkit-overflow-scrolling: touch;
@@ -1501,7 +1501,7 @@ select.input option { background: #141a2d; color: var(--text); }
 }
 /* Thanh tab cuộn ngang: chống ngắn hơn tổng chiều rộng 4 tab khi panel hẹp */
 .sub-mtab:last-child { scroll-snap-align: end; }
-.sub-mtab-panel { animation: subFadeIn .2s ease; }
+.sub-mtab-panel { position: relative; z-index: 0; animation: subFadeIn .2s ease; }
 /* Căn đều nội dung các tab: thêm padding ngang để nội dung align với timeshift bar + tab header */
 .sub-mtab-panel[data-m="styles"] { padding: 4px 2px 0; }
 .sub-mtab-panel[data-m="effect"] { padding: 4px 2px 0; }
