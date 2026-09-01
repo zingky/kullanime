@@ -432,10 +432,11 @@
         <div class="admin-list" id="adminSongList"></div>
         <div class="admin-repo-manager">
           <h4 class="admin-pane-title">📂 Nguồn phụ đề .ass (GitHub repo)</h4>
-          <p class="admin-repo-desc">Nhập link GitHub repo chứa file .ass (VD: <code>https://github.com/zingky/Kull-Vietsub</code>). Các file .ass trong repo sẽ được <b>gộp vào danh sách chung</b> hiển thị ở tab Song.</p>
+          <p class="admin-repo-desc">Nhập link GitHub repo chứa file .ass (VD: <code>https://github.com/zingky/Kull-Vietsub</code>). Các file .ass trong repo sẽ được <b>gộp vào danh sách chung</b> hiển thị ở tab Song. Danh sách được <b>cache trên máy</b> — bấm <b>⟳ Cập nhật danh sách</b> để lấy file mới từ GitHub.</p>
           <div class="admin-repo-row">
             <input type="text" id="assRepoInput" class="input" placeholder="https://github.com/user/repo (mặc định thư mục gốc, branch main)" />
             <button type="button" class="btn btn-accent" id="addAssRepoBtn">＋ Thêm repo</button>
+            <button type="button" class="btn btn-primary" id="refreshAssRepoBtn" title="Tải lại danh sách file .ass từ GitHub (bỏ qua cache cũ, giới hạn 45s/lần)">⟳ Cập nhật danh sách</button>
           </div>
           <div class="admin-repo-list" id="assRepoList"></div>
         </div>
