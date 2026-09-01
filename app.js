@@ -1603,15 +1603,11 @@
     const textZoom = (gs.textZoom > 0 && gs.textZoom <= 3) ? gs.textZoom : 0.9;
 
     // ---- Font size hiệu dụng (base * scaleH * customResize * textZoom) ----
-    // Cỡ chữ CHUNG (gs.fontSize) là chuẩn chính cho cả 2 chế độ — đảm bảo phụ đề
-    // luôn đọc được dù video không fullscreen (giống karaFs đã gộp về cỡ chữ chung).
-    // Ở chế độ "từng style", s.fontSize đóng vai trò hệ số tỷ lệ so với cỡ gốc .ass
-    // để nút S vẫn chỉnh được mà không bị nhỏ xíu do cỡ .ass vốn thấp.
+    // Use Global (isO=false): dùng gs.fontSize (thanh trượt Cỡ chữ trong tab common).
+    // Use Style  (isO=true) : dùng st.fontSize (cỡ chữ riêng từng style trong file .ass),
+    //   chỉnh bằng ô S trong danh sách style — độc lập với gs.fontSize.
     const masterFs = (gs.fontSize && gs.fontSize > 0) ? gs.fontSize : 70;
-    let baseFs = masterFs;
-    if (isO && st.origFontSize && st.fontSize) {
-      baseFs = masterFs * (st.fontSize / st.origFontSize);
-    }
+    let baseFs = isO ? (st.fontSize || st.origFontSize || masterFs) : masterFs;
     if (cue.ovFs != null) baseFs = cue.ovFs;
     baseFs = baseFs * ((cue.ovScaleY || 100) / 100);
     // Cỡ chữ tỷ lệ với khung video. Nếu file .ass là 4K (PlayResY=2160) thì scaleH
@@ -1791,8 +1787,8 @@
       return Math.max(minFs, raw * scaleH * customResize * textZoom * ((gs.fontScale != null ? gs.fontScale : 100) / 100));
     };
     const karaOutl = (k, fallback) => Math.max(0, ((k && k.outl != null) ? Number(k.outl) : fallback)) * scaleH;
-    // Khi ở tab "Use Style": karaoke lấy cỡ chữ theo từng style trong file (baseFs đã nhân
-    // tỷ lệ st.fontSize/origFontSize) thay vì cỡ chữ chung, đúng ý "cỡ chữ theo style trong file".
+    // Khi ở tab "Use Style": karaoke lấy cỡ chữ theo từng style trong file (baseFs = st.fontSize),
+    // độc lập với gs.fontSize. Khi ở tab "Use Global": dùng gs.fontSize.
     const useStyleKaraFs = (k, fallback) => {
       const raw = (isO && st.origFontSize) ? (baseFs || masterFs) : ((gs.fontSize != null && gs.fontSize > 0) ? gs.fontSize : (fallback || 70));
       const minFs = Math.max(6, (State.subOverlayHeight || 0) * 0.025);
