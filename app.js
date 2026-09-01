@@ -3081,8 +3081,8 @@
       // ---------- Panel 2: Style ----------
       '<div class="sub-mtab-panel sub-mtab-panel-styles" data-m="styles" role="tabpanel" style="display:' + (activeM === 'styles' ? 'block' : 'none') + ';">' +
         '<div id="sub-style-items"></div>' +
-        '<div class="sub-style-headbar">' +
-          '<span class="sub-styles-title">🎨 Style <em class="sub-filter-hint">(tự lọc style không có dòng)</em></span>' +
+        '<div class="sub-style-headbar" id="sub-style-headbar">' +
+          '<div class="sub-style-headbar-actions" id="sub-style-headbar-actions"></div>' +
           '<span id="sub-reset-all-styles" title="Reset tất cả style về vị trí/màu gốc">↺ ALL</span>' +
         '</div>' +
       '</div>' +
@@ -3166,8 +3166,12 @@
       chip.className = 'style-chip' + (sName === active ? ' active' : '') + (s.visible ? '' : ' chip-hidden');
       chip.dataset.style = sName;
       chip.title = 'Style: ' + sName;
+      // Tên style: >10 ký tự → marquee chạy qua lại giống tên file .ass
+      var chipName = sName.length > 10
+        ? '<span class="style-chip-name style-chip-marquee" title="' + esc(sName) + '"><span class="sub-ctx-scroll"><span class="sub-ctx-text">' + esc(sName) + '</span><span class="sub-ctx-text">' + esc(sName) + '</span></span></span>'
+        : '<span class="style-chip-name">' + esc(sName) + '</span>';
       chip.innerHTML =
-        '<span class="style-chip-name">' + esc(sName) + '</span>' +
+        chipName +
         '<span class="style-chip-eye" data-style="' + esc(sName) + '" title="Ẩn / hiện style này">' + (s.visible ? '👁️' : '🚫') + '</span>' +
         '<span class="sub-reset-style" data-style="' + esc(sName) + '" title="Reset style này về gốc">⟳</span>';
       // Chọn chip → hiện panel chi tiết của style đó
@@ -3245,6 +3249,29 @@
             '<div class="adv-cell"><span class="adv-lab">B</span><input type="number" data-style="' + esc(active) + '" data-type="blur" min="0" max="50" step="0.5" value="' + (s.blur != null ? s.blur : 2) + '"></div>' +
           '</div>';
     container.appendChild(detail);
+
+    // ── Headbar actions: icon ẩn/hiện + Reset Style cho style đang chọn ──
+    const headActions = $('#sub-style-headbar-actions');
+    if (headActions) {
+      headActions.innerHTML =
+        '<span class="headbar-style-name">' + esc(active) + '</span>' +
+        '<button type="button" class="headbar-btn headbar-vis-btn" title="' + (s.visible ? 'Ẩn' : 'Hiện') + ' style này">' +
+          (s.visible ? '👁️' : '🚫') + ' <span>' + (s.visible ? 'Ẩn' : 'Hiện') + '</span>' +
+        '</button>' +
+        '<button type="button" class="headbar-btn headbar-reset-btn" title="Reset style này về gốc">⟳ <span>Reset Style</span></button>';
+      headActions.querySelector('.headbar-vis-btn').onclick = () => {
+        s.visible = !s.visible;
+        saveSubSettings();
+        if (State.subsEnabled) updateCurrentSubtitle();
+        renderSubStyleItems();
+      };
+      headActions.querySelector('.headbar-reset-btn').onclick = () => {
+        resetOneStyle(s);
+        saveSubSettings();
+        renderSubStyleItems();
+        if (State.subsEnabled) updateCurrentSubtitle();
+      };
+    }
   }
 
   // Reset một style về vị trí / màu gốc (dùng bởi chip ⟳ và nút ↺ ALL)
