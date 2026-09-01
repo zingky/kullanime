@@ -918,8 +918,252 @@
     return layers.join(', ');
   }
 
+  /* ──────────────────────────────────────────────────────
+     HIỆU ỨNG ĐẶC BIỆT (SPECIAL EFFECT)
+     Port từ extension engine-css.js. Các hàm render* nhận 1 spanWrap
+     rồi lấp đầy nó bằng nội dung + style hiệu ứng. Dùng State.subsFrame
+     (tăng mỗi tick updateCurrentSubtitle) thay cho _animFrameCount của
+     extension; *0.016 để ước lượng thời gian giây (khớp cách extension dùng).
+     ────────────────────────────────────────────────────── */
+
+  // Lấy tốc độ riêng của từng hiệu ứng (mặc định theo từng effect)
+  function effSpeed(key, fallback) {
+    const sp = (State.subSettings && State.subSettings.effectSpeed) || {};
+    const v = sp[key];
+    return (v != null && !isNaN(Number(v))) ? Number(v) : fallback;
+  }
+  // Đồng hồ hiệu ứng (giây ước lượng, y như extension _animFrameCount*0.016)
+  function effT() { return (State.subsFrame || 0) * 0.016; }
+  // Shadow helper theo deepGlow setting hiện tại
+  function effShadow(ow, bl, oc, useStroke) {
+    const deepGlow = !!(State.subSettings && State.subSettings.deepGlow);
+    return deepGlow ? buildDeepGlow(ow, bl, oc, useStroke) : buildShadow(ow, bl, oc, useStroke);
+  }
+
+  function renderRainbowOutline(spanWrap, lineText, ow, bl) {
+    spanWrap.style.color = '#ffffff';
+    spanWrap.style.webkitTextStroke = 'none';
+    spanWrap.style.textShadow = 'none';
+    spanWrap.style.filter = '';
+    spanWrap.style.position = 'relative';
+    const textSpan = document.createElement('span');
+    textSpan.textContent = lineText;
+    textSpan.style.color = '#ffffff';
+    textSpan.style.position = 'relative';
+    textSpan.style.zIndex = '2';
+    const shadowLayer = document.createElement('span');
+    shadowLayer.textContent = lineText;
+    shadowLayer.style.position = 'absolute';
+    shadowLayer.style.left = '0';
+    shadowLayer.style.top = '0';
+    shadowLayer.style.color = 'transparent';
+    shadowLayer.style.zIndex = '1';
+    const speedMul = effSpeed('rainbow_outline', 1) * 0.8;
+    const hueDeg = ((State.subsFrame || 0) * speedMul) % 360;
+    if (ow > 0) {
+      shadowLayer.style.textShadow = buildShadow(ow, bl, '#ff0000');
+      shadowLayer.style.filter = 'hue-rotate(' + hueDeg + 'deg)';
+    }
+    shadowLayer.style.pointerEvents = 'none';
+    spanWrap.style.display = 'inline-block';
+    spanWrap.style.position = 'relative';
+    spanWrap.appendChild(textSpan);
+    spanWrap.appendChild(shadowLayer);
+  }
+
+  function renderRainbowOutlineRgb(spanWrap, lineText, ow, bl) {
+    spanWrap.style.color = '#ffffff';
+    spanWrap.style.webkitTextStroke = 'none';
+    spanWrap.style.textShadow = 'none';
+    spanWrap.style.filter = '';
+    spanWrap.style.position = 'relative';
+    const speedMul = effSpeed('rainbow_outline_rgb', 1) * 1.2;
+    const bgShift = 200 - (((State.subsFrame || 0) * speedMul) % 200);
+    const textSpan = document.createElement('span');
+    textSpan.textContent = lineText;
+    textSpan.style.color = '#ffffff';
+    textSpan.style.position = 'relative';
+    textSpan.style.zIndex = '2';
+    const shadowLayer = document.createElement('span');
+    shadowLayer.textContent = lineText;
+    shadowLayer.style.position = 'absolute';
+    shadowLayer.style.left = '0';
+    shadowLayer.style.top = '0';
+    shadowLayer.style.zIndex = '1';
+    shadowLayer.style.color = 'transparent';
+    shadowLayer.style.webkitTextStroke = 'none';
+    shadowLayer.style.pointerEvents = 'none';
+    if (ow > 0) {
+      shadowLayer.style.background = 'linear-gradient(90deg, #ff0000, #ff7f00, #ffff00, #00ff00, #0000ff, #4b0082, #9400d3, #ff0000)';
+      shadowLayer.style.backgroundSize = '200% auto';
+      shadowLayer.style.backgroundPosition = bgShift + '% 50%';
+      shadowLayer.style.webkitBackgroundClip = 'text';
+      shadowLayer.style.backgroundClip = 'text';
+      shadowLayer.style.color = 'transparent';
+      shadowLayer.style.textShadow = buildShadow(ow, bl, 'transparent');
+      shadowLayer.style.webkitTextStroke = (ow * 2) + 'px transparent';
+      shadowLayer.style.paintOrder = 'stroke fill';
+    }
+    spanWrap.style.display = 'inline-block';
+    spanWrap.style.position = 'relative';
+    spanWrap.appendChild(textSpan);
+    spanWrap.appendChild(shadowLayer);
+  }
+
+  function renderRainbowText(spanWrap, lineText, ow, bl, oc) {
+    const speedMul = effSpeed('rainbow_text', 1) * 1.2;
+    const bgShift = 200 - (((State.subsFrame || 0) * speedMul) % 200);
+    const gradientColors = '#ff0000, #ff7f00, #ffff00, #00ff00, #0000ff, #4b0082, #9400d3, #ff0000';
+    spanWrap.innerHTML = '';
+    spanWrap.style.display = 'inline-block';
+    spanWrap.style.position = 'relative';
+    spanWrap.style.textShadow = 'none';
+    if (ow > 0) {
+      const shadowLayer = document.createElement('span');
+      shadowLayer.textContent = lineText;
+      shadowLayer.style.cssText = 'position: absolute; left: 0; top: 0; color: transparent; z-index: 1; pointer-events: none; text-shadow: ' + buildShadow(ow, bl, oc) + ';';
+      spanWrap.appendChild(shadowLayer);
+    }
+    const inner = document.createElement('span');
+    inner.style.cssText =
+      'background: linear-gradient(90deg, ' + gradientColors + ');' +
+      'background-size: 200% auto;' +
+      'background-position: ' + bgShift + '% 50%;' +
+      '-webkit-background-clip: text; background-clip: text;' +
+      'color: transparent; -webkit-text-fill-color: transparent;' +
+      'text-shadow: none; -webkit-text-stroke: none;' +
+      'position: relative; z-index: 2;';
+    inner.textContent = lineText;
+    spanWrap.appendChild(inner);
+  }
+
+  function renderShineSweep(spanWrap, lineText, ow, bl, oc, c1) {
+    spanWrap.innerHTML = '';
+    spanWrap.style.display = 'inline-block';
+    spanWrap.style.position = 'relative';
+    spanWrap.style.color = 'transparent';
+    const speed = effSpeed('shine_sweep', 4) * 0.08;
+    const pos = (((State.subsFrame || 0) * speed * 100) % 200) - 50;
+    const base = document.createElement('span');
+    base.textContent = lineText;
+    base.style.cssText = 'position:absolute;left:0;top:0;white-space:pre;color:' + c1 + ';text-shadow:' + effShadow(ow, bl, oc) + ';';
+    spanWrap.appendChild(base);
+    const shine = document.createElement('span');
+    shine.textContent = lineText;
+    shine.style.cssText = 'position:relative;color:transparent;white-space:pre;background:linear-gradient(90deg, rgba(255,255,255,0) 25%, rgba(255,255,255,0.95) 50%, rgba(255,255,255,0) 75%);background-size:200% auto;background-position:' + pos + '% 50%;-webkit-background-clip:text;background-clip:text;';
+    spanWrap.appendChild(shine);
+  }
+
+  function renderSplitColor(spanWrap, lineText, ow, bl, oc) {
+    spanWrap.innerHTML = '';
+    spanWrap.style.display = 'inline-block';
+    spanWrap.style.position = 'relative';
+    spanWrap.style.color = 'transparent';
+    const outl = document.createElement('span');
+    outl.textContent = lineText;
+    outl.style.cssText = 'position:absolute;left:0;top:0;white-space:pre;color:transparent;text-shadow:' + effShadow(ow, bl, oc) + ';';
+    spanWrap.appendChild(outl);
+    const txt = document.createElement('span');
+    txt.textContent = lineText;
+    txt.style.cssText = 'position:relative;white-space:pre;color:transparent;background:linear-gradient(180deg, #ffffff 0%, #ffffff 50%, #4488ff 50%, #4488ff 100%);-webkit-background-clip:text;background-clip:text;';
+    spanWrap.appendChild(txt);
+  }
+
+  function renderRetro80s(spanWrap, lineText, bl) {
+    spanWrap.innerHTML = '';
+    spanWrap.style.display = 'inline-block';
+    spanWrap.style.position = 'relative';
+    spanWrap.style.color = '#ff44ff';
+    spanWrap.style.textShadow = [
+      '2px 2px 0 #00ffff', '4px 4px 0 #00ffff', '6px 6px 0 #00ffff',
+      '8px 8px 0 #00ffff', '10px 10px 0 #00ffff',
+      '0 0 ' + Math.max(bl, 2) + 'px #ff44ff',
+      '0 0 ' + Math.max(bl + 4, 4) + 'px #ff44ff'
+    ].join(',');
+    spanWrap.style.fontWeight = 'bold';
+    spanWrap.innerText = lineText;
+  }
+
+  function renderGolden(spanWrap, lineText, ow, bl) {
+    spanWrap.innerHTML = '';
+    spanWrap.style.display = 'inline-block';
+    spanWrap.style.position = 'relative';
+    spanWrap.style.color = 'transparent';
+    const outl = document.createElement('span');
+    outl.textContent = lineText;
+    outl.style.cssText = 'position:absolute;left:0;top:0;white-space:pre;color:transparent;text-shadow:' + effShadow(ow, bl, '#8b6914') + ';';
+    spanWrap.appendChild(outl);
+    const txt = document.createElement('span');
+    txt.textContent = lineText;
+    txt.style.cssText = 'position:relative;white-space:pre;color:transparent;background:linear-gradient(180deg, #d4a017 0%, #fff8dc 30%, #d4a017 50%, #b8860b 70%, #d4a017 100%);-webkit-background-clip:text;background-clip:text;';
+    spanWrap.appendChild(txt);
+  }
+
+  function renderFloatHover(spanWrap, lineText, ow, bl, oc, c1) {
+    spanWrap.style.display = 'inline-block';
+    spanWrap.style.position = 'relative';
+    spanWrap.style.color = c1;
+    spanWrap.style.textShadow = effShadow(ow, bl, oc);
+    spanWrap.style.webkitTextStroke = 'none';
+    const speed = effSpeed('float_hover', 5) * 0.1;
+    const yOff = Math.sin(effT() * speed) * 8;
+    spanWrap.style.transform = 'translateY(' + yOff + 'px)';
+    spanWrap.innerText = lineText;
+  }
+
+  // Sine Wave: ký tự riêng rẽ nhấp nhô theo pha.
+  function renderSineWave(spanWrap, lineText, ow, bl, oc, c1) {
+    spanWrap.innerHTML = '';
+    spanWrap.style.color = c1;
+    spanWrap.style.webkitTextStroke = 'none';
+    spanWrap.style.textShadow = effShadow(ow, bl, oc);
+    const amp = (State.subSettings && State.subSettings.sineWaveAmplitude != null)
+      ? Number(State.subSettings.sineWaveAmplitude) : 2;
+    const speed = effSpeed('sine_wave', 8) * 0.3;
+    const tSec = effT();
+    String(lineText).split('').forEach((ch, chIdx) => {
+      const cSpan = document.createElement('span');
+      cSpan.style.display = 'inline-block';
+      cSpan.style.whiteSpace = 'pre';
+      const yOff = Math.sin(tSec * speed + chIdx * 0.5) * -amp;
+      cSpan.style.transform = 'translateY(' + yOff + 'px)';
+      cSpan.textContent = ch === ' ' ? '\u00A0' : ch;
+      spanWrap.appendChild(cSpan);
+    });
+  }
+
+  function renderGlowPulse(spanWrap, lineText, ow, bl, oc, c1) {
+    spanWrap.style.display = 'inline-block';
+    spanWrap.style.position = 'relative';
+    spanWrap.style.color = c1;
+    spanWrap.style.webkitTextStroke = 'none';
+    const speed = effSpeed('glow_pulse', 5) * 0.08;
+    const breathe = 0.5 + Math.sin(effT() * speed) * 0.5;
+    const pulseBlur = Math.max(0, bl * breathe);
+    const pulseOw = Math.max(0, ow * (0.5 + breathe * 0.5));
+    spanWrap.style.textShadow = effShadow(pulseOw, pulseBlur, oc);
+    spanWrap.innerText = lineText;
+  }
+
+  // Dispatcher hiệu ứng cho 1 dòng không-karaoke. Nhận spanWrap rỗng rồi đổ nội dung.
+  function renderAssEffect(spanWrap, eff, lineText, ow, bl, oc, c1) {
+    if (!eff || eff === 'none') { spanWrap.innerText = lineText; return; }
+    if (eff === 'rainbow_outline') renderRainbowOutline(spanWrap, lineText, ow, bl);
+    else if (eff === 'rainbow_outline_rgb') renderRainbowOutlineRgb(spanWrap, lineText, ow, bl);
+    else if (eff === 'rainbow_text') renderRainbowText(spanWrap, lineText, ow, bl, oc);
+    else if (eff === 'sine_wave') renderSineWave(spanWrap, lineText, ow, bl, oc, c1);
+    else if (eff === 'shine_sweep') renderShineSweep(spanWrap, lineText, ow, bl, oc, c1);
+    else if (eff === 'split_color') renderSplitColor(spanWrap, lineText, ow, bl, oc);
+    else if (eff === 'retro_80s') renderRetro80s(spanWrap, lineText, bl);
+    else if (eff === 'golden') renderGolden(spanWrap, lineText, ow, bl);
+    else if (eff === 'float_hover') renderFloatHover(spanWrap, lineText, ow, bl, oc, c1);
+    else if (eff === 'glow_pulse') renderGlowPulse(spanWrap, lineText, ow, bl, oc, c1);
+    else { spanWrap.style.color = c1; spanWrap.style.textShadow = effShadow(ow, bl, oc); spanWrap.innerText = lineText; }
+  }
+
   // Hệ số co font: canvas đo ascent/descent -> customResize (~0.7-0.9)
   const _fontResizeCache = {};
+
   function getFontResize(fontFamily) {
     const key = String(fontFamily || '');
     if (_fontResizeCache[key] !== undefined) return _fontResizeCache[key];
@@ -1485,18 +1729,34 @@
         }
       });
     } else {
-      // ---- Non-karaoke: áp dụng kPre style nếu Use Global ----
+      // ---- Non-karaoke: áp dụng kPre style nếu Use Global; hoặc hiệu ứng đặc biệt nếu bật ----
       const kPre = useGlobal ? kTab('kPre') : null;
+      const eff = (gs.specialEffect && gs.specialEffect !== 'none') ? gs.specialEffect : null;
       (cue.rawLines || []).forEach((ln, li) => {
         const lineDiv = makeLineDiv(baseY + li * lineSpacing);
         applyBox(lineDiv);
-        lineDiv.textContent = String(ln).replace(/\{[^}]*\}/g, '');
+        const plain = String(ln).replace(/\{[^}]*\}/g, '');
+
+        if (eff) {
+          // Hiệu ứng đặc biệt: lineDiv giữ vị trí/cỡ chữ, nội dung nằm trong spanWrap.
+          if (eff === 'sine_wave') lineDiv.style.whiteSpace = 'pre';
+          const spanWrap = document.createElement('span');
+          spanWrap.style.display = 'inline-block';
+          spanWrap.style.fontSize = fs + 'px';
+          renderAssEffect(spanWrap, eff, plain, ow, bl, c3, c1);
+          lineDiv.appendChild(spanWrap);
+          return;
+        }
+
+        lineDiv.textContent = plain;
         // Khi Use Global, kPre là "trạng thái chữ" mặc định — áp dụng màu/viền/blur/cỡ
         if (kPre) {
           const kC1 = kPre.c1 || c1;
           const kC3 = kPre.c3 || c3;
           const kOutl = karaOutl(kPre, ow);
           const kBl = (Number(kPre.blur) != null ? Number(kPre.blur) : bl / scaleH) * scaleH;
+          const kFs = karaFs(kPre, baseFs);
+          if (kFs !== fs) lineDiv.style.fontSize = kFs + 'px';
           lineDiv.style.color = kC1;
           lineDiv.style.textShadow = deepGlow
             ? buildDeepGlow(kOutl, kBl, kC3, useStroke)
@@ -1505,8 +1765,6 @@
             lineDiv.style.webkitTextStroke = Math.max(kOutl, 1) + 'px ' + kC3;
             lineDiv.style.paintOrder = 'stroke fill';
           }
-          const kFs = karaFs(kPre, baseFs);
-          if (kFs !== fs) lineDiv.style.fontSize = kFs + 'px';
         }
       });
     }
@@ -1977,6 +2235,8 @@
     const shiftSec = (State.timeShiftMs || 0) / 1000;
     const t = current + shiftSec;
     State.lastRenderTime = t;
+    // Đồng hồ hiệu ứng: tick 100ms → cộng 6 (≈60fps) để khớp thang _animFrameCount*0.016 giây.
+    State.subsFrame = (State.subsFrame || 0) + 6;
     const videoFrame = overlay.closest('.video-wrap') || overlay.parentElement;
     const frameH = videoFrame
       ? (videoFrame.clientHeight || videoFrame.offsetHeight || overlay.clientHeight || 0)
@@ -2107,7 +2367,11 @@
     kPost:   { c1: '#ffffff', c3: '#000000', fs: 90, outl: 3, blur: 6, zoom: 1.0 },
     closeOnClickOutside: true,
     useGlobalStyles: false,
-    useTextStroke: false
+    useTextStroke: false,
+    // ---- Hiệu ứng đặc biệt (port từ extension engine-css.js) ----
+    specialEffect: 'none',
+    effectSpeed: {},
+    sineWaveAmplitude: 2
   };
   let _subPopupEl = null;
   let _subPopupDragging = false;
@@ -2189,6 +2453,31 @@
       '<option value="' + f + '"' + (gs.fontFamily === f ? ' selected' : '') + '>' + f + '</option>'
     ).join('');
     return '<select id="sub-fontSelect">' + opts + '<option value="custom">-- Load --</option></select>';
+  }
+  // Danh sách hiệu ứng CÓ hàm render trong app.js (import từ engine-css.js engine-css.js port).
+  const _effectOptions = [
+    { v: 'none', l: 'None (tắt)' },
+    { v: 'rainbow_outline', l: '🌈 Rainbow Outline' },
+    { v: 'rainbow_outline_rgb', l: '🌈 RGB Outline' },
+    { v: 'rainbow_text', l: '🌈 RGB Text' },
+    { v: 'sine_wave', l: '〰️ Sine Wave' },
+    { v: 'shine_sweep', l: '✨ Shine / Sweep' },
+    { v: 'split_color', l: '🔲 Split Color' },
+    { v: 'retro_80s', l: '🌴 80s Retro' },
+    { v: 'golden', l: '🏆 Golden Text' },
+    { v: 'float_hover', l: '🎈 Float / Hover' },
+    { v: 'glow_pulse', l: '💫 Glow Pulse' }
+  ];
+  function getEffectOptionsHTML(current) {
+    return _effectOptions.map((o) =>
+      '<option value="' + o.v + '"' + (current === o.v ? ' selected' : '') + '>' + o.l + '</option>'
+    ).join('');
+  }
+  function getEffectSpeedDisplay(gs) {
+    const eff = (gs && gs.specialEffect) || 'none';
+    const sp = (gs && gs.effectSpeed) || {};
+    const v = sp[eff];
+    return (v != null && !isNaN(Number(v))) ? Number(v) : 1;
   }
   function renderSubGlobalRow(l, k, min, max, s) {
     const gs = ensureSubSettings();
@@ -2314,6 +2603,7 @@
   // khi đang ở Cài đặt từng style. Thanh Timeshift nằm ở header (createSubPopup).
   function buildSubPopupHTML(gs) {
     const useCommon = !!(gs.useGlobalStyles);
+    const activeM = State._subActiveTab || (useCommon ? 'common' : 'styles');
     return '' +
       // ---------- Thanh công cụ CHUNG 1 dòng: Font + B/I/U/S + Cỡ chữ % + reset ----------
       '<div class="sub-global-toolbar">' +
@@ -2331,14 +2621,15 @@
         '<button type="button" class="sub-gtb-reset" id="sub-gtb-reset" title="Về mặc định: cỡ 100%, bỏ chọn B/I/U/S, font mặc định">⟳</button>' +
       '</div>' +
 
-      // ---------- 2 tab lớn: Cài đặt chung / Cài đặt từng style ----------
+      // ---------- 3 tab lớn: Cài đặt chung / Cài đặt từng style / Hiệu ứng ----------
       '<div class="sub-mtabs" role="tablist">' +
-        '<button type="button" class="sub-mtab' + (useCommon ? ' active' : '') + '" data-m="common" role="tab">🌍 Use Global</button>' +
-        '<button type="button" class="sub-mtab' + (useCommon ? '' : ' active') + '" data-m="styles" role="tab">🎨 Use Style</button>' +
+        '<button type="button" class="sub-mtab' + (activeM === 'common' ? ' active' : '') + '" data-m="common" role="tab">🌍 Use Global</button>' +
+        '<button type="button" class="sub-mtab' + (activeM === 'styles' ? ' active' : '') + '" data-m="styles" role="tab">🎨 Use Style</button>' +
+        '<button type="button" class="sub-mtab' + (activeM === 'effect' ? ' active' : '') + '" data-m="effect" role="tab">✨ Effect</button>' +
       '</div>' +
 
       // ---------- Panel 1: Cài đặt chung (chỉ 3 tab karaoke: Pre / Active / Post) ----------
-      '<div class="sub-mtab-panel" data-m="common" role="tabpanel" style="display:' + (useCommon ? 'block' : 'none') + ';">' +
+      '<div class="sub-mtab-panel" data-m="common" role="tabpanel" style="display:' + (activeM === 'common' ? 'block' : 'none') + ';">' +
 
         // ---- Cỡ chữ CHUNG: dùng cho cả 3 trạng thái karaoke + style không karaoke ----
         // Nằm dưới hàng chọn "Cài đặt chung / Cài đặt từng style" và trên 3 tab karaoke (Pre/Active/Post).
@@ -2365,12 +2656,37 @@
       '</div>' +
 
       // ---------- Panel 2: Use Style ----------
-      '<div class="sub-mtab-panel" data-m="styles" role="tabpanel" style="display:' + (useCommon ? 'none' : 'block') + ';">' +
+      '<div class="sub-mtab-panel" data-m="styles" role="tabpanel" style="display:' + (activeM === 'styles' ? 'block' : 'none') + ';">' +
         '<div class="sub-style-headbar">' +
           '<span class="sub-styles-title">🎨 Use Style <em class="sub-filter-hint">(tự lọc style không có dòng)</em></span>' +
           '<span id="sub-reset-all-styles" title="Reset tất cả style về vị trí/màu gốc">↺ ALL</span>' +
         '</div>' +
         '<div id="sub-style-items"></div>' +
+      '</div>' +
+
+      // ---------- Panel 3: Hiệu ứng đặc biệt (Special Effect) ----------
+      '<div class="sub-mtab-panel" data-m="effect" role="tabpanel" style="display:' + (activeM === 'effect' ? 'block' : 'none') + ';">' +
+        '<div class="sub-style-headbar">' +
+          '<span class="sub-styles-title">✨ Hiệu ứng đặc biệt <em class="sub-filter-hint">(áp dụng cho dòng không-karaoke)</em></span>' +
+          '<span id="sub-reset-effect" title="Bỏ hiệu ứng (về None)">⟳ None</span>' +
+        '</div>' +
+        '<div class="g-row" style="margin-top:4px;">' +
+          '<label style="white-space:nowrap;width:auto;min-width:52px;">Hiệu ứng</label>' +
+          '<select id="g-specialEffect" style="flex:1;background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.18);color:#dbe4ff;font-size:11px;border-radius:7px;padding:5px 6px;min-width:0;">' +
+            getEffectOptionsHTML(gs.specialEffect) +
+          '</select>' +
+        '</div>' +
+        '<div class="g-row">' +
+          '<label style="white-space:nowrap;">Tốc độ</label>' +
+          '<input type="range" id="g-effectSpeed" min="1" max="40" step="1" value="' + getEffectSpeedDisplay(gs) + '">' +
+          '<input type="number" id="g-effectSpeedVal" value="' + getEffectSpeedDisplay(gs) + '" class="num-in" step="1" min="1" max="40">' +
+        '</div>' +
+        '<div class="g-row" id="sine-amp-row" style="display:' + ((gs.specialEffect === 'sine_wave') ? 'flex' : 'none') + ';">' +
+          '<label style="white-space:nowrap;">Biên độ</label>' +
+          '<input type="range" id="g-sineWaveAmplitude" min="2" max="30" step="1" value="' + (gs.sineWaveAmplitude != null ? gs.sineWaveAmplitude : 2) + '">' +
+          '<input type="number" id="g-sineWaveAmplitudeVal" value="' + (gs.sineWaveAmplitude != null ? gs.sineWaveAmplitude : 2) + '" class="num-in" step="1" min="2" max="30">' +
+        '</div>' +
+        '<div class="sub-effect-hint">Gợi ý: hiệu ứng dùng màu/viền/blur hiện tại; chỉnh ở tab <b>Use Global</b> hoặc <b>Use Style</b>.</div>' +
       '</div>' +
 
       // ---------- Footer chung: Fade + Hộp + Reset chung + Timeshift + Actions ----------
@@ -2533,17 +2849,20 @@ function setupSubPopupEvents() {
       });
     }
 
-    // ===== 2 tab lớn: Cài đặt chung ⇄ Cài đặt từng style =====
+    // ===== 3 tab lớn: Cài đặt chung ⇄ Cài đặt từng style ⇄ Hiệu ứng =====
     // Chọn tab nào thì áp dụng chế độ đó: common → mọi style dùng cài chung,
-    // styles → mỗi style dùng cài riêng của nó.
+    // styles → mỗi style dùng cài riêng; effect → chỉ hiệu ứng (không đổi useGlobalStyles).
     popup.querySelectorAll('.sub-mtab').forEach((tab) => {
       tab.onclick = () => {
         const m = tab.dataset.m;
-        const useCommon = (m === 'common');
-        State.subSettings.useGlobalStyles = useCommon;
-        Object.keys(State.styleSettings || {}).forEach((name) => {
-          State.styleSettings[name].override = !useCommon;
-        });
+        State._subActiveTab = m;
+        if (m === 'common' || m === 'styles') {
+          const useCommon = (m === 'common');
+          State.subSettings.useGlobalStyles = useCommon;
+          Object.keys(State.styleSettings || {}).forEach((name) => {
+            State.styleSettings[name].override = !useCommon;
+          });
+        }
         popup.querySelectorAll('.sub-mtab').forEach((x) => x.classList.toggle('active', x === tab));
         popup.querySelectorAll('.sub-mtab-panel').forEach((p) => {
           p.style.display = (p.dataset.m === m) ? 'block' : 'none';
@@ -2553,6 +2872,78 @@ function setupSubPopupEvents() {
         if (State.subsEnabled) updateCurrentSubtitle();
       };
     });
+
+    // ===== Hiệu ứng đặc biệt (tab Effect) =====
+    const effSelect = popup.querySelector('#g-specialEffect');
+    const ampRow = popup.querySelector('#sine-amp-row');
+    const speedSlider = popup.querySelector('#g-effectSpeed');
+    const speedVal = popup.querySelector('#g-effectSpeedVal');
+    const ampSlider = popup.querySelector('#g-sineWaveAmplitude');
+    const ampVal = popup.querySelector('#g-sineWaveAmplitudeVal');
+    const syncEffUI = () => {
+      const eff = (State.subSettings && State.subSettings.specialEffect) || 'none';
+      if (ampRow) ampRow.style.display = (eff === 'sine_wave') ? 'flex' : 'none';
+      const sp = getEffectSpeedDisplay(State.subSettings || {});
+      if (speedSlider) speedSlider.value = sp;
+      if (speedVal) speedVal.value = sp;
+    };
+    if (effSelect) {
+      effSelect.onchange = () => {
+        State.subSettings.specialEffect = effSelect.value;
+        if (!State.subSettings.effectSpeed) State.subSettings.effectSpeed = {};
+        syncEffUI();
+        saveSubSettings();
+        if (State.subsEnabled) updateCurrentSubtitle();
+      };
+    }
+    const bindSpeed = () => {
+      if (speedSlider) speedSlider.oninput = () => {
+        const v = Number(speedSlider.value) || 1;
+        if (!State.subSettings.effectSpeed) State.subSettings.effectSpeed = {};
+        State.subSettings.effectSpeed[State.subSettings.specialEffect || 'none'] = v;
+        if (speedVal) speedVal.value = v;
+        saveSubSettings();
+        if (State.subsEnabled) updateCurrentSubtitle();
+      };
+      if (speedVal) speedVal.onchange = () => {
+        const v = Number(speedVal.value) || 1;
+        if (!State.subSettings.effectSpeed) State.subSettings.effectSpeed = {};
+        State.subSettings.effectSpeed[State.subSettings.specialEffect || 'none'] = v;
+        if (speedSlider) speedSlider.value = v;
+        saveSubSettings();
+        if (State.subsEnabled) updateCurrentSubtitle();
+      };
+    };
+    bindSpeed();
+    const bindAmp = () => {
+      if (ampSlider) ampSlider.oninput = () => {
+        const v = Number(ampSlider.value) || 2;
+        State.subSettings.sineWaveAmplitude = v;
+        if (ampVal) ampVal.value = v;
+        saveSubSettings();
+        if (State.subsEnabled) updateCurrentSubtitle();
+      };
+      if (ampVal) ampVal.onchange = () => {
+        const v = Number(ampVal.value) || 2;
+        State.subSettings.sineWaveAmplitude = v;
+        if (ampSlider) ampSlider.value = v;
+        saveSubSettings();
+        if (State.subsEnabled) updateCurrentSubtitle();
+      };
+    };
+    bindAmp();
+    const effReset = popup.querySelector('#sub-reset-effect');
+    if (effReset) {
+      effReset.onclick = () => {
+        State.subSettings.specialEffect = 'none';
+        if (!State.subSettings.effectSpeed) State.subSettings.effectSpeed = {};
+        syncEffUI();
+        saveSubSettings();
+        if (State.subsEnabled) updateCurrentSubtitle();
+        toast('Đã bỏ hiệu ứng (None).', 'info', 1400);
+      };
+    }
+
 
     // Pill tabs (Settings / Karaoke / Advanced)
     popup.querySelectorAll('.pill-tab').forEach((t) => {
