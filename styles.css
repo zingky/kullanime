@@ -1543,10 +1543,10 @@ select.input option { background: #141a2d; color: var(--text); }
 }
 .sub-effect-hint b { color: #aab6d6; }
 
-/* Style headbar + empty state */
+/* Style headbar (nằm DƯỚI toàn bộ danh sách style) + empty state */
 .sub-style-headbar {
   display: flex; align-items: center; justify-content: space-between; gap: 8px;
-  padding: 4px 8px 8px; margin-bottom: 8px; border-bottom: 1px solid rgba(255,255,255,0.08);
+  padding: 8px 2px 0; margin-top: 8px; border-top: 1px solid rgba(255,255,255,0.08);
 }
 .sub-style-headbar .sub-styles-title { color: #ffaa00; font-weight: 800; font-size: 11px; display: flex; align-items: center; gap: 6px; }
 .sub-style-headbar #sub-reset-all-styles { cursor: pointer; font-size: 11px; color: #ffaa00; font-weight: 700; opacity: .85; transition: opacity .15s; white-space: nowrap; }
@@ -1555,23 +1555,48 @@ select.input option { background: #141a2d; color: var(--text); }
   padding: 22px 14px; text-align: center; color: #8892a6; font-size: 11.5px;
   border: 1px dashed rgba(255,255,255,0.15); border-radius: 12px; background: rgba(255,255,255,0.03);
 }
-.style-hidden-tag { font-size: 8px; color: #ff8e8e; font-weight: 600; background: rgba(255,142,142,0.12); border-radius: 4px; padding: 1px 5px; margin-left: 5px; vertical-align: middle; white-space: nowrap; }
+.sub-style-headbar:first-child { border-top: none; margin-top: 0; }
 
-/* Style item hiện đại */
-.sub-panel .style-item { border: 1px solid rgba(255,255,255,0.12); border-radius: 12px; margin-bottom: 8px; background: rgba(255,255,255,0.035); overflow: hidden; transition: border-color .15s ease; }
-.sub-panel .style-item:hover { border-color: rgba(62,166,255,0.4); }
-.sub-panel .style-head {
-  padding: 8px 12px; cursor: pointer; display: flex; justify-content: space-between; align-items: center;
-  background: linear-gradient(90deg, rgba(62,166,255,0.12), rgba(255,255,255,0.04));
-  font-size: 11.5px; font-weight: 700; color: #eef2ff; gap: 8px;
+/* ====== Thanh tab NGANG các Style (cuộn ngang, ẩn thanh cuộn, kéo chuột/vuốt được) ====== */
+.style-tabs {
+  display: flex; align-items: center; gap: 6px;
+  overflow-x: auto; overflow-y: hidden;
+  padding: 2px 2px 6px; margin-bottom: 8px;
+  scrollbar-width: none;              /* Firefox: ẩn thanh cuộn */
+  -webkit-overflow-scrolling: touch;  /* iOS: vuốt mượt */
+  cursor: grab; user-select: none; touch-action: pan-x;
 }
-.sub-panel .style-head .style-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.sub-panel .style-tools { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
-.sub-panel .sub-reset-style { cursor: pointer; font-size: 11px; color: #ffaa00; }
-.sub-panel .sub-eye { cursor: pointer; font-size: 12px; }
-.sub-panel .style-chev { font-size: 8px; color: #9aa3b8; transition: transform .18s ease; }
-.sub-panel .style-chev.open { transform: rotate(180deg); }
-.sub-panel .style-body { padding: 10px 12px; border-top: 1px dashed rgba(255,255,255,0.1); }
+.style-tabs::-webkit-scrollbar { display: none; }  /* Chrome/Edge: ẩn thanh cuộn */
+.style-tabs.dragging { cursor: grabbing; }
+.style-tabs.dragging .style-chip { pointer-events: none; }
+
+/* Một chip/tab style: pill gọn gàng giống tab điều hướng */
+.style-chip {
+  position: relative; flex: 0 0 auto; display: inline-flex; align-items: center; gap: 5px;
+  padding: 6px 10px; border: 1px solid rgba(255,255,255,0.12); border-radius: 999px;
+  background: rgba(255,255,255,0.05); color: #c6cedb; cursor: pointer;
+  font-size: 11px; font-weight: 600; line-height: 1; white-space: nowrap;
+  transition: background .15s ease, color .15s ease, border-color .15s ease, box-shadow .15s ease;
+}
+.style-chip:hover { background: rgba(255,255,255,0.1); color: #fff; border-color: rgba(62,166,255,0.45); }
+.style-chip.active {
+  background: linear-gradient(135deg, #7c5cff, #3ea6ff); color: #fff;
+  border-color: transparent; box-shadow: 0 3px 12px rgba(62,166,255,0.35);
+}
+.style-chip.chip-hidden { opacity: .45; }
+.style-chip .style-chip-name { max-width: 120px; overflow: hidden; text-overflow: ellipsis; }
+.style-chip .style-chip-eye { font-size: 10px; cursor: pointer; flex-shrink: 0; opacity: .85; }
+.style-chip .style-chip-eye:hover { opacity: 1; transform: scale(1.15); }
+.style-chip .sub-reset-style { font-size: 9px; color: #ffaa00; cursor: pointer; flex-shrink: 0; opacity: .75; }
+.style-chip .sub-reset-style:hover { opacity: 1; }
+
+/* Panel chi tiết cho style đang chọn */
+.style-detail {
+  border: 1px solid rgba(255,255,255,0.1); border-radius: 12px;
+  background: rgba(255,255,255,0.03); padding: 10px 12px;
+  margin-bottom: 4px;
+}
+
 
 /* Hàng vị trí / kích thước: nhãn + slider + ô số */
 .sub-panel .pos-row { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }

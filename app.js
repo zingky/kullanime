@@ -3079,12 +3079,12 @@
       '</div>' +
 
       // ---------- Panel 2: Style ----------
-      '<div class="sub-mtab-panel" data-m="styles" role="tabpanel" style="display:' + (activeM === 'styles' ? 'block' : 'none') + ';">' +
+      '<div class="sub-mtab-panel sub-mtab-panel-styles" data-m="styles" role="tabpanel" style="display:' + (activeM === 'styles' ? 'block' : 'none') + ';">' +
+        '<div id="sub-style-items"></div>' +
         '<div class="sub-style-headbar">' +
           '<span class="sub-styles-title">🎨 Style <em class="sub-filter-hint">(tự lọc style không có dòng)</em></span>' +
           '<span id="sub-reset-all-styles" title="Reset tất cả style về vị trí/màu gốc">↺ ALL</span>' +
         '</div>' +
-        '<div id="sub-style-items"></div>' +
       '</div>' +
 
       // ---------- Panel 3: Hiệu ứng đặc biệt (Special Effect) ----------
@@ -3126,7 +3126,10 @@
     ind.style.transform = 'translateX(' + (btnR.left - br.left) + 'px)';
   }
 
-  // Render danh sách style + nút điều chỉnh từng style (port engine-css.js renderStyles)
+  // Render danh sách style dạng thanh tab NGANG (cuộn được) + panel chỉnh chi tiết
+  // 1) Hàng tab ngang: mỗi style = 1 chip (tên + 👁️ ẩn/hiện + ⟳ reset)
+  // 2) Panel chi tiết: hiển thị các thanh chỉnh cho style đang chọn
+  // 3) Headbar "🎨 Style … ↺ ALL" được đặt dưới toàn bộ (xem buildSubPopupHTML)
   function renderSubStyleItems() {
     const container = $('#sub-style-items');
     if (!container) return;
@@ -3137,118 +3140,127 @@
       n = String(n).toLowerCase();
       return n.includes('viet') ? 1 : n.includes('roma') ? 2 : n.includes('kanji') ? 3 : 99;
     };
-    Object.keys(State.styleSettings || {}).sort((a, b) => priority(a) - priority(b)).forEach((sName) => {
-      if (!usedStyles.has(sName)) return;
+    const names = Object.keys(State.styleSettings || {})
+      .filter((sName) => usedStyles.has(sName))
+      .sort((a, b) => priority(a) - priority(b));
+
+    // Không có style nào khả dụng → hướng dẫn người dùng
+    if (!names.length) {
+      container.innerHTML = '<div class="sub-no-style">Chưa có phụ đề / style nào để điều chỉnh. Hãy phát một bài có file .ass trước.</div>';
+      return;
+    }
+
+    // Style đang chọn (giữ ổn định qua các lần re-render)
+    if (!State._subActiveStyle || !names.includes(State._subActiveStyle)) {
+      State._subActiveStyle = names[0];
+    }
+    const active = State._subActiveStyle;
+
+    // ── Hàng tab ngang, cuộn được ──
+    const tabRow = document.createElement('div');
+    tabRow.className = 'style-tabs';
+    names.forEach((sName) => {
       const s = State.styleSettings[sName];
-      const item = document.createElement('div');
-      item.className = 'style-item';
-      item.innerHTML = '<div class="style-head">' +
-          '<span class="style-name" title="Font: ' + (s.fontName || 'default') + '">' + sName + (s.visible ? '' : ' <span class="style-hidden-tag">Đang ẩn</span>') + '</span>' +
-          '<div class="style-tools">' +
-            '<span class="sub-reset-style" data-style="' + sName + '" title="Reset style này về gốc">⟳</span>' +
-            '<span class="sub-eye" data-style="' + sName + '" title="Ẩn / hiện style này">' + (s.visible ? '👁️' : '🚫') + '</span>' +
-            '<span class="style-chev">▼</span>' +
-          '</div>' +
-        '</div>' +
-        '<div class="sub-style-meta">' +
-          '<span>XY:' + (s.posX || 0) + ',' + (s.posY || 0) + '</span>' +
-          '<span>1c ' + (s.color1 || '') + '</span>' +
-          '<span>2c ' + (s.color2 || '') + '</span>' +
-          '<span>3c ' + (s.color3 || '') + '</span>' +
-          '<span>Cỡ:' + (s.fontSize || 25) + '</span>' +
-          '<span>Viền:' + (s.outlineWidth || 2) + '</span>' +
-          '<span>Blur:' + (s.blur != null ? s.blur : 2) + '</span>' +
-        '</div>' +
-        '<div class="style-body" style="display:none;">' +
-          '<div class="pos-row"><span class="pos-lab">X</span>' +
-            '<input type="range" data-style="' + sName + '" data-type="posX" min="0" max="' + (State.playResX * 2) + '" value="' + (s.posX || 0) + '">' +
-            '<input type="number" value="' + (s.posX || 0) + '" class="num-in" data-style="' + sName + '" data-type="posX">' +
-          '</div>' +
-          '<div class="pos-row"><span class="pos-lab">Y</span>' +
-            '<input type="range" data-style="' + sName + '" data-type="posY" min="0" max="' + (State.playResY * 2) + '" value="' + (s.posY || 0) + '">' +
-            '<input type="number" value="' + (s.posY || 0) + '" class="num-in" data-style="' + sName + '" data-type="posY">' +
-          '</div>' +
-          '<div class="adv-grid">' +
-            '<div class="adv-cell"><span class="adv-lab">1C</span><input type="color" data-style="' + sName + '" data-type="color1" value="' + (s.color1 || '#ffffff') + '"></div>' +
-            '<div class="adv-cell"><span class="adv-lab">2C</span><input type="color" data-style="' + sName + '" data-type="color2" value="' + (s.color2 || '#ffffff') + '"></div>' +
-            '<div class="adv-cell"><span class="adv-lab">3C</span><input type="color" data-style="' + sName + '" data-type="color3" value="' + (s.color3 || '#000000') + '"></div>' +
-            '<div class="adv-cell"><span class="adv-lab">S</span><input type="number" data-style="' + sName + '" data-type="fontSize" min="10" max="200" step="1" value="' + (s.fontSize || s.origFontSize || 25) + '"></div>' +
-            '<div class="adv-cell"><span class="adv-lab">O</span><input type="number" data-style="' + sName + '" data-type="outlineWidth" min="0" max="30" step="0.5" value="' + (s.outlineWidth || 2) + '"></div>' +
-            '<div class="adv-cell"><span class="adv-lab">B</span><input type="number" data-style="' + sName + '" data-type="blur" min="0" max="50" step="0.5" value="' + (s.blur != null ? s.blur : 2) + '"></div>' +
-          '</div>' +
-        '</div>';
-      item.querySelector('.sub-reset-style').onclick = (e) => {
-        e.stopPropagation();
-        const a = s.origAlign || s.align || 2;
-        const mL = (s.origMarginL !== undefined && s.origMarginL !== null) ? s.origMarginL : (s.marginL || 10);
-        const mR = (s.origMarginR !== undefined && s.origMarginR !== null) ? s.origMarginR : (s.marginR || 10);
-        const mV = (s.origMarginV !== undefined && s.origMarginV !== null) ? s.origMarginV : (s.marginV || 10);
-        s.posX = assAnchorX(a, mL, mR, State.playResX);
-        s.posY = assAnchorY(a, mV, State.playResY);
-        s.posOverridden = false;   // trả về toạ độ tự động theo Alignment + Margin
-        s.color1 = s.origColor1 || '#ffffff';
-        s.color2 = s.origColor2 || s.color1 || '#ffffff';
-        s.color3 = s.origColor3 || '#000000';
-        s.fontSize = s.origFontSize || s.fontSize || 25;
-        s.outlineWidth = s.origOutlineWidth || s.outlineWidth || 2;
-        saveSubSettings();
-        // Lưu trạng thái đang mở trước khi render lại
-        const openNames = new Set();
-        $$('#sub-style-items .style-item').forEach(el => {
-          const b = el.querySelector('.style-body');
-          if (b && b.style.display === 'block') {
-            const r = el.querySelector('.sub-reset-style');
-            if (r) openNames.add(r.dataset.style);
-          }
-        });
+      const chip = document.createElement('button');
+      chip.type = 'button';
+      chip.className = 'style-chip' + (sName === active ? ' active' : '') + (s.visible ? '' : ' chip-hidden');
+      chip.dataset.style = sName;
+      chip.title = 'Style: ' + sName;
+      chip.innerHTML =
+        '<span class="style-chip-name">' + esc(sName) + '</span>' +
+        '<span class="style-chip-eye" data-style="' + esc(sName) + '" title="Ẩn / hiện style này">' + (s.visible ? '👁️' : '🚫') + '</span>' +
+        '<span class="sub-reset-style" data-style="' + esc(sName) + '" title="Reset style này về gốc">⟳</span>';
+      // Chọn chip → hiện panel chi tiết của style đó
+      chip.addEventListener('click', (e) => {
+        if (tabRow._dragged) { tabRow._dragged = false; return; }
+        if (e.target.closest('.style-chip-eye') || e.target.closest('.sub-reset-style')) return;
+        if (State._subActiveStyle === sName) return;
+        State._subActiveStyle = sName;
         renderSubStyleItems();
-        // Khôi phục trạng thái đang mở
-        $$('#sub-style-items .style-item').forEach(el => {
-          const r = el.querySelector('.sub-reset-style');
-          if (r && openNames.has(r.dataset.style)) {
-            const b = el.querySelector('.style-body');
-            const c = el.querySelector('.style-chev');
-            if (b) b.style.display = 'block';
-            if (c) c.classList.add('open');
-          }
-        });
-        if (State.subsEnabled) updateCurrentSubtitle();
-      };
-      // Eye button: toggle ẩn/hiện in-place, KHÔNG gọi renderSubStyleItems()
-      item.querySelector('.sub-eye').onclick = (e) => {
+      });
+      // 👁️ ẩn / hiện trực tiếp trên chip (không render lại toàn bộ)
+      chip.querySelector('.style-chip-eye').onclick = (e) => {
         e.stopPropagation();
         s.visible = !s.visible;
-        e.target.innerText = s.visible ? '👁️' : '🚫';
-        e.target.style.opacity = s.visible ? 1 : 0.3;
-        // Thêm / gỡ badge "Đang ẩn" kế bên tên style
-        const nameEl = item.querySelector('.style-name');
-        if (nameEl) {
-          const existingTag = nameEl.querySelector('.style-hidden-tag');
-          if (s.visible) { if (existingTag) existingTag.remove(); }
-          else if (!existingTag) {
-            const tag = document.createElement('span');
-            tag.className = 'style-hidden-tag';
-            tag.textContent = ' Đang ẩn';
-            nameEl.appendChild(tag);
-          }
-        }
+        chip.classList.toggle('chip-hidden', !s.visible);
+        e.target.textContent = s.visible ? '👁️' : '🚫';
         saveSubSettings();
         if (State.subsEnabled) updateCurrentSubtitle();
       };
-      item.querySelector('.style-head').onclick = (e) => {
-        if (e.target.classList.contains('sub-eye') || e.target.classList.contains('sub-reset-style')) return;
-        const b = item.querySelector('.style-body');
-        const chev = item.querySelector('.style-chev');
-        const open = b.style.display !== 'block';
-        b.style.display = open ? 'block' : 'none';
-        if (chev) chev.classList.toggle('open', open);
+      // ⟳ reset riêng style này
+      chip.querySelector('.sub-reset-style').onclick = (e) => {
+        e.stopPropagation();
+        resetOneStyle(s);
+        saveSubSettings();
+        renderSubStyleItems();
+        if (State.subsEnabled) updateCurrentSubtitle();
       };
-      container.appendChild(item);
+      tabRow.appendChild(chip);
     });
-    // Không có style nào khả dụng → hướng dẫn người dùng
-    if (!container.children.length) {
-      container.innerHTML = '<div class="sub-no-style">Chưa có phụ đề / style nào để điều chỉnh. Hãy phát một bài có file .ass trước.</div>';
-    }
+    container.appendChild(tabRow);
+
+    // Kéo chuột để cuộn ngang trên desktop
+    let isDown = false, startX = 0, scrollLeft = 0;
+    tabRow.addEventListener('mousedown', (e) => {
+      if (e.target.closest('.style-chip-eye') || e.target.closest('.sub-reset-style')) return;
+      isDown = true; startX = e.pageX - tabRow.offsetLeft; scrollLeft = tabRow.scrollLeft;
+    });
+    tabRow.addEventListener('mouseleave', () => { isDown = false; tabRow.classList.remove('dragging'); });
+    tabRow.addEventListener('mouseup', () => { isDown = false; tabRow.classList.remove('dragging'); });
+    tabRow.addEventListener('mousemove', (e) => {
+      if (!isDown) return;
+      e.preventDefault();
+      const x = e.pageX - tabRow.offsetLeft;
+      const moved = x - startX;
+      if (Math.abs(moved) > 4) tabRow._dragged = true;
+      tabRow.classList.add('dragging');
+      tabRow.scrollLeft = scrollLeft - moved;
+    });
+
+    // Cuộn chip đang chọn vào tầm nhìn
+    requestAnimationFrame(() => {
+      const act = tabRow.querySelector('.style-chip.active');
+      if (act && act.scrollIntoView) act.scrollIntoView({ block: 'nearest', inline: 'center', behavior: 'smooth' });
+    });
+
+    // ── Panel chi tiết cho style đang chọn ──
+    const s = State.styleSettings[active];
+    const detail = document.createElement('div');
+    detail.className = 'style-detail';
+    detail.innerHTML =
+        '<div class="pos-row"><span class="pos-lab">X</span>' +
+          '<input type="range" data-style="' + esc(active) + '" data-type="posX" min="0" max="' + (State.playResX * 2) + '" value="' + (s.posX || 0) + '">' +
+          '<input type="number" value="' + (s.posX || 0) + '" class="num-in" data-style="' + esc(active) + '" data-type="posX">' +
+        '</div>' +
+        '<div class="pos-row"><span class="pos-lab">Y</span>' +
+          '<input type="range" data-style="' + esc(active) + '" data-type="posY" min="0" max="' + (State.playResY * 2) + '" value="' + (s.posY || 0) + '">' +
+          '<input type="number" value="' + (s.posY || 0) + '" class="num-in" data-style="' + esc(active) + '" data-type="posY">' +
+        '</div>' +
+          '<div class="adv-grid">' +
+            '<div class="adv-cell"><span class="adv-lab">1C</span><input type="color" data-style="' + esc(active) + '" data-type="color1" value="' + (s.color1 || '#ffffff') + '"></div>' +
+            '<div class="adv-cell"><span class="adv-lab">2C</span><input type="color" data-style="' + esc(active) + '" data-type="color2" value="' + (s.color2 || '#ffffff') + '"></div>' +
+            '<div class="adv-cell"><span class="adv-lab">3C</span><input type="color" data-style="' + esc(active) + '" data-type="color3" value="' + (s.color3 || '#000000') + '"></div>' +
+            '<div class="adv-cell"><span class="adv-lab">S</span><input type="number" data-style="' + esc(active) + '" data-type="fontSize" min="10" max="200" step="1" value="' + (s.fontSize || s.origFontSize || 25) + '"></div>' +
+            '<div class="adv-cell"><span class="adv-lab">O</span><input type="number" data-style="' + esc(active) + '" data-type="outlineWidth" min="0" max="30" step="0.5" value="' + (s.outlineWidth || 2) + '"></div>' +
+            '<div class="adv-cell"><span class="adv-lab">B</span><input type="number" data-style="' + esc(active) + '" data-type="blur" min="0" max="50" step="0.5" value="' + (s.blur != null ? s.blur : 2) + '"></div>' +
+          '</div>';
+    container.appendChild(detail);
+  }
+
+  // Reset một style về vị trí / màu gốc (dùng bởi chip ⟳ và nút ↺ ALL)
+  function resetOneStyle(s) {
+    const a = s.origAlign || s.align || 2;
+    const mL = (s.origMarginL !== undefined && s.origMarginL !== null) ? s.origMarginL : (s.marginL || 10);
+    const mR = (s.origMarginR !== undefined && s.origMarginR !== null) ? s.origMarginR : (s.marginR || 10);
+    const mV = (s.origMarginV !== undefined && s.origMarginV !== null) ? s.origMarginV : (s.marginV || 10);
+    s.posX = assAnchorX(a, mL, mR, State.playResX);
+    s.posY = assAnchorY(a, mV, State.playResY);
+    s.posOverridden = false;   // trả về toạ độ tự động theo Alignment + Margin
+    s.color1 = s.origColor1 || '#ffffff';
+    s.color2 = s.origColor2 || s.color1 || '#ffffff';
+    s.color3 = s.origColor3 || '#000000';
+    s.fontSize = s.origFontSize || s.fontSize || 25;
+    s.outlineWidth = s.origOutlineWidth || s.outlineWidth || 2;
   }
 function setupSubPopupEvents() {
     const popup = _subPopupEl;
