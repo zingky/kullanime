@@ -1473,7 +1473,22 @@ select.input option { background: #141a2d; color: var(--text); }
 .sub-mtab-panel { animation: subFadeIn .2s ease; }
 /* Căn đều nội dung cả 2 tab: thêm padding ngang để nội dung align với timeshift bar + tab header */
 .sub-mtab-panel[data-m="styles"] { padding: 4px 2px 0; }
+.sub-mtab-panel[data-m="effect"] { padding: 4px 2px 0; }
 #sub-style-items { display: flex; flex-direction: column; gap: 8px; }
+/* ---- Tab Effect ---- */
+.sub-panel .sub-mtab-panel[data-m="effect"] select {
+  background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.18);
+  color: #dbe4ff; font-size: 11px; border-radius: 7px; padding: 5px 6px;
+}
+.sub-panel .sub-mtab-panel[data-m="effect"] select option {
+  background: #1a2030; color: #dbe4ff;
+}
+.sub-effect-hint {
+  margin-top: 8px; padding: 6px 8px; font-size: 10px; line-height: 1.5;
+  color: #8f9bb8; background: rgba(255,255,255,0.05); border: 1px dashed rgba(255,255,255,0.14);
+  border-radius: 8px;
+}
+.sub-effect-hint b { color: #aab6d6; }
 
 /* Style headbar + empty state */
 .sub-style-headbar {
