@@ -2643,38 +2643,25 @@
         // file từ Phụ đề Cache (đã có sẵn text trên máy)
         applyText(subFile.text);
       } else {
-        // Chưa có content cache → cần tải từ GitHub (raw.githubusercontent.com)
-        const rl = enforceGithubRateLimit();
-        if (!rl.ok) {
-          // Đang bị rate limit: ưu tiên cache content nếu từng lưu
-          const entryCache = readAssCache()[subFile.name];
-          if (entryCache && entryCache.text) {
-            applyText(entryCache.text);
-          } else {
-            toast('⏳ GitHub đang giới hạn — chờ ' + rl.remain + 's nữa để tải phụ đề.', 'warning', 4000);
+        // Chưa có content cache → tải từ GitHub (raw.githubusercontent.com — CDN, không giới hạn)
+        fetch(subFile.download_url)
+          .then((res) => (res.ok ? res.text() : Promise.reject(new Error('HTTP ' + res.status))))
+          .then((text) => {
+            // Lưu content vào Phụ đề Cache — lần sau play video này sẽ 0 request mạng
+            const cache = readAssCache();
+            const old = cache[subFile.name];
+            if (!old || old.text !== text) {
+              cache[subFile.name] = { text: text, addedAt: Date.now() };
+              writeAssCache(cache);
+              renderAssCacheList();
+            }
+            applyText(text);
+          })
+          .catch((e) => {
+            console.warn('Lỗi tải .ass:', e);
+            State.subtitles = [];
             applySubContextChanges(song);
-          }
-        } else {
-          State.lastGithubAt = Date.now();
-          fetch(subFile.download_url)
-            .then((res) => (res.ok ? res.text() : Promise.reject(new Error('HTTP ' + res.status))))
-            .then((text) => {
-              // Lưu content vào Phụ đề Cache — lần sau play video này sẽ 0 request mạng
-              const cache = readAssCache();
-              const old = cache[subFile.name];
-              if (!old || old.text !== text) {
-                cache[subFile.name] = { text: text, addedAt: Date.now() };
-                writeAssCache(cache);
-                renderAssCacheList();
-              }
-              applyText(text);
-            })
-            .catch((e) => {
-              console.warn('Lỗi tải .ass:', e);
-              State.subtitles = [];
-              applySubContextChanges(song);
-            });
-        }
+          });
       }
     } else {
       applySubContextChanges(song);
