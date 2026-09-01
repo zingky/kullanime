@@ -55,6 +55,7 @@
     // Rate limit comment
     lastCommentAt: 0,
     lastChatAt: 0,
+    lastGithubAt: 0,      // rate limit cho GitHub API calls (list refresh + .ass fetch)
     // Captcha hiện tại
     captcha: { a: 0, b: 0, result: 0 },
     chatCaptcha: { a: 0, b: 0, result: 0 },
@@ -452,6 +453,38 @@
   function writeAssRepos(list) {
     try { localStorage.setItem(ASS_REPOS_KEY, JSON.stringify(list)); } catch (_e) { /* quota */ }
   }
+
+  /* ── ASS List Cache (danh sách file .ass từ GitHub — lưu tạm vĩnh viễn) ── */
+  const ASS_LIST_CACHE_KEY = 'kullanime_ass_list_cache_v1';
+  const ASS_LIST_CACHE_TTL = 7 * 24 * 60 * 60 * 1000; // 7 ngày (dùng làm reference, cache vĩnh viễn cho đến khi admin refresh)
+
+  function readAssListCache() {
+    try {
+      const raw = localStorage.getItem(ASS_LIST_CACHE_KEY);
+      if (!raw) return null;
+      const c = JSON.parse(raw);
+      return (c && Array.isArray(c.files)) ? c : null;
+    } catch (_e) { return null; }
+  }
+  function writeAssListCache(files) {
+    try {
+      localStorage.setItem(ASS_LIST_CACHE_KEY, JSON.stringify({ files: files, savedAt: Date.now() }));
+    } catch (_e) { /* quota — bỏ qua */ }
+  }
+  function clearAssListCache() {
+    try { localStorage.removeItem(ASS_LIST_CACHE_KEY); } catch (_e) { /* ignore */ }
+  }
+
+  // Rate limit cho GitHub network calls: 45s cooldown (giống pattern chat)
+  function enforceGithubRateLimit() {
+    const now = Date.now();
+    const diff = now - State.lastGithubAt;
+    if (diff < 45000) {
+      const remain = Math.ceil((45000 - diff) / 1000);
+      return { ok: false, remain: remain };
+    }
+    return { ok: true };
+  }
   function parseAssRepo(url) {
     let owner = '', repo = '', branch = 'main', path = 'subs';
     try {
@@ -488,11 +521,46 @@
       .filter((f) => f.type === 'file' && /\.ass$/i.test(f.name))
       .map((f) => ({ name: f.name, path: f.path, download_url: f.download_url, size: f.size }));
   }
-  async function fetchSubsFiles() {
+  async function fetchSubsFiles(forceRefresh) {
     if (!State.config) return;
     const statusEl = $('#assStatus');
     const repos = getAssRepoList();
+    const cached = readAssListCache();
+
+    // 1) Cache-first: danh sách đã cache + không ép refresh → KHÔNG gọi GitHub API
+    if (!forceRefresh && cached) {
+      const seen = {};
+      State.subsFiles = cached.files.filter((f) => {
+        if (seen[f.name]) return false;
+        seen[f.name] = true;
+        return true;
+      });
+      mergeAssCacheIntoSubs();
+      renderAssCacheList();
+      renderAssStatus();
+      return;
+    }
+
+    // 2) Ép refresh (admin bấm ⟳) nhưng đang bị rate limit → giữ cache cũ, báo chờ
+    const rl = enforceGithubRateLimit();
+    if (!rl.ok) {
+      const seen = {};
+      State.subsFiles = (cached && cached.files.length)
+        ? cached.files.filter((f) => {
+            if (seen[f.name]) return false;
+            seen[f.name] = true;
+            return true;
+          })
+        : [];
+      mergeAssCacheIntoSubs();
+      renderAssCacheList();
+      renderAssStatus();
+      toast('⏳ GitHub đang giới hạn — chờ ' + rl.remain + 's nữa để cập nhật danh sách.', 'warning', 4000);
+      return;
+    }
+
     try {
+      State.lastGithubAt = Date.now();
       statusEl.textContent = 'Đang kết nối Github (' + repos.length + ' repo)...';
       const results = await Promise.allSettled(repos.map(fetchRepoAssFiles));
       let list = [];
@@ -503,11 +571,27 @@
         seen[f.name] = true;
         return true;
       });
+      // Lưu danh sách vào cache — admin phải bấm "⟳ Cập nhật" để lấy bản mới hơn
+      writeAssListCache(State.subsFiles);
       mergeAssCacheIntoSubs();
       renderAssCacheList();
       renderAssStatus();
     } catch (err) {
       console.warn('Lỗi fetch subs:', err.message);
+      // Fallback: có cache cũ thì hiển thị cache
+      if (cached && cached.files.length) {
+        const seen = {};
+        State.subsFiles = cached.files.filter((f) => {
+          if (seen[f.name]) return false;
+          seen[f.name] = true;
+          return true;
+        });
+        mergeAssCacheIntoSubs();
+        renderAssCacheList();
+        if (statusEl) statusEl.textContent = '⚠️ Lỗi GitHub — hiển thị danh sách cache cũ.';
+        renderAssStatus();
+        return;
+      }
       State.subsFiles = [];
       mergeAssCacheIntoSubs();
       renderAssCacheList();
@@ -2559,14 +2643,38 @@
         // file từ Phụ đề Cache (đã có sẵn text trên máy)
         applyText(subFile.text);
       } else {
-        fetch(subFile.download_url)
-          .then((res) => (res.ok ? res.text() : Promise.reject(new Error('HTTP ' + res.status))))
-          .then(applyText)
-          .catch((e) => {
-            console.warn('Lỗi tải .ass:', e);
-            State.subtitles = [];
+        // Chưa có content cache → cần tải từ GitHub (raw.githubusercontent.com)
+        const rl = enforceGithubRateLimit();
+        if (!rl.ok) {
+          // Đang bị rate limit: ưu tiên cache content nếu từng lưu
+          const entryCache = readAssCache()[subFile.name];
+          if (entryCache && entryCache.text) {
+            applyText(entryCache.text);
+          } else {
+            toast('⏳ GitHub đang giới hạn — chờ ' + rl.remain + 's nữa để tải phụ đề.', 'warning', 4000);
             applySubContextChanges(song);
-          });
+          }
+        } else {
+          State.lastGithubAt = Date.now();
+          fetch(subFile.download_url)
+            .then((res) => (res.ok ? res.text() : Promise.reject(new Error('HTTP ' + res.status))))
+            .then((text) => {
+              // Lưu content vào Phụ đề Cache — lần sau play video này sẽ 0 request mạng
+              const cache = readAssCache();
+              const old = cache[subFile.name];
+              if (!old || old.text !== text) {
+                cache[subFile.name] = { text: text, addedAt: Date.now() };
+                writeAssCache(cache);
+                renderAssCacheList();
+              }
+              applyText(text);
+            })
+            .catch((e) => {
+              console.warn('Lỗi tải .ass:', e);
+              State.subtitles = [];
+              applySubContextChanges(song);
+            });
+        }
       }
     } else {
       applySubContextChanges(song);
@@ -3489,6 +3597,19 @@ function setupSubPopupEvents() {
       const ctx = currentSubContext();
       delete store[ctx];
       writeSubStore(store);
+      // Xoá luôn content .ass của video này khỏi Phụ đề Cache (nếu là file .ass từ GitHub/cache)
+      if (State.currentSong && isAssSongId(State.currentSong.id)) {
+        const fname = State.currentSong.id.slice(4);
+        const assCache = readAssCache();
+        if (assCache[fname] && assCache[fname].text) {
+          delete assCache[fname];
+          writeAssCache(assCache);
+          // Gỡ bản đang trộn từ cache (nếu có) khỏi danh sách hiển thị
+          State.subsFiles = (State.subsFiles || []).filter((f) => !(f.cached && f.name === fname));
+          renderAssCacheList();
+          renderAssStatus();
+        }
+      }
       // Về mặc định
       State.subSettings = JSON.parse(JSON.stringify(SUB_SETTINGS_DEFAULTS));
       State.timeShiftMs = 0;
@@ -3507,7 +3628,7 @@ function setupSubPopupEvents() {
       showSubPanel();
       renderSubStyleItems();
       if (State.subsEnabled) updateCurrentSubtitle();
-      toast('Đã xoá toàn bộ cài đặt video này.', 'info', 1800);
+      toast('Đã xoá toàn bộ cài đặt + cache của video này.', 'info', 1800);
     };
     // Nút 🗑️ ALL (đầu header): xoá TOÀN BỘ config + cache cho TẤT CẢ video
     const resetAllBtn = popup.querySelector('#subResetAll');
@@ -3515,6 +3636,12 @@ function setupSubPopupEvents() {
       const ok = await inlineConfirm(resetAllBtn, 'Xoá TOÀN BỘ config + cache của TẤT CẢ video? Hành động này không thể hoàn tác!', 'Xoá tất cả');
       if (!ok) return;
       writeSubStore({});
+      // Xoá toàn bộ cache GitHub: content .ass + danh sách file (tải lại 1 lần khi mở lại trang)
+      try { localStorage.removeItem(ASS_CACHE_KEY); } catch (_e) { /* ignore */ }
+      clearAssListCache();
+      State.subsFiles = (State.subsFiles || []).filter((f) => !f.cached);
+      renderAssCacheList();
+      renderAssStatus();
       // Về mặc định cho video đang phát
       State.subSettings = JSON.parse(JSON.stringify(SUB_SETTINGS_DEFAULTS));
       State.timeShiftMs = 0;
@@ -3531,7 +3658,7 @@ function setupSubPopupEvents() {
       showSubPanel();
       renderSubStyleItems();
       if (State.subsEnabled) updateCurrentSubtitle();
-      toast('Đã xoá TOÀN BỘ cấu hình của tất cả video.', 'info', 1800);
+      toast('Đã xoá TOÀN BỘ cấu hình + cache phụ đề.', 'info', 1800);
     };
     const resetBtn = popup.querySelector('#sub-settings-reset');
     if (resetBtn) resetBtn.onclick = () => {
@@ -6018,8 +6145,19 @@ function setupSubPopupEvents() {
         repos.push(url);
         writeAssRepos(repos);
         input.value = '';
+        // Repo mới → ép refresh danh sách để gộp file từ repo vừa thêm
         renderAssRepoList();
-        toast('Đã thêm repo ✅', 'success');
+        toast('Đã thêm repo ✅ — đang cập nhật danh sách...', 'success');
+        fetchSubsFiles(true);
+      });
+    }
+    // Admin: nút ⟳ Cập nhật danh sách — ép fetch lại từ GitHub (bỏ qua cache list)
+    const refreshAssRepoBtn = $('#refreshAssRepoBtn');
+    if (refreshAssRepoBtn) {
+      refreshAssRepoBtn.addEventListener('click', async () => {
+        const ok = await inlineConfirm(refreshAssRepoBtn, 'Tải lại danh sách file .ass từ GitHub? Danh sách hiện tại sẽ được thay bằng bản mới nhất.', 'Cập nhật');
+        if (!ok) return;
+        fetchSubsFiles(true);
       });
     }
     const assRepoList = $('#assRepoList');
