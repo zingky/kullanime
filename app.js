@@ -637,10 +637,13 @@
     if (!list) return;
     const cache = readAssCache();
     const q = (query || '').trim().toLowerCase();
-    let names = Object.keys(cache).sort((a, b) => (cache[a].addedAt || 0) - (cache[b].addedAt || 0));
+    // Chỉ hiển thị video do user tạo (có metadata videoId), KHÔNG hiển thị file cache từ GitHub
+    let names = Object.keys(cache)
+      .filter((n) => cache[n] && cache[n].videoId !== undefined)
+      .sort((a, b) => (cache[a].addedAt || 0) - (cache[b].addedAt || 0));
     if (q) names = names.filter((n) => n.toLowerCase().includes(q));
     if (names.length === 0) {
-      list.innerHTML = '<div class="ass-cache-empty">Chưa có file .ass nào trong cache. Hãy tải file lên ở trên.</div>';
+      list.innerHTML = '<div class="ass-cache-empty">Chưa có video nào. Paste link YouTube + chọn file .ass rồi nhấn ▶.</div>';
       return;
     }
     list.innerHTML = names.map((name) => {
@@ -6030,10 +6033,13 @@ function setupSubPopupEvents() {
     function getCacheAndRepoFiles() {
       const cache = readAssCache();
       const repoFiles = (State.subsFiles || []).map(f => f.name);
-      const all = Object.keys(cache);
-      // merge: cache first, then repo-only files
+      // Chỉ lấy file cache do user tạo (có videoId), bỏ qua file auto-cache từ GitHub
+      const userCache = {};
+      Object.keys(cache).forEach(k => { if (cache[k] && cache[k].videoId !== undefined) userCache[k] = cache[k]; });
+      const all = Object.keys(userCache);
+      // merge: user cache first, then repo-only files
       repoFiles.forEach(n => { if (!all.includes(n)) all.push(n); });
-      return { all, cache, repoFiles };
+      return { all, cache: userCache, repoFiles };
     }
     function renderDropdown(q) {
       if (!cacheDropdown) return;
