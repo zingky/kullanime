@@ -2811,6 +2811,7 @@
      ────────────────────────────────────────────────────── */
   const SUB_SETTINGS_KEY = 'kullanime_sub_settings_v1';
   const SUB_STORE_KEY = 'kullanime_sub_store_v2';     // lưu cài đặt theo từng video / file .ass
+  const SUB_ACTIVE_TAB_KEY = 'kullanime_sub_active_tab_v1'; // nhớ tab lớn (All/Global/Style/Effect) đang chọn
   const SUB_SETTINGS_DEFAULTS = {
     fontSize: 90, outlineWidth: 3, blur: 6, color1: '#ffffff', color3: '#000000',
     spacing: 0, letterSpacing: 0.9, textZoom: 1.0, fontScale: 100, lineSpacing: 135,
@@ -3006,6 +3007,17 @@
     if (fab) fab.setAttribute('aria-expanded', 'true');
     if (fab) fab.classList.add('active');
     // Panel nằm in-flow ngay dưới thanh now-playing — chỉ cần bỏ lớp .hidden để sổ xuống.
+    // Vị trí indicator tab cần được cập nhật SAU khi panel hiển thị (getBoundingClientRect
+    // trả về zeros nếu element đang display:none). Dùng requestAnimationFrame để đảm bảo
+    // browser đã compute layout trước khi đo toạ độ.
+    requestAnimationFrame(() => {
+      if (!_subPopupEl) return;
+      const bar = _subPopupEl.querySelector('.sub-mtabs');
+      const active = _subPopupEl.querySelector('.sub-mtab.active');
+      if (bar && active) moveTabIndicator(bar, active);
+      // Co/giãn các ô số cho vừa số ký tự giá trị sau khi panel đã hiển thị (layout sẵn sàng).
+      autoSizeAllNumInputs(_subPopupEl);
+    });
   }
   function hideSubPanel() {
     if (_subPopupEl) _subPopupEl.classList.add('is-closing');
@@ -3039,6 +3051,7 @@
     panel.appendChild(body);
     _subPopupEl = panel;
     setupSubPopupEvents();
+    autoSizeAllNumInputs(panel);
     return panel;
   }
   function toggleSubPopup() {
@@ -3061,6 +3074,7 @@
     if (body) body.innerHTML = buildSubPopupHTML(ensureSubSettings());
     _subPopupEl = panel;
     setupSubPopupEvents();
+    autoSizeAllNumInputs(panel);
   }
 
   // Tạo HTML nội dung panel body: thanh công cụ CHUNG (Font + B/I/U/S + %scale + reset)
@@ -3068,6 +3082,14 @@
   // khi đang ở Cài đặt từng style. Thanh Timeshift nằm ở header (createSubPopup).
   function buildSubPopupHTML(gs) {
     const useCommon = !!(gs.useGlobalStyles);
+    // Tab Global/Style được quyết định bởi useGlobalStyles (đã persist theo từng video),
+    // nên CHỈ nhớ lại 2 tab "độc lập" là All / Effect; 2 tab mode (Global/Style) luôn
+    // fallback theo mode đang dùng để tránh lệch với nút mode-on.
+    if (!State._subActiveTab || State._subActiveTab === 'common' || State._subActiveTab === 'styles') {
+      let saved = null;
+      try { saved = localStorage.getItem(SUB_ACTIVE_TAB_KEY); } catch (_e) { saved = null; }
+      State._subActiveTab = (saved === 'all' || saved === 'effect') ? saved : null;
+    }
     const activeM = State._subActiveTab || (useCommon ? 'common' : 'styles');
     return '' +
       // ---------- Thanh công cụ CHUNG 1 dòng: Font + B/I/U/S + Cỡ chữ % + reset ----------
@@ -3260,6 +3282,44 @@
     });
   }
 
+  // Tự động co/giãn chiều rộng ô nhập số theo số ký tự của giá trị hiển thị.
+  // Dùng một phần tử đo chữ (ẩn) để lấy đúng độ rộng thực của chuỗi trên font hiện tại,
+  // rồi đặt width tối thiểu vừa đủ — ô luôn sát với nội dung mà không bị tràn/co mất.
+  function autoSizeNumInput(el) {
+    if (!el || !el.style || !el.classList) return;
+    if (!el.classList.contains('num-in') && el.id !== 'sub-ts-input') return;
+    const v = (el.value != null ? String(el.value) : '') || '0';
+    const cs = getComputedStyle(el);
+    const padL = parseFloat(cs.paddingLeft) || 0;
+    const padR = parseFloat(cs.paddingRight) || 0;
+    const border = (parseFloat(cs.borderLeftWidth) || 0) + (parseFloat(cs.borderRightWidth) || 0);
+    const minW = parseFloat(cs.minWidth) || 24;
+    const maxW = parseFloat(cs.maxWidth) || 70;
+    // Đo chiều rộng chuỗi bằng canvas cùng font (có phép âm nhỏ như '-0.5').
+    const meas = autoSizeNumInput._meter ||
+      (autoSizeNumInput._meter = (function () {
+        const c = document.createElement('canvas');
+        autoSizeNumInput._ctx = c.getContext('2d');
+        return autoSizeNumInput._ctx;
+      })());
+    const ctx = meas;
+    ctx.font = (cs.fontStyle ? cs.fontStyle + ' ' : '') +
+      (cs.fontVariant ? cs.fontVariant + ' ' : '') +
+      (cs.fontWeight ? cs.fontWeight + ' ' : '') +
+      (cs.fontSize || '10px') + ' / ' + (cs.lineHeight || 'normal') + ' ' + (cs.fontFamily || 'sans-serif');
+    const textW = ctx.measureText(v).width;
+    let width = textW + padL + padR + border + 2;
+    width = Math.max(minW, Math.min(maxW, width));
+    el.style.width = width + 'px';
+  }
+
+  // Co tất cả ô số trong toàn bộ panel phụ đề về đúng độ rộng nội dung (gọi sau khi dựng).
+  function autoSizeAllNumInputs(root) {
+    if (!root) return;
+    const els = root.querySelectorAll('.num-in, #sub-ts-input');
+    for (let i = 0; i < els.length; i++) autoSizeNumInput(els[i]);
+  }
+
   function renderSubStyleItems() {
     const container = $('#sub-style-items');
     if (!container) return;
@@ -3382,6 +3442,9 @@
         if (State.subsEnabled) updateCurrentSubtitle();
       };
     }
+
+    // Ô số mới vừa được dựng trong panel detail — co/giãn cho vừa số ký tự giá trị.
+    autoSizeAllNumInputs(container);
   }
 
   // Reset một style về vị trí / màu gốc (dùng bởi nút Reset Style và ↺ ALL)
@@ -3441,6 +3504,7 @@ function setupSubPopupEvents() {
       tab.onclick = () => {
         const m = tab.dataset.m;
         State._subActiveTab = m;
+        try { localStorage.setItem(SUB_ACTIVE_TAB_KEY, m); } catch (_e) { /* ignore */ }
         if (m === 'common' || m === 'styles') {
           const useCommon = (m === 'common');
           State.subSettings.useGlobalStyles = useCommon;
@@ -3461,9 +3525,14 @@ function setupSubPopupEvents() {
         popup.querySelectorAll('.sub-mtab-panel').forEach((p) => {
           p.style.display = (p.dataset.m === m) ? 'block' : 'none';
         });
-        // Cuộn tab vào viewport nếu hẹp + di chuyển indicator
+        // Cuộn thanh tab NGANG để đưa tab vào giữa — chỉ cuộn .sub-mtabs, KHÔNG dùng
+        // scrollIntoView vì nó cũng cuộn dọc panel/trang (block:'nearest') khiến thanh
+        // 4 tab bị dịch/co bất thường trên mobile (hiện tượng "thu nhỏ thành hình chữ nhật").
         const bar = popup.querySelector('.sub-mtabs');
-        if (bar && tab.scrollIntoView) tab.scrollIntoView({ block: 'nearest', inline: 'center', behavior: 'smooth' });
+        if (bar && bar.scrollTo) {
+          const btnRect = tab.getBoundingClientRect();
+          bar.scrollTo({ left: Math.max(0, tab.offsetLeft - (bar.clientWidth - btnRect.width) / 2), behavior: 'smooth' });
+        }
         moveTabIndicator(bar, tab);
         if (m === 'styles') renderSubStyleItems();
         saveSubSettings();
@@ -3748,6 +3817,7 @@ function setupSubPopupEvents() {
       const setTs = (v) => {
         State.timeShiftMs = v;
         tsInput.value = v;
+        autoSizeNumInput(tsInput);
         if (State.subsEnabled) updateCurrentSubtitle();
       };
       const decBtn = popup.querySelector('#sub-ts-dec');
@@ -3812,6 +3882,8 @@ function setupSubPopupEvents() {
       const t = e.target;
       const id = t.id, style = t.getAttribute('data-style'), type = t.getAttribute('data-type'), kTab = t.getAttribute('data-k');
       const val = t.type === 'checkbox' ? t.checked : t.value;
+      // Ô số tự động co/giãn độ rộng theo số ký tự giá trị vừa nhập.
+      autoSizeNumInput(t);
       if (kTab) {
         if (kTab === 'fs') {
           // Cỡ chữ CHUNG: dùng cho cả 3 tab karaoke + style không karaoke
