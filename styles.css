@@ -339,11 +339,7 @@ select.input { appearance: none; -webkit-appearance: none; background-image: url
 .sub-panel .g-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
 .sub-panel .g-row label { width: 70px; color: #aaa; font-weight: bold; font-size: .75em; flex-shrink: 0; }
 .sub-panel .g-row input[type="range"] { flex: 1; margin: 0 6px; height: 3px; cursor: pointer; flex-shrink: 0; }
-.sub-panel .num-in { background: rgba(255,255,255,0.1) !important; border: 1px solid #444; color: #fff; width: auto; min-width: 28px; max-width: 70px; min-height: 24px; text-align: center; border-radius: 3px; padding: 2px 4px; font-size: .85em; }
-/* Ẩn nút mũi tên ▲▼ mặc định của input[type=number] (vướng vào ô giá trị + làm ô không co được theo số) */
-.sub-panel input[type="number"]::-webkit-inner-spin-button,
-.sub-panel input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
-.sub-panel input[type="number"] { -moz-appearance: textfield; appearance: textfield; }
+.sub-panel .num-in { background: rgba(255,255,255,0.1) !important; border: 1px solid #444; color: #fff; width: auto; min-width: 28px; max-width: 80px; min-height: 24px; text-align: center; border-radius: 3px; padding: 2px 4px; font-size: .85em; }
 .sub-panel .k-tabs { display: flex; gap: 2px; margin-bottom: 4px; }
 .sub-panel .k-tab-btn { flex: 1; padding: 4px; background: rgba(255,255,255,0.1); border: 1px solid #444; color: #888; cursor: pointer; border-radius: 3px; }
 .sub-panel .k-tab-btn.active { background: #3ea6ff; color: #fff; border-color: #3ea6ff; }

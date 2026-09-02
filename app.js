@@ -3283,8 +3283,8 @@
   }
 
   // Tự động co/giãn chiều rộng ô nhập số theo số ký tự của giá trị hiển thị.
-  // Dùng một phần tử đo chữ (ẩn) để lấy đúng độ rộng thực của chuỗi trên font hiện tại,
-  // rồi đặt width tối thiểu vừa đủ — ô luôn sát với nội dung mà không bị tràn/co mất.
+  // Đo chữ bằng canvas (chuẩn) rồi cộng thêm khoảng dành cho spin buttons ▲▼
+  // của input[type=number] (~16 px) để ô hiển thị đủ cả mũi tên + chữ.
   function autoSizeNumInput(el) {
     if (!el || !el.style || !el.classList) return;
     if (!el.classList.contains('num-in') && el.id !== 'sub-ts-input') return;
@@ -3294,23 +3294,17 @@
     const padR = parseFloat(cs.paddingRight) || 0;
     const border = (parseFloat(cs.borderLeftWidth) || 0) + (parseFloat(cs.borderRightWidth) || 0);
     const minW = parseFloat(cs.minWidth) || 24;
-    const maxW = parseFloat(cs.maxWidth) || 70;
-    // Đo chiều rộng chuỗi bằng canvas cùng font (có phép âm nhỏ như '-0.5').
-    const meas = autoSizeNumInput._meter ||
-      (autoSizeNumInput._meter = (function () {
-        const c = document.createElement('canvas');
-        autoSizeNumInput._ctx = c.getContext('2d');
-        return autoSizeNumInput._ctx;
-      })());
-    const ctx = meas;
+    const maxW = parseFloat(cs.maxWidth) || 80;
+    const ctx = autoSizeNumInput._ctx ||
+      (autoSizeNumInput._ctx = document.createElement('canvas').getContext('2d'));
     ctx.font = (cs.fontStyle ? cs.fontStyle + ' ' : '') +
       (cs.fontVariant ? cs.fontVariant + ' ' : '') +
       (cs.fontWeight ? cs.fontWeight + ' ' : '') +
       (cs.fontSize || '10px') + ' / ' + (cs.lineHeight || 'normal') + ' ' + (cs.fontFamily || 'sans-serif');
     const textW = ctx.measureText(v).width;
-    let width = textW + padL + padR + border + 2;
-    width = Math.max(minW, Math.min(maxW, width));
-    el.style.width = width + 'px';
+    // input[type=number] có spin buttons ▲▼ chiếm ~16 px bên phải; text input / textarea thì 0.
+    const spinW = (el.type === 'number') ? 16 : 0;
+    el.style.width = Math.max(minW, Math.min(maxW, Math.ceil(textW + padL + padR + border + spinW + 2))) + 'px';
   }
 
   // Co tất cả ô số trong toàn bộ panel phụ đề về đúng độ rộng nội dung (gọi sau khi dựng).
@@ -3891,7 +3885,7 @@ function setupSubPopupEvents() {
           const row = t.closest('.g-row');
           if (row) {
             const pair = row.querySelector('input[data-k="fs"][data-type="fs"][type="' + (t.type === 'range' ? 'number' : 'range') + '"]');
-            if (pair) pair.value = val;
+            if (pair) { pair.value = val; autoSizeNumInput(pair); }
           }
         } else {
         if (!State.subSettings[kTab]) State.subSettings[kTab] = Object.assign({}, SUB_SETTINGS_DEFAULTS[kTab]);
@@ -3906,7 +3900,7 @@ function setupSubPopupEvents() {
         const row = t.closest('.g-row');
         if (row) {
           const pair = row.querySelector('input[data-k="' + kTab + '"][data-type="' + type + '"][type="' + (t.type === 'range' ? 'number' : 'range') + '"]');
-          if (pair) pair.value = val;
+          if (pair) { pair.value = val; autoSizeNumInput(pair); }
         }
         }
       } else if (style) {
@@ -3920,7 +3914,7 @@ function setupSubPopupEvents() {
         const row = t.closest('.g-row, .pos-row');
         if (row) {
           const sibling = row.querySelector('input[data-type="' + type + '"][type="' + (t.type === 'range' ? 'number' : 'range') + '"]');
-          if (sibling) sibling.value = val;
+          if (sibling) { sibling.value = val; autoSizeNumInput(sibling); }
         }
       } else if (id) {
         let key = id.replace('g-', '').replace('Val', '');
@@ -3934,7 +3928,7 @@ function setupSubPopupEvents() {
           State.subSettings[key] = parseFloat(val);
         }
         const pair = document.getElementById(id.includes('Val') ? id.replace('Val', '') : id + 'Val');
-        if (pair && pair.id !== id) pair.value = val;
+        if (pair && pair.id !== id) { pair.value = val; autoSizeNumInput(pair); }
       }
       saveSubSettings();
       if (State.subsEnabled) updateCurrentSubtitle();
