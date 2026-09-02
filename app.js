@@ -6430,13 +6430,14 @@ function setupSubPopupEvents() {
     loadPlayerPrefs();   // nạp tùy chọn tự động / ngẫu nhiên từ localStorage
     bindEvents();
     updatePlayerControlsUI();
+    // Load cache danh sách .ass ngay lập tức (không cần chờ load anime/songs)
+    fetchSubsFiles();
     // Khôi phục tab đang active từ cache (mặc định anime)
     let lastTab = 'anime';
     try { lastTab = localStorage.getItem('kullanime_lastTab') || 'anime'; } catch (_e) {}
     switchTab(lastTab);
     // Tải dữ liệu công khai
     await Promise.all([loadAnimes(), loadSongs()]);
-    fetchSubsFiles();
     updateLoginUI();
     refreshAuthState();
     // Khởi động chat chung (sticky bar) + captcha chat
