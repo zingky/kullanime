@@ -339,7 +339,11 @@ select.input { appearance: none; -webkit-appearance: none; background-image: url
 .sub-panel .g-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
 .sub-panel .g-row label { width: 70px; color: #aaa; font-weight: bold; font-size: .75em; flex-shrink: 0; }
 .sub-panel .g-row input[type="range"] { flex: 1; margin: 0 6px; height: 3px; cursor: pointer; flex-shrink: 0; }
-.sub-panel .num-in { background: rgba(255,255,255,0.1) !important; border: 1px solid #444; color: #fff; width: 43px; max-width: 43px; min-height: 24px; text-align: center; border-radius: 3px; padding: 2px 3px; font-size: .85em; }
+.sub-panel .num-in { background: rgba(255,255,255,0.1) !important; border: 1px solid #444; color: #fff; width: auto; min-width: 28px; max-width: 70px; min-height: 24px; text-align: center; border-radius: 3px; padding: 2px 4px; font-size: .85em; }
+/* Ẩn nút mũi tên ▲▼ mặc định của input[type=number] (vướng vào ô giá trị + làm ô không co được theo số) */
+.sub-panel input[type="number"]::-webkit-inner-spin-button,
+.sub-panel input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+.sub-panel input[type="number"] { -moz-appearance: textfield; appearance: textfield; }
 .sub-panel .k-tabs { display: flex; gap: 2px; margin-bottom: 4px; }
 .sub-panel .k-tab-btn { flex: 1; padding: 4px; background: rgba(255,255,255,0.1); border: 1px solid #444; color: #888; cursor: pointer; border-radius: 3px; }
 .sub-panel .k-tab-btn.active { background: #3ea6ff; color: #fff; border-color: #3ea6ff; }
@@ -1475,7 +1479,7 @@ select.input option { background: #141a2d; color: var(--text); }
 .sub-ts-bar .sub-ts-ms { font-size: 8px; color: #8ab4cc; white-space: nowrap; }
 .sub-ts-bar #sub-ts-input {
   background: rgba(0,0,0,0.35); border: 1px solid rgba(62,166,255,0.5); color: #ffd54a;
-  font-size: 10px; font-weight: 700; width: 46px; min-width: 40px; max-width: 70px; text-align: center; border-radius: 7px; padding: 2px 3px;
+  font-size: 10px; font-weight: 700; width: auto; min-width: 40px; max-width: 80px; text-align: center; border-radius: 7px; padding: 2px 4px;
 }
 .sub-ts-bar button {
   background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.18); color: #ddd;
@@ -1488,6 +1492,7 @@ select.input option { background: #141a2d; color: var(--text); }
 
 .sub-mtabs {
   position: sticky; top: 0; z-index: 10; display: flex; gap: 3px; padding: 3px; margin-bottom: 4px;
+  flex-shrink: 0; /* chống bị co lại thành hình chữ nhật mỏng khi panel style dài (flex column của .sub-panel-body) */
   background: rgba(13,17,30,0.97); border: 1px solid rgba(255,255,255,0.1);
   border-radius: 14px;
   overflow-x: auto; scrollbar-width: none; -ms-overflow-style: none;
@@ -1644,8 +1649,8 @@ select.input option { background: #141a2d; color: var(--text); }
 .sub-panel .num-step:active { transform: translateY(1px); }
 .sub-panel .num-step-dn { color: #9aa3b8; }
 .sub-panel .num-step-dn:hover { background: rgba(248,113,113,0.15); color: #f87171; }
-/* Ô số bên trong bộ ▲▼: gọn lại (thay thế width 43px của .num-in) */
-.sub-panel .num-stepper .num-in { width: 34px !important; max-width: 34px !important; min-width: 26px; font-size: 10px; }
+/* Ô số bên trong bộ ▲▼: gọn lại nhưng tự động vừa số ký tự */
+.sub-panel .num-stepper .num-in { width: auto !important; max-width: 55px !important; min-width: 24px; font-size: 10px; }
 /* Zoom/In-out của tab karaoke nay có ▲▼ → cho phép xuống hàng khi hẹp */
 .sub-panel .k-colorzoom-row { flex-wrap: wrap; }
 /* Slider mảnh → to & bắt mắt hơn */
@@ -1679,6 +1684,7 @@ select.input option { background: #141a2d; color: var(--text); }
    kể cả khi đang ở Cài đặt từng style. */
 .sub-global-toolbar {
   display: flex; flex-direction: row; flex-wrap: nowrap; align-items: center; gap: 3px;
+  flex-shrink: 0; /* chống bị co lại như .sub-mtabs khi panel style dài */
   padding: 3px 8px;
   background: linear-gradient(135deg, rgba(62,166,255,0.10), rgba(168,85,247,0.10));
   border: 1px solid rgba(255,255,255,0.10);
@@ -1695,7 +1701,7 @@ select.input option { background: #141a2d; color: var(--text); }
   width: 1px; height: 16px; background: rgba(255,255,255,0.15); flex-shrink: 0; margin: 0 2px;
 }
 .sub-global-toolbar input[type="range"] { flex: 3 1 0; min-width: 40px; }
-.sub-global-toolbar .num-in { width: 42px; font-size: 10px; padding: 2px 3px; flex-shrink: 0; }
+.sub-global-toolbar .num-in { width: auto; font-size: 10px; padding: 2px 3px; flex-shrink: 0; max-width: 60px; }
 .sub-gtb-reset {
   background: rgba(255,255,255,0.10); border: 1px solid rgba(255,255,255,0.18); color: #ffaa00;
   cursor: pointer; border-radius: 6px; padding: 3px 7px; font-size: 11px; font-weight: 800; line-height: 1;
