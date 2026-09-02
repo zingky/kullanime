@@ -1633,7 +1633,7 @@ select.input option { background: #141a2d; color: var(--text); }
 .sub-panel .adv-grid.adv-grid-num .num-stepper { justify-content: stretch; }
 .sub-panel .adv-grid.adv-grid-num .num-stepper input[type="number"] { width: auto; flex: 1 1 auto; min-width: 20px; }
 /* Nút ▲▼ tăng/giảm nhanh cho ô số không có thanh trượt */
-.sub-panel .num-stepper { display: inline-flex; align-items: center; gap: 1px; flex-shrink: 0; }
+.sub-panel .num-stepper { display: inline-flex; align-items: center; gap: 4px; flex-shrink: 0; }
 .sub-panel .num-step {
   width: 18px; height: 22px; padding: 0; border: 1px solid rgba(255,255,255,0.12);
   background: rgba(255,255,255,0.05); color: #ffd54a; font-size: 9px; line-height: 1;
