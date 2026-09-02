@@ -583,13 +583,15 @@ select.input { appearance: none; -webkit-appearance: none; background-image: url
 }
 .icon-btn:hover { background: rgba(34,211,238,0.22); }
 .ass-cache-upload.icon-btn { border-style: dashed; }
-/* Hàng 2: [ID] [tiêu đề] (readonly) */
+/* Hàng 2: [ID] [tiêu đề] — editable */
 .ass-cache-row2 { display: flex; gap: 6px; margin-top: 6px; align-items: stretch; }
 .ass-cache-row2 .ass-cache-id { flex: 1 1 130px; min-width: 80px; }
 .ass-cache-row2 .ass-cache-title { flex: 2 1 0; min-width: 0; }
-.ass-cache-row2 input[readonly] {
-  background: rgba(255,255,255,0.04); color: var(--text-dim); cursor: default; opacity: .75;
+.ass-cache-row2 input {
+  background: rgba(255,255,255,0.06); color: var(--text); border: 1px solid rgba(255,255,255,0.15);
+  border-radius: 5px; padding: 5px 8px; font-size: 12px; outline: none;
 }
+.ass-cache-row2 input:focus { border-color: var(--accent); }
 .ass-cache-row {
   display: flex; align-items: center; gap: 8px; padding: 7px 8px; border-radius: 6px;
   font-size: 12px; color: var(--text); transition: background 0.12s ease;

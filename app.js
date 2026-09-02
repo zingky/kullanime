@@ -621,6 +621,17 @@
     }).join('');
   }
 
+  // Điền ô ID + Tiêu đề từ cache entry (khi click ▶ / click row trong danh sách cache)
+  function _populateIdTitleFromCache(name) {
+    const entry = readAssCache()[name];
+    const idEl = $('#assCacheId');
+    const titleEl = $('#assCacheTitle');
+    if (entry && entry.videoId && idEl) idEl.value = entry.videoId;
+    else if (idEl) idEl.value = parseAssYoutubeId(name);
+    if (entry && entry.title && titleEl) titleEl.value = entry.title;
+    else if (titleEl) titleEl.value = stripAssTitle(name);
+  }
+
   function renderAssCacheList(query) {
     const list = $('#assCacheList');
     if (!list) return;
@@ -654,18 +665,27 @@
     }).join('');
   }
 
-  // Tải ngược file .ass về máy với đúng tên "youtubeID_tiêu đề.ass"
+  // Tải ngược file .ass về máy — tên file dùng giá trị hiện tại ở ô ID + Tiêu đề
   function downloadCachedAss(name) {
     const entry = readAssCache()[name];
     if (!entry || !entry.text) return;
+    // Lấy ID + Tiêu đề hiện tại từ ô nhập để đặt tên file
+    const idEl = $('#assCacheId');
+    const titleEl = $('#assCacheTitle');
+    const curId = (idEl && idEl.value) ? idEl.value.trim() : '';
+    const curTitle = (titleEl && titleEl.value) ? titleEl.value.trim() : '';
+    let fileName = name; // fallback: tên gốc trong cache
+    if (curId || curTitle) {
+      fileName = buildAssCacheFileName(curId || entry.videoId || '', curTitle || entry.title || '');
+    }
     const blob = new Blob([entry.text], { type: 'text/plain;charset=utf-8' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
-    a.download = name;
+    a.download = fileName;
     document.body.appendChild(a);
     a.click();
     setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 400);
-    toast('Đã tải về: ' + name, 'success', 2400);
+    toast('Đã tải về: ' + fileName, 'success', 2400);
   }
 
   // Lưu file .ass vừa chọn vào cache (đặt tên theo link YT + tiêu đề tự nhận)
@@ -675,20 +695,22 @@
     reader.onload = () => {
       const text = String(reader.result || '');
       const ytEl = $('#assCacheYt'), idEl = $('#assCacheId'), titleEl = $('#assCacheTitle');
+      const yid = parseYoutubeId((ytEl && ytEl.value) || (idEl && idEl.value));
+      const title = (titleEl && titleEl.value) || '';
       const name = buildAssCacheFileName(
         (ytEl && ytEl.value) || (idEl && idEl.value),
-        (titleEl && titleEl.value) || (ytEl && ytEl.value)
+        title || (ytEl && ytEl.value)
       );
       const cache = readAssCache();
-      cache[name] = { name: name, text: text, addedAt: Date.now() };
+      cache[name] = { name: name, text: text, addedAt: Date.now(), videoId: yid || '', title: title };
       writeAssCache(cache);
-      toast('Đã lưu "💾 ' + name + '" vào Phụ đề Cache.', 'success', 2600);
+      toast('Đã lưu "💾 ' + name + '" vào Cache.', 'success', 2600);
       renderAssCacheList();
       mergeAssCacheIntoSubs();
       renderAssStatus();
-      if (ytEl) ytEl.value = '';
-      if (idEl) idEl.value = '';
-      if (titleEl) titleEl.value = '';
+      // Điền tên file vào ô search để biết vừa chọn file nào
+      const searchInput = $('#assCacheSearch');
+      if (searchInput) searchInput.value = name;
     };
     reader.onerror = () => toast('Không đọc được file.', 'error');
     reader.readAsText(file);
@@ -6107,13 +6129,58 @@ function setupSubPopupEvents() {
           }
         }
 
-        // ── Load sub: ưu tiên file vừa chọn trong search, nếu không thì upload file ──
+        // ── Load sub: ưu tiên file vừa chọn trong search ──
         const subName = searchRaw;
         if (subName) {
           const cache = readAssCache();
           const { repoFiles } = getCacheAndRepoFiles();
-          if (cache[subName]) {
-            playCachedAss(subName);
+          const curId = (idEl && idEl.value) ? idEl.value.trim() : '';
+          const curTitle = (titleEl && titleEl.value) ? titleEl.value.trim() : '';
+
+          // Tạo cache entry mới với tên ID_title.ass (nếu có ID/title)
+          let targetName = subName;
+          if (curId) {
+            const properName = buildAssCacheFileName(curId, curTitle || curId);
+            if (properName !== subName) {
+              // Lưu nội dung sub vào cache với tên mới (ID_title.ass)
+              let subText = null;
+              if (cache[subName] && cache[subName].text) {
+                subText = cache[subName].text;
+              } else if (repoFiles.includes(subName)) {
+                const repoFile = (State.subsFiles || []).find(f => f.name === subName);
+                if (repoFile && repoFile.download_url) {
+                  try {
+                    assCacheApplyBtn.textContent = '⏳';
+                    const sr = await fetch(repoFile.download_url);
+                    subText = await sr.text();
+                    assCacheApplyBtn.textContent = '▶';
+                  } catch (_e) { /* fetch failed, skip */ }
+                }
+              }
+              if (subText) {
+                const newCache = readAssCache();
+                if (!newCache[properName]) {
+                  newCache[properName] = { name: properName, text: subText, addedAt: Date.now(), videoId: curId, title: curTitle };
+                  writeAssCache(newCache);
+                  mergeAssCacheIntoSubs();
+                  renderAssCacheList();
+                }
+                targetName = properName;
+              }
+            } else {
+              // Cập nhật videoId / title cho cache entry hiện tại
+              if (cache[subName] && (!cache[subName].videoId || !cache[subName].title)) {
+                cache[subName].videoId = curId;
+                cache[subName].title = curTitle;
+                writeAssCache(cache);
+              }
+              targetName = subName;
+            }
+          }
+
+          const finalCache = readAssCache();
+          if (finalCache[targetName]) {
+            playCachedAss(targetName);
           } else if (repoFiles.includes(subName)) {
             const repoFile = (State.subsFiles || []).find(f => f.name === subName);
             if (repoFile) playAssSub(repoFile);
@@ -6136,6 +6203,8 @@ function setupSubPopupEvents() {
         if (actBtn) {
           const act = actBtn.dataset.cact;
           if (act === 'play') {
+            // Điền ID + Tiêu đề vào ô nhập từ cache entry
+            _populateIdTitleFromCache(name);
             if (isCached) playCachedAss(name);
             else {
               const repoFile = (State.subsFiles || []).find((f) => f.name === name);
@@ -6145,6 +6214,7 @@ function setupSubPopupEvents() {
         } else if (e.target.closest('.cc-dl')) {
           downloadCachedAss(name);
         } else {
+          _populateIdTitleFromCache(name);
           if (isCached) playCachedAss(name);
           else {
             const repoFile = (State.subsFiles || []).find((f) => f.name === name);
