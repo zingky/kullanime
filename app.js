@@ -6117,19 +6117,35 @@ function setupSubPopupEvents() {
           if (yid) {
             if (idEl) idEl.value = yid;
             assCacheApplyBtn.textContent = '⏳';
+            // Fetch title qua noembed API
+            let gotTitle = false;
             try {
               const r = await fetch('https://noembed.com/embed?url=' + encodeURIComponent('https://www.youtube.com/watch?v=' + yid));
               const d = await r.json();
               if (d && d.title) {
                 if (titleEl) titleEl.value = d.title;
+                gotTitle = true;
               }
-            } catch (err) {
-              toast('Lỗi fetch metadata: ' + (err.message || ''), 'error', 3000);
-            }
+            } catch (_err) { /* noembed fails → fallback below */ }
             // Phát video YouTube
             if (State.ytPlayer && typeof State.ytPlayer.loadVideoById === 'function') {
               State.ytPlayer.loadVideoById(yid);
               toast('▶ Đang phát video: ' + yid, 'success', 2000);
+            }
+            // Fallback: nếu noembed không lấy được title → dùng getVideoData() từ YouTube Player
+            if (!gotTitle && titleEl && !titleEl.value) {
+              const tryGetTitle = (retries) => {
+                try {
+                  const vd = State.ytPlayer && typeof State.ytPlayer.getVideoData === 'function'
+                    ? State.ytPlayer.getVideoData() : null;
+                  if (vd && vd.title && vd.title !== '') {
+                    titleEl.value = vd.title;
+                  } else if (retries > 0) {
+                    setTimeout(() => tryGetTitle(retries - 1), 800);
+                  }
+                } catch (_e) { if (retries > 0) setTimeout(() => tryGetTitle(retries - 1), 800); }
+              };
+              setTimeout(() => tryGetTitle(5), 1000);
             }
             assCacheApplyBtn.textContent = '▶';
           }
