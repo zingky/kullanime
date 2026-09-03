@@ -647,9 +647,7 @@
       list.innerHTML = '<div class="ass-cache-empty">Chưa có video nào. Chọn file .ass + paste link YouTube rồi nhấn ▶.</div>';
       return;
     }
-    // Giới hạn hiển thị tối đa 5 video
-    const displayed = names.slice(0, 5);
-    list.innerHTML = displayed.map((name) => {
+    list.innerHTML = names.map((name) => {
       const yid = parseAssYoutubeId(name);
       const title = stripAssTitle(name);
       const isActive = State.currentSong && String(State.currentSong.id) === 'ass:' + name;
@@ -773,14 +771,12 @@
       statusEl.textContent = '';
       statusEl.classList.add('hidden');
     }
-    // Giới hạn hiển thị tối đa 5 file
-    const displayed = filtered.slice(0, 5);
     if (list) {
-      if (displayed.length === 0) {
+      if (filtered.length === 0) {
         list.innerHTML = '<div class="ass-file-item"><span class="dot"></span>Không có file khớp.</div>';
         return;
       }
-      list.innerHTML = displayed.map((f) => {
+      list.innerHTML = filtered.map((f) => {
         const yid = parseAssYoutubeId(f.name);
         const title = stripAssTitle(f.name);
         const isActive = State.currentSong && State.currentSong.id === 'ass:' + f.name;
