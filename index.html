@@ -200,7 +200,7 @@
         <!-- Phụ đề .ass -->
         <aside class="playlist-column" aria-label="Phụ đề .ass từ GitHub">
           <div class="ass-status-card">
-            <p class="ass-status-title">📑 Phụ đề .ass từ GitHub</p>
+            <p class="ass-status-title">📑 Phụ đề .ass từ GitHub <span id="assRepoCount"></span></p>
             <p class="ass-status-text" id="assStatus">Đang kiểm tra kho phụ đề...</p>
             <input type="search" id="assSearch" class="ass-search" placeholder="🔍 Tìm file .ass theo tên..." autocomplete="off" />
             <div class="ass-files" id="assFileList"></div>
@@ -209,7 +209,6 @@
           <!-- Phụ đề Cache (lưu trên máy người dùng, không đồng bộ) -->
           <div class="ass-status-card ass-cache-card">
             <p class="ass-status-title">💾 Cache video <em class="ass-cache-tag">máy</em></p>
-            <p class="ass-status-text">Paste link YouTube → chọn/up file .ass → nhấn ▶ để phát.</p>
             <div class="ass-cache-row1">
               <input type="text" id="assCacheYt" class="ass-cache-link" placeholder="🔗 Link YouTube..." autocomplete="off" />
               <div class="ass-cache-search-wrap">
