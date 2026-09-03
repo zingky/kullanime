@@ -717,7 +717,6 @@
   }
 
   function deleteAssCache(name) {
-    if (!confirm('Xóa "💾 ' + name + '" khỏi Phụ đề Cache?')) return;
     const cache = readAssCache();
     delete cache[name];
     writeAssCache(cache);
