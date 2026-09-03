@@ -638,15 +638,18 @@
     const cache = readAssCache();
     const q = (query || '').trim().toLowerCase();
     // Chỉ hiển thị video do user tạo (có metadata videoId), KHÔNG hiển thị file cache từ GitHub
+    // Sắp xếp mới nhất lên đầu (addedAt giảm dần)
     let names = Object.keys(cache)
       .filter((n) => cache[n] && cache[n].videoId !== undefined)
-      .sort((a, b) => (cache[a].addedAt || 0) - (cache[b].addedAt || 0));
+      .sort((a, b) => (cache[b].addedAt || 0) - (cache[a].addedAt || 0));
     if (q) names = names.filter((n) => n.toLowerCase().includes(q));
     if (names.length === 0) {
-      list.innerHTML = '<div class="ass-cache-empty">Chưa có video nào. Paste link YouTube + chọn file .ass rồi nhấn ▶.</div>';
+      list.innerHTML = '<div class="ass-cache-empty">Chưa có video nào. Chọn file .ass + paste link YouTube rồi nhấn ▶.</div>';
       return;
     }
-    list.innerHTML = names.map((name) => {
+    // Giới hạn hiển thị tối đa 5 video
+    const displayed = names.slice(0, 5);
+    list.innerHTML = displayed.map((name) => {
       const yid = parseAssYoutubeId(name);
       const title = stripAssTitle(name);
       const isActive = State.currentSong && String(State.currentSong.id) === 'ass:' + name;
@@ -701,6 +704,14 @@
       // Lưu tạm vào State — ▶ sẽ xử lý ghi cache + phát
       State._pendingAssText = text;
       State._pendingAssFileName = file.name || 'untitled.ass';
+      // Hiển thị tên file vừa chọn vào ô tìm tên file .ass
+      const searchInput = $('#assCacheSearch');
+      if (searchInput) {
+        searchInput.value = State._pendingAssFileName;
+        searchInput.focus();
+        // Trigger input để cập nhật dropdown + danh sách cache
+        searchInput.dispatchEvent(new Event('input', { bubbles: true }));
+      }
       toast('Đã chọn file "' + (file.name || 'sub.ass') + '" — bấm ▶ để phát.', 'success', 2000);
     };
     reader.onerror = () => toast('Không đọc được file.', 'error');
@@ -736,27 +747,40 @@
 
   function renderAssStatus() {
     const statusEl = $('#assStatus');
+    const countEl = $('#assRepoCount');
     const list = $('#assFileList');
     if (!statusEl) return;
-    if (State.subsFiles.length === 0) {
+    // Chỉ hiển thị file từ GitHub (loại bỏ file cache do user tạo)
+    const repoFiles = (State.subsFiles || []).filter((f) => !f.cached);
+    if (repoFiles.length === 0) {
+      if (countEl) countEl.textContent = '';
       statusEl.textContent = 'Không có file .ass nào trong kho.';
       if (list) list.innerHTML = '';
       return;
     }
+    // Cập nhật count trong tiêu đề
+    if (countEl) countEl.textContent = '(' + repoFiles.length + ')';
     // Lọc theo từ khoá tìm kiếm
     const q = (State.assQuery || '').trim().toLowerCase();
     const filtered = q
-      ? State.subsFiles.filter((f) => f.name.toLowerCase().includes(q))
-      : State.subsFiles;
-    statusEl.textContent = q
-      ? 'Tìm thấy ' + filtered.length + '/' + State.subsFiles.length + ' file .ass.'
-      : 'Tìm thấy ' + State.subsFiles.length + ' file .ass — bấm để phát.';
+      ? repoFiles.filter((f) => f.name.toLowerCase().includes(q))
+      : repoFiles;
+    // Hiển thị thông báo tìm kiếm (chỉ khi đang tìm)
+    if (q) {
+      statusEl.textContent = 'Tìm thấy ' + filtered.length + '/' + repoFiles.length + ' file .ass.';
+      statusEl.classList.remove('hidden');
+    } else {
+      statusEl.textContent = '';
+      statusEl.classList.add('hidden');
+    }
+    // Giới hạn hiển thị tối đa 5 file
+    const displayed = filtered.slice(0, 5);
     if (list) {
-      if (filtered.length === 0) {
+      if (displayed.length === 0) {
         list.innerHTML = '<div class="ass-file-item"><span class="dot"></span>Không có file khớp.</div>';
         return;
       }
-      list.innerHTML = filtered.map((f) => {
+      list.innerHTML = displayed.map((f) => {
         const yid = parseAssYoutubeId(f.name);
         const title = stripAssTitle(f.name);
         const isActive = State.currentSong && State.currentSong.id === 'ass:' + f.name;
