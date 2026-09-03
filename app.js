@@ -1517,7 +1517,7 @@
         flush();
         const end = rawText.indexOf('}', i);
         const tag = end === -1 ? rawText.slice(i) : rawText.slice(i, end + 1);
-        const km = tag.match(/\\([kKf])([\d.]+)/);
+        const km = tag.match(/\\([kK](?:[fpo])?)([\d.]+)/);
         if (km) {
           pendingTime = leadingTime;
           leadingTime += (parseFloat(km[2]) || 0) * 10; // centiseconds -> ms
@@ -1654,7 +1654,7 @@
     if (pos) { posX = pos.x; posY = pos.y; }
     // ---- Dòng + văn bản sạch ----
     const rawLines = rawText.split(/\\N/gi);
-    const hasKara = /\\[kKf][\d.]+/i.test(rawText);
+    const hasKara = /\\[kK][fpo]?[\d.]+/i.test(rawText);
     const idx = rawText.indexOf('\u0000');
     let cleanText = String(rawText).replace(/\{[^}]*\}/g, ' ').replace(/\\[Nn]/g, ' ');
     if (idx !== -1) cleanText = cleanText.substring(0, idx);
@@ -1677,7 +1677,7 @@
     const groups = [];
     let cumulative = 0;
     (rawLines || []).forEach((rawPart) => {
-      const re = /\{(?:\\[kKf]o?)(\d+)\}([^{]*)/g;
+      const re = /\{(?:\\[kK][fpo]?)(\d+)\}([^{]*)/g;
       const syls = [];
       let lineDur = 0;
       let m;
@@ -1687,7 +1687,7 @@
         lineDur += d;
       }
       cumulative += lineDur;
-      groups.push({ line: String(rawPart).replace(/\{[^}]*\}/g, ''), syllables: syls });
+      groups.push({ line: String(rawPart).replace(/\{[^}]*\}/g, ' ').replace(/\s+/g, ' ').trim(), syllables: syls });
     });
     return groups;
   }
@@ -2102,12 +2102,12 @@
         const lineDiv = makeLineDiv(baseY + li * lineSpacing);
         applyBox(lineDiv);
         if (g.syllables && g.syllables.length) {
-          g.syllables.forEach((syl) => {
+          g.syllables.forEach((syl, sylIdx) => {
             const span = document.createElement('span');
             span.textContent = syl.text;
             span.style.whiteSpace = 'nowrap';
             span.style.display = 'inline-block';
-            if (letterSpacing > 0) span.style.marginRight = letterSpacing + 'px';
+            if (letterSpacing > 0 && sylIdx < g.syllables.length - 1) span.style.marginRight = letterSpacing + 'px';
             let useC1, useC3, useOutl, useBl, useFs = fs, useZoom = 1;
             const active = nowMs >= syl.start && nowMs < syl.start + syl.dur;
             if (active) {
@@ -2258,8 +2258,8 @@
   // Loại bỏ tag ASS {\\...} và {\\k...}
   function cleanAssText(text) {
     return String(text || '')
-      .replace(/\{[^}]*\}/g, '')   // bỏ mọi tag {\\...}
-      .replace(/\{\\/g, '')         // dự phòng
+      .replace(/\{[^}]*\}/g, ' ')   // bỏ mọi tag {\\...} (thay bằng khoảng trắng để giữ word-boundary)
+      .replace(/\{\\/g, ' ')         // dự phòng
       .replace(/\s+/g, ' ')
       .trim();
   }
