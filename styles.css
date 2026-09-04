@@ -1446,21 +1446,45 @@ select.input option { background: #141a2d; color: var(--text); }
 .status-opt.cur { border-color: var(--accent); color: var(--accent); background: rgba(99, 102, 241, 0.2); }
 .status-opt .status-opt-txt small { color: var(--text-faint); font-weight: 500; }
 .status-opt-ico { width: 22px; text-align: center; font-size: 15px; }
-.mini-pop-hearts { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
+/* ── Popup chấm điểm ♥ 10 trái tim (gradient màu cầu vồng) ── */
+.mini-pop-hearts { display: flex; flex-wrap: wrap; gap: 2px; align-items: center; justify-content: center; }
 .heart-opt {
-  width: 34px; height: 34px; padding: 0;
+  width: 32px; height: 32px; padding: 0;
   border-radius: 50%;
-  border: var(--glass-border);
-  background: var(--bg-elev);
-  color: var(--text-faint);
-  font-size: 16px; line-height: 1;
+  border: 2px solid transparent;
+  background: transparent;
+  color: #666;
   cursor: pointer;
-  transition: all 0.12s ease;
+  display: inline-flex; align-items: center; justify-content: center;
+  transition: transform 0.3s ease, color 0.3s ease, border-color 0.3s ease, background 0.3s ease, box-shadow 0.3s ease;
 }
-.heart-opt:hover { transform: scale(1.12); border-color: var(--danger); }
-.heart-opt.on { color: var(--danger); border-color: rgba(239, 68, 68, 0.55); background: rgba(239, 68, 68, 0.14); box-shadow: 0 0 8px rgba(239, 68, 68, 0.4); }
-.heart-clear { font-size: 12px; color: var(--text-faint); }
-.heart-clear:hover { color: var(--danger); border-color: var(--danger); }
+.heart-opt svg { width: 20px; height: 20px; fill: currentColor; transition: fill 0.3s ease, transform 0.3s ease; pointer-events: none; }
+.heart-opt:hover { transform: scale(1.15); }
+.heart-opt:active { transform: scale(0.9); }
+
+/* Hover + .on: mỗi cấp điểm có màu riêng (rainbow gradient) */
+.heart-opt[data-val="1"]:hover, .heart-opt[data-val="1"].on, .heart-opt[data-val="1"].hovering { color: #ff0000; }
+.heart-opt[data-val="2"]:hover, .heart-opt[data-val="2"].on, .heart-opt[data-val="2"].hovering { color: #ff4d00; }
+.heart-opt[data-val="3"]:hover, .heart-opt[data-val="3"].on, .heart-opt[data-val="3"].hovering { color: #ff9900; }
+.heart-opt[data-val="4"]:hover, .heart-opt[data-val="4"].on, .heart-opt[data-val="4"].hovering { color: #ccff00; }
+.heart-opt[data-val="5"]:hover, .heart-opt[data-val="5"].on, .heart-opt[data-val="5"].hovering { color: #66ff00; }
+.heart-opt[data-val="6"]:hover, .heart-opt[data-val="6"].on, .heart-opt[data-val="6"].hovering { color: #00ff4d; }
+.heart-opt[data-val="7"]:hover, .heart-opt[data-val="7"].on, .heart-opt[data-val="7"].hovering { color: #00ff99; }
+.heart-opt[data-val="8"]:hover, .heart-opt[data-val="8"].on, .heart-opt[data-val="8"].hovering { color: #00ccff; }
+.heart-opt[data-val="9"]:hover, .heart-opt[data-val="9"].on, .heart-opt[data-val="9"].hovering { color: #0059ff; }
+.heart-opt[data-val="10"]:hover, .heart-opt[data-val="10"].on, .heart-opt[data-val="10"].hovering { color: #9900ff; }
+
+/* Hiệu ứng glow khi .on */
+.heart-opt.on { border-color: currentColor; background: rgba(255,255,255,0.06); box-shadow: 0 0 10px currentColor; transform: scale(1.08); }
+.heart-opt.on svg { transform: scale(1.1); }
+
+/* Hover nhẹ hơn: border + glow dịu */
+.heart-opt:hover { border-color: currentColor; box-shadow: 0 0 8px rgba(255,255,255,0.15); }
+
+/* Nút xoá ✕ */
+.heart-clear { font-size: 13px; color: var(--text-faint) !important; border-color: transparent !important; background: transparent !important; box-shadow: none !important; }
+.heart-clear:hover { color: var(--danger) !important; border-color: var(--danger) !important; box-shadow: 0 0 6px rgba(239,68,68,0.3) !important; }
+.heart-clear svg { display: none; }
 
 /* Nút trong toolbar quản trị anime */
 .admin-pane-actions { display: flex; gap: 8px; flex-wrap: wrap; }

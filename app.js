@@ -2102,9 +2102,14 @@
         const lineDiv = makeLineDiv(baseY + li * lineSpacing);
         applyBox(lineDiv);
         if (g.syllables && g.syllables.length) {
+          // Chuyển mọi dấu cách trong âm tiết sang NBSP (\u00A0): span dùng
+          // display:inline-block nên CSS sẽ collapse trailing/leading space
+          // ở biên của inline-block → mất dấu cách giữa các từ. NBSP không bị
+          // collapse nên dấu cách luôn hiển thị đúng (giống Aegisub/libass).
+          const sylDisplay = (s) => String(s == null ? '' : s).replace(/ /g, '\u00A0');
           g.syllables.forEach((syl, sylIdx) => {
             const span = document.createElement('span');
-            span.textContent = syl.text;
+            span.textContent = sylDisplay(syl.text);
             span.style.whiteSpace = 'nowrap';
             span.style.display = 'inline-block';
             if (letterSpacing > 0 && sylIdx < g.syllables.length - 1) span.style.marginRight = letterSpacing + 'px';
@@ -2182,10 +2187,10 @@
               }
             }
             if (karaEff) {
-              span.textContent = karaEffText(syl.text);
-              applyEffToKaraSyl(span, karaEff, syl.text, useC1, useC3, useOutl, useBl, useZoom);
+              span.textContent = karaEffText(sylDisplay(syl.text));
+              applyEffToKaraSyl(span, karaEff, sylDisplay(syl.text), useC1, useC3, useOutl, useBl, useZoom);
             } else {
-              span.textContent = syl.text;
+              span.textContent = sylDisplay(syl.text);
               applySylStyle(span, useC1, useC3, useOutl, useBl, useZoom, useFs);
             }
             lineDiv.appendChild(span);
