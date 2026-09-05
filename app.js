@@ -5912,6 +5912,144 @@ function setupSubPopupEvents() {
      (Thay thế Jikan/MAL — AniList GraphQL miễn phí, không cần
      key, ổn định hơn nhiều so với Jikan hay bị quá tải 504)
      ────────────────────────────────────────────────────── */
+// ── Fallback Jikan (MyAnimeList) khi AniList đang ngừng ───────────────────────
+  // Map nguồn Jikan (chuỗi tự do) → enum AniList để tái sử dụng nhãn tiếng Việt
+  function mapJikanSourceToEnum(s) {
+    const m = {
+      'Manga': 'MANGA', 'Light novel': 'LIGHT_NOVEL', 'Light Novel': 'LIGHT_NOVEL',
+      'Original': 'ORIGINAL', 'Novel': 'NOVEL', 'Visual novel': 'VISUAL_NOVEL', 'Visual Novel': 'VISUAL_NOVEL',
+      'Video game': 'VIDEO_GAME', 'Video Game': 'VIDEO_GAME', 'Game': 'GAME',
+      'Web manga': 'WEB_MANGA', 'Web Manga': 'WEB_MANGA', 'Web novel': 'WEB_NOVEL', 'Web Novel': 'WEB_NOVEL',
+      'Music': 'MUSIC', 'Comic': 'COMIC', 'Other': 'OTHER', 'Book': 'OTHER'
+    };
+    return m[s] || '';
+  }
+
+  // Map 1 kết quả Jikan v4 → shape giống AniList (dùng chung applyAnilistToForm / backfill)
+  function mapJikanToAnilistShape(j) {
+    if (!j) return null;
+    const parts = (p) => (p && p.year ? { year: p.year, month: p.month || 1, day: p.day || 1 } : null);
+    const iso = (s) => { if (!s) return null; const t = new Date(s); return isNaN(t.getTime()) ? null : { year: t.getFullYear(), month: t.getMonth() + 1, day: t.getDate() }; };
+    const dFrom = (j.aired && j.aired.prop && j.aired.prop.from) || iso((j.aired || {}).from);
+    const dTo = (j.aired && j.aired.prop && j.aired.prop.to) || iso((j.aired || {}).to);
+    const seasonEnum = { 'winter': 'WINTER', 'spring': 'SPRING', 'summer': 'SUMMER', 'fall': 'FALL' }[String(j.season || '').toLowerCase()] || '';
+    const studios = (j.studios || []).map((s) => ({ id: s.mal_id, name: s.name, isAnimationStudio: true }));
+    const producers = (j.producers || []).map((p) => ({ id: p.mal_id, name: p.name, isAnimationStudio: false }));
+    return {
+      _src: 'jikan', // đánh dấu nguồn Jikan — id là MAL id, KHÔNG dùng cho AniList Media(id:)
+      id: j.mal_id,
+      title: { romaji: j.title || '', english: j.title_english || j.title || '', native: j.title_japanese || '', synonyms: (j.title_synonyms || []).filter(Boolean) },
+      coverImage: { extraLarge: (j.images && j.images.jpg && j.images.jpg.large_image_url) || '', large: (j.images && j.images.jpg && j.images.jpg.image_url) || '' },
+      description: j.synopsis || '',
+      status: ({ 'Currently Airing': 'RELEASING', 'Finished Airing': 'FINISHED', 'Not yet aired': 'NOT_YET_RELEASED' })[j.status] || 'FINISHED',
+      averageScore: j.score != null ? Math.round(j.score * 10) : 0,
+      seasonYear: (dFrom && dFrom.year) || j.year || 0,
+      season: seasonEnum,
+      source: mapJikanSourceToEnum(j.source),
+      hashtag: '',
+      startDate: dFrom,
+      endDate: dTo,
+      studios: { nodes: studios.concat(producers) },
+      episodes: j.episodes != null ? j.episodes : 0,
+      genres: (j.genres || []).map((g) => g.name)
+    };
+  }
+
+  // Tìm anime trên Jikan v4 (tối đa 6), trả mảng shape-AniList
+  async function fetchJikanForSearch(q) {
+    const url = 'https://api.jikan.moe/v4/anime?q=' + encodeURIComponent(q) + '&limit=6&sfw=true';
+    // Jikan hay 504 "failed to connect to MyAnimeList" — thử lại tối đa 2 lần, nghỉ ngắn
+    let lastErr = null;
+    for (let attempt = 1; attempt <= 2; attempt++) {
+      try {
+        const res = await fetch(url, { headers: { 'Accept': 'application/json' }, signal: State.jikanAbort.signal });
+        if (res.ok) {
+          const body = await res.json();
+          const items = ((body && body.data) || []).map(mapJikanToAnilistShape).filter(Boolean);
+          if (items.length) return items;
+        } else {
+          lastErr = new Error('HTTP ' + res.status);
+        }
+      } catch (e) {
+        if (e.name === 'AbortError') throw e;
+        lastErr = e;
+      }
+      if (attempt < 2) await new Promise((r) => setTimeout(r, 900));
+    }
+    throw lastErr || new Error('Jikan không trả kết quả');
+  }
+
+  // Map 1 kết quả Kitsu → shape giống AniList (dùng chung cho form + backfill)
+  function mapKitsuToAnilistShape(k, genresMap) {
+    if (!k || !k.attributes) return null;
+    const a = k.attributes || {};
+    const titles = a.titles || {};
+    const iso = (s) => { if (!s) return null; const t = new Date(s); return isNaN(t.getTime()) ? null : { year: t.getFullYear(), month: t.getMonth() + 1, day: t.getDate() }; };
+    const start = iso(a.startDate);
+    const seasonFromDate = (d) => { if (!d) return ''; const mo = d.month || 1; return mo <= 3 ? 'WINTER' : mo <= 6 ? 'SPRING' : mo <= 9 ? 'SUMMER' : 'FALL'; };
+    const seasonEnum = { 'winter': 'WINTER', 'spring': 'SPRING', 'summer': 'SUMMER', 'fall': 'FALL' }[String(a.season || '').toLowerCase()] || seasonFromDate(start);
+    const gids = (k.relationships && k.relationships.genres && k.relationships.genres.data || []).map((r) => r.id);
+    const genres = gids.map((gid) => (genresMap && genresMap.get(String(gid))) || '').filter(Boolean);
+    const rating = parseFloat(a.averageRating);
+    return {
+      _src: 'kitsu', // id là kitsu id — KHÔNG dùng cho AniList Media(id:)
+      id: k.id,
+      title: {
+        romaji: a.canonicalTitle || titles.en_jp || titles.en || '',
+        english: titles.en || a.canonicalTitle || '',
+        native: titles.ja_jp || a.canonicalTitle || '',
+        synonyms: (a.abbreviatedTitles || []).filter(Boolean)
+      },
+      coverImage: { extraLarge: (a.posterImage && a.posterImage.large) || '', large: (a.posterImage && a.posterImage.medium) || '' },
+      description: stripHtml(String(a.synopsis || '').replace(/<br\s*\/?>/gi, '\n')),
+      status: ({ 'current': 'RELEASING', 'finished': 'FINISHED', 'upcoming': 'NOT_YET_RELEASED', 'unreleased': 'NOT_YET_RELEASED' })[String(a.status || '').toLowerCase()] || 'FINISHED',
+      averageScore: !isNaN(rating) ? Math.round(rating) : 0,
+      seasonYear: (start && start.year) || 0,
+      season: seasonEnum,
+      source: '',
+      hashtag: '',
+      startDate: start,
+      endDate: iso(a.endDate),
+      studios: { nodes: [] },
+      episodes: a.episodeCount != null ? a.episodeCount : 0,
+      genres
+    };
+  }
+
+  // Tìm anime trên Kitsu (tối đa 6), trả mảng shape-AniList — dự phòng khi cả AniList lẫn Jikan ngừng
+  async function fetchKitsuForSearch(q) {
+    const url = 'https://kitsu.app/api/edge/anime?filter[text]=' + encodeURIComponent(q) + '&page[limit]=6&page[offset]=0&include=genres';
+    const res = await fetch(url, { headers: { 'Accept': 'application/vnd.api+json' }, signal: State.jikanAbort.signal });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const body = await res.json();
+    const genresMap = new Map();
+    for (const inc of (body && body.included) || []) {
+      if (inc.type === 'genres') genresMap.set(String(inc.id), (inc.attributes && inc.attributes.name) || '');
+    }
+    return ((body && body.data) || []).map((k) => mapKitsuToAnilistShape(k, genresMap)).filter(Boolean);
+  }
+
+  // Render danh sách kết quả dùng chung (AniList hoặc Jikan fallback)
+  function renderAnilistItems(items) {
+    return items.map((it) => {
+      const thumb = (it.coverImage && (it.coverImage.extraLarge || it.coverImage.large)) || '';
+      const subParts = [];
+      subParts.push(it.episodes != null ? it.episodes + ' tập' : 'Chưa rõ số tập');
+      if (it.seasonYear) subParts.push(String(it.seasonYear));
+      if (it.averageScore != null && it.averageScore > 0) subParts.push(Math.round(it.averageScore / 10) + '/10 điểm');
+      const tagLbl = { jikan: 'Jikan', kitsu: 'Kitsu' }[it._src];
+      const tag = tagLbl ? '<span class="jikan-src-tag">' + tagLbl + '</span>' : '';
+      return (
+        '<div class="jikan-result-item" data-json="' + esc(JSON.stringify(it)).replace(/"/g, '&quot;') + '">' +
+          '<div class="jikan-result-thumb">' + (thumb ? '<img src="' + esc(thumb) + '" alt="" loading="lazy" onerror="this.remove()" />' : '') + '</div>' +
+          '<div class="jikan-result-info">' +
+            '<div class="jikan-result-title">' + tag + esc((it.title && (it.title.romaji || it.title.english)) || '') + '</div>' +
+            '<div class="jikan-result-sub">' + esc(subParts.join(' · ')) + '</div>' +
+          '</div>' +
+        '</div>'
+      );
+    }).join('');
+  }
   async function anilistSearch(query) {
     if (State.jikanAbort) State.jikanAbort.abort();
     State.jikanAbort = new AbortController();
@@ -5940,31 +6078,45 @@ function setupSubPopupEvents() {
         }
         if (attempt < 3) await new Promise((r) => setTimeout(r, 700 * attempt));
       }
-      if (!data) throw lastErr || new Error('Không có phản hồi từ AniList.');
+
+      // AniList thất bại (vd. 403 — API đang tạm ngừng "temporarily disabled") → tự fallback Jikan rồi Kitsu/MAL
+      if (!data) {
+        let fallbackItems = null;
+        let srcUsed = '';
+        try {
+          fallbackItems = await fetchJikanForSearch(query);
+          srcUsed = 'Jikan';
+        } catch (e) {
+          if (e.name === 'AbortError') throw e; /* Jikan cũng lỗi — thử tiếp Kitsu */
+        }
+        if (!fallbackItems || !fallbackItems.length) {
+          try {
+            fallbackItems = await fetchKitsuForSearch(query);
+            srcUsed = 'Kitsu';
+          } catch (e) {
+            if (e.name === 'AbortError') throw e;
+          }
+        }
+        if (fallbackItems && fallbackItems.length) {
+          const st = (lastErr && lastErr.message) ? lastErr.message.replace('HTTP ', '') : 'lỗi';
+          const srcNote = srcUsed === 'Jikan' ? 'hiển thị dữ liệu từ Jikan / MyAnimeList' : 'hiển thị dữ liệu từ Kitsu (Jikan/MAL cũng đang lỗi)';
+          results.innerHTML =
+            '<p class="empty-desc jikan-note">⚠️ AniList đang tạm ngừng (HTTP ' + esc(st) + ') — ' + srcNote + '. Hashtag, Studio & Seiyuu chỉ AniList cung cấp nên có thể trống.</p>' +
+            renderAnilistItems(fallbackItems);
+          return;
+        }
+        throw lastErr || new Error('Không có phản hồi từ AniList.');
+      }
+
       const items = (data && data.data && data.data.Page && data.data.Page.media) || [];
       if (items.length === 0) {
         results.innerHTML = '<p class="empty-desc">Không tìm thấy anime nào. Thử tên khác hoặc điền thủ công bên dưới.</p>';
         return;
       }
-      results.innerHTML = items.map((it) => {
-        const thumb = (it.coverImage && (it.coverImage.extraLarge || it.coverImage.large)) || '';
-        const subParts = [];
-        subParts.push(it.episodes != null ? it.episodes + ' tập' : 'Chưa rõ số tập');
-        if (it.seasonYear) subParts.push(String(it.seasonYear));
-        if (it.averageScore != null && it.averageScore > 0) subParts.push(Math.round(it.averageScore / 10) + '/10 điểm');
-        return (
-          '<div class="jikan-result-item" data-json="' + esc(JSON.stringify(it)).replace(/"/g, '&quot;') + '">' +
-            '<div class="jikan-result-thumb">' + (thumb ? '<img src="' + esc(thumb) + '" alt="" loading="lazy" onerror="this.remove()" />' : '') + '</div>' +
-            '<div class="jikan-result-info">' +
-              '<div class="jikan-result-title">' + esc((it.title && (it.title.romaji || it.title.english)) || '') + '</div>' +
-              '<div class="jikan-result-sub">' + esc(subParts.join(' · ')) + '</div>' +
-            '</div>' +
-          '</div>'
-        );
-      }).join('');
+      results.innerHTML = renderAnilistItems(items);
     } catch (err) {
       if (err.name !== 'AbortError') {
-        results.innerHTML = '<p class="empty-desc">Lỗi tra cứu AniList: ' + esc(err.message) + '. Có thể thử lại hoặc điền thủ công bên dưới.</p>';
+        results.innerHTML = '<p class="empty-desc">Lỗi tra cứu AniList/Jikan: ' + esc(err.message) + '. Có thể thử lại hoặc điền thủ công bên dưới.</p>';
       }
     }
   }
@@ -6101,7 +6253,31 @@ function setupSubPopupEvents() {
     const gql = 'query ($search: String) { Page(page: 1, perPage: 1) { media(search: $search, type: ANIME, isAdult: false) { id title { romaji english native synonyms } startDate { year month day } endDate { year month day } season source hashtag studios(isMain: true) { nodes { id name isAnimationStudio } } } } }';
     const data = await anilistGraphQL(gql, { search: title });
     const m = data && data.data && data.data.Page && data.data.Page.media;
-    return (m && m[0]) || null;
+    if (m && m[0]) return m[0];
+    // AniList đang lỗi → fallback Jikan, rồi Kitsu (1 kết quả tốt nhất)
+    try {
+      const url = 'https://api.jikan.moe/v4/anime?q=' + encodeURIComponent(title) + '&limit=1&sfw=true';
+      const res = await fetch(url, { headers: { 'Accept': 'application/json' }, signal: AbortSignal.timeout(6000) });
+      if (res.ok) {
+        const body = await res.json();
+        const j = body && body.data && body.data[0];
+        if (j) return mapJikanToAnilistShape(j);
+      }
+    } catch (_e) { /* thử Kitsu */ }
+    try {
+      const url = 'https://kitsu.app/api/edge/anime?filter[text]=' + encodeURIComponent(title) + '&page[limit]=1&page[offset]=0&include=genres';
+      const res = await fetch(url, { headers: { 'Accept': 'application/vnd.api+json' }, signal: AbortSignal.timeout(6000) });
+      if (!res.ok) return null;
+      const body = await res.json();
+      const genresMap = new Map();
+      for (const inc of (body && body.included) || []) {
+        if (inc.type === 'genres') genresMap.set(String(inc.id), (inc.attributes && inc.attributes.name) || '');
+      }
+      const k = body && body.data && body.data[0];
+      return k ? mapKitsuToAnilistShape(k, genresMap) : null;
+    } catch (_e) {
+      return null;
+    }
   }
 
   // Chuyển object ngày {year,month,day} → chuỗi YYYY-MM-DD ('' nếu thiếu)
@@ -6182,7 +6358,8 @@ function setupSubPopupEvents() {
 
     updatePosterPreview();
 
-    // Fetch seiyuu + ảnh nhân vật từ AniList characters
+    // Fetch seiyuu + ảnh nhân vật — chỉ với dữ liệu thật từ AniList (Jikan id là MAL id, Kitsu là kitsu id)
+    if (it._src) return;
     toast('Đang tải dàn Seiyuu + ảnh nhân vật...', 'info', 1200);
     try {
       const voices = await anilistFetchCast(it.id);
@@ -6940,7 +7117,7 @@ function setupSubPopupEvents() {
         $('#jikanQuery').value = (it.title && (it.title.english || it.title.romaji)) || '';
         applyAnilistToForm(it);
         hi('jikanResults');
-        toast('Đã điền dữ liệu từ AniList ✅', 'success');
+        toast('Đã điền dữ liệu từ ' + ({ jikan: 'Jikan', kitsu: 'Kitsu' }[it._src] || 'AniList') + ' ✅', 'success');
       } catch (err) {
         toast('Lỗi phân tích dữ liệu.', 'error');
       }
