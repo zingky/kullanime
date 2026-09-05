@@ -34,6 +34,7 @@
     subSettings: null,     // cài đặt toàn cục phụ đề (fontSize, màu, karaoke...) -> lưu localStorage
     timeShiftMs: 0,        // dời phụ đề theo ms (Timeshift)
     subOverlayHeight: 0,   // chiều cao overlay phụ đề (dùng scaleH cho fontSize)
+    subOverlayWidth: 0,    // chiều rộng overlay phụ đề (dùng autoWrap max-width)
     // Dữ liệu engine phụ đề ASS (port từ YouTube-Aegisub-Loader)
     styleSettings: {},     // { styleName: {color1,color3,fontSize,outlineWidth,blur,spacing,fontName,align,posX,posY,...} }
     playResX: 384,
@@ -1812,6 +1813,24 @@
     else ty = '-100%';
     const textAlign = anchorH === 'left' ? 'left' : anchorH === 'right' ? 'right' : 'center';
 
+    // ---- Auto-wrap: tính width theo khung hình ----
+    // Cue có \\pos / pos override (điểm neo tuyệt đối) → bỏ qua marginL/R;
+    // cue bình thường → text area = pX - marginL - marginR (giống Aegisub).
+    const autoWrap = !!(gs && gs.autoWrap);
+    let wrapMaxW = 0;
+    if (autoWrap) {
+      const oW = State.subOverlayWidth || 0;
+      if (oW > 0) {
+        const scaleW = oW / pX;
+        let mL = 0, mR = 0;
+        if (!cue.hasPos && !(st && st.posOverridden && st.posX != null && st.posY != null)) {
+          mL = (cue.marginL != null) ? cue.marginL : 10;
+          mR = (cue.marginR != null) ? cue.marginR : 10;
+        }
+        wrapMaxW = Math.max(100, (pX - mL - mR) * scaleW);
+      }
+    }
+
     // Lưu dữ liệu cho bước tách chồng lấn (collision resolution): vector dịch dọc.
     div.dataset.v = anchorV;         // 'top' | 'bottom' | 'mid'
     div.dataset.tx = tx;             // translate ngang
@@ -1832,7 +1851,8 @@
       'color:' + c1 + ';' +
       'text-shadow:' + shadow + ';' +
       strokeCss +
-      'white-space:nowrap; pointer-events:none; z-index:20;';
+      ((wrapMaxW > 0) ? 'white-space:normal; width:max-content; max-width:' + wrapMaxW.toFixed(0) + 'px;' : 'white-space:nowrap;') +
+      ' pointer-events:none; z-index:20;';
 
     const applyBox = (el) => {
       if (useBox) {
@@ -1874,7 +1894,13 @@
 
     const makeLineDiv = (top) => {
       const d = document.createElement('div');
-      d.style.cssText = 'position:relative; top:' + top + 'px; white-space:nowrap;';
+      let css = 'position:relative; top:' + top + 'px;';
+      if (wrapMaxW > 0) {
+        css += 'white-space:normal; overflow-wrap:break-word; word-break:break-word; max-width:' + wrapMaxW.toFixed(0) + 'px;';
+      } else {
+        css += 'white-space:nowrap;';
+      }
+      d.style.cssText = css;
       div.appendChild(d);
       return d;
     };
@@ -2110,6 +2136,9 @@
           // cách (= ranh giới từ): các âm tiết trong cùng 1 từ (vd "yu"+"me"
           // không có space) phải dính liền nhau đúng theo file ass.
           const sylDisplay = (s) => String(s == null ? '' : s).replace(/ /g, '\u00A0');
+          // autoWrap: gộp các âm tiết cùng từ (không space) vào 1 word-wrap
+          // span nowrap để browser chỉ ngắt dòng ở ranh giới TỪ, không ngắt giữa từ.
+          let wordWrap = null;
           g.syllables.forEach((syl, sylIdx) => {
             const span = document.createElement('span');
             span.textContent = sylDisplay(syl.text);
@@ -2189,15 +2218,45 @@
                 useZoom = Number(k.zoom) || 1.0;
               }
             }
+            // autoWrap: bỏ space cuối âm tiết ra khỏi span → space thật nằm
+            // giữa các wordWrap để vừa hiển thị khoảng trắng vừa là break
+            // opportunity (inline-block không có break gap giữa các span).
+            const disp = (wrapMaxW > 0 && /\s$/.test(syl.text))
+              ? sylDisplay(syl.text.replace(/\s+$/, ''))
+              : sylDisplay(syl.text);
             if (karaEff) {
-              span.textContent = karaEffText(sylDisplay(syl.text));
-              applyEffToKaraSyl(span, karaEff, sylDisplay(syl.text), useC1, useC3, useOutl, useBl, useZoom);
+              span.textContent = karaEffText(disp);
+              applyEffToKaraSyl(span, karaEff, disp, useC1, useC3, useOutl, useBl, useZoom);
             } else {
-              span.textContent = sylDisplay(syl.text);
+              span.textContent = disp;
               applySylStyle(span, useC1, useC3, useOutl, useBl, useZoom, useFs);
             }
-            lineDiv.appendChild(span);
+            if (wrapMaxW > 0) {
+              // autoWrap: span âm tiết chui vào wordWrap (nowrap) để không bị
+              // ngắt giữa từ; khi gặp âm tiết kết thúc bằng space → đóng từ,
+              // browser mới được phép ngắt dòng tại ranh giới từ đó.
+              if (!wordWrap) {
+                wordWrap = document.createElement('span');
+                wordWrap.style.whiteSpace = 'nowrap';
+                wordWrap.style.display = 'inline-block';
+              }
+              wordWrap.appendChild(span);
+              if (/\s$/.test(syl.text)) {
+                lineDiv.appendChild(wordWrap);
+                // Space thật (not NBSP) giữa các wordWrap: hiển thị khoảng trắng
+                // + tạo break opportunity để xếp chữ xuống dòng tại ranh giới từ.
+                lineDiv.appendChild(document.createTextNode(' '));
+                wordWrap = null;
+              }
+            } else {
+              lineDiv.appendChild(span);
+            }
           });
+          // Nếu từ cuối không kết thúc bằng space (vd "light") → flush wordWrap còn lại
+          if (wordWrap) {
+            lineDiv.appendChild(wordWrap);
+            wordWrap = null;
+          }
           // Hiệu ứng mức cả dòng (transform / overlay) — ưu tiên effect trước.
           if (karaEff) applyKaraLineEffect(lineDiv, karaEff, g.line);
         } else {
@@ -2219,6 +2278,7 @@
           if (eff === 'sine_wave') lineDiv.style.whiteSpace = 'pre';
           const spanWrap = document.createElement('span');
           spanWrap.style.display = 'inline-block';
+          if (wrapMaxW > 0) spanWrap.style.maxWidth = '100%';
           spanWrap.style.fontSize = fs + 'px';
           renderAssEffect(spanWrap, eff, plain, ow, bl, c3, c1, nowMs);
           lineDiv.appendChild(spanWrap);
@@ -2738,6 +2798,9 @@
       ? (videoFrame.clientHeight || videoFrame.offsetHeight || overlay.clientHeight || 0)
       : 0;
     State.subOverlayHeight = frameH;
+    State.subOverlayWidth = videoFrame
+      ? (videoFrame.clientWidth || videoFrame.offsetWidth || overlay.clientWidth || 0)
+      : 0;
     const active = State.subtitles.filter((s) => t >= s.start && t <= s.end);
     if (!State.subsEnabled || active.length === 0) {
       hideSubtitleOverlay();
@@ -2862,6 +2925,7 @@
     kPre:    { c1: '#ffffff', c3: '#000000', fs: 90, outl: 3, blur: 6, zoom: 1.0 },
     kActive: { c1: '#ffffff', c3: '#ff2d55', fs: 90, outl: 4, blur: 8, zoom: 1.1, zDur: 100 },
     kPost:   { c1: '#ffffff', c3: '#000000', fs: 90, outl: 3, blur: 6, zoom: 1.0 },
+    autoWrap: true,         // tự xuống dòng khi chữ dài quá khung hình
     closeOnClickOutside: true,
     useGlobalStyles: false,
     useTextStroke: false,
@@ -3190,6 +3254,10 @@
             '<input type="range" id="g-letterSpacing" min="-5" max="20" step="0.1" value="' + (gs.letterSpacing != null ? gs.letterSpacing : 0.9) + '" class="sub-letter-spacing">' +
             '<input type="number" id="g-letterSpacingVal" min="-5" max="20" step="0.1" value="' + (gs.letterSpacing != null ? gs.letterSpacing : 0.9) + '" class="num-in sub-lsp-val">' +
             '<button type="button" id="sub-lsp-reset" class="sub-lsp-reset" title="Reset khoảng cách chữ về mặc định (0.9)">⟳</button>' +
+          '</div>' +
+          // ---- Hàng 3.5: Tự xuống dòng khi chữ quá dài ---- 
+          '<div class="sub-foot-row">' +
+            '<label class="sub-box-lab"><input type="checkbox" id="g-autoWrap" ' + (gs.autoWrap !== false ? 'checked' : '') + '> Tự xuống dòng khi chữ dài</label>' +
           '</div>' +
           // ---- Hàng 4: Reset Global + Actions ----
           '<div class="sub-foot-row sub-ts-row">' +
@@ -3980,6 +4048,15 @@ function setupSubPopupEvents() {
       clo.addEventListener('change', () => {
         State.subSettings.closeOnClickOutside = clo.checked;
         saveSubSettings();
+      });
+    }
+    // Tự xuống dòng khi chữ dài checkbox
+    const aw = popup.querySelector('#g-autoWrap');
+    if (aw) {
+      aw.addEventListener('change', () => {
+        State.subSettings.autoWrap = aw.checked;
+        saveSubSettings();
+        if (State.subsEnabled) updateCurrentSubtitle();
       });
     }
     // ── Backup GỘP: settings + cache → 1 file JSON ──
