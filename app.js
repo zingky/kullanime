@@ -2106,13 +2106,16 @@
           // display:inline-block nên CSS sẽ collapse trailing/leading space
           // ở biên của inline-block → mất dấu cách giữa các từ. NBSP không bị
           // collapse nên dấu cách luôn hiển thị đúng (giống Aegisub/libass).
+          // marginRight (letterSpacing) CHỈ áp khi âm tiết kết thúc bằng dấu
+          // cách (= ranh giới từ): các âm tiết trong cùng 1 từ (vd "yu"+"me"
+          // không có space) phải dính liền nhau đúng theo file ass.
           const sylDisplay = (s) => String(s == null ? '' : s).replace(/ /g, '\u00A0');
           g.syllables.forEach((syl, sylIdx) => {
             const span = document.createElement('span');
             span.textContent = sylDisplay(syl.text);
             span.style.whiteSpace = 'nowrap';
             span.style.display = 'inline-block';
-            if (letterSpacing > 0 && sylIdx < g.syllables.length - 1) span.style.marginRight = letterSpacing + 'px';
+            if (letterSpacing > 0 && sylIdx < g.syllables.length - 1 && /\s$/.test(syl.text)) span.style.marginRight = letterSpacing + 'px';
             let useC1, useC3, useOutl, useBl, useFs = fs, useZoom = 1;
             const active = nowMs >= syl.start && nowMs < syl.start + syl.dur;
             if (active) {
