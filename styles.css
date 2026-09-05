@@ -746,10 +746,6 @@ html[data-theme="light"] .modal { background: rgba(255, 255, 255, 0.72); }
 .detail-side-label { color: var(--text-dim); font-weight: 600; white-space: nowrap; }
 .detail-side-value { text-align: right; font-weight: 700; color: var(--text); overflow-wrap: anywhere; }
 .detail-rating { color: var(--warning); }
-.detail-side-progress { grid-template-columns: 1fr; gap: 6px; }
-.progress-bar { flex: 1; height: 8px; background: rgba(255,255,255,0.1); border-radius: 999px; overflow: hidden; box-shadow: inset 0 1px 3px rgba(0,0,0,0.3); }
-.progress-fill { height: 100%; border-radius: 999px; background: var(--grad); }
-.detail-progress-text { font-size: 12px; color: var(--text-faint); }
 
 /* ── Cột phải: nội dung chính — chữ thoáng, căn đều ── */
 .detail-main { min-width: 0; width: 100%; display: flex; flex-direction: column; gap: 18px; }
@@ -791,7 +787,7 @@ html[data-theme="light"] .modal { background: rgba(255, 255, 255, 0.72); }
 }
 
 /* ── Seiyuu ── */
-.seiyuu-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 10px; }
+.seiyuu-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 10px; max-height: calc(3 * 64px + 20px); overflow-y: auto; padding-right: 6px; scrollbar-width: thin; }
 .seiyuu-card { display: flex; align-items: center; gap: 10px; padding: 9px 10px; background: var(--bg-elev); border: 1px solid var(--border); border-radius: var(--radius-sm); }
 .seiyuu-avatar { width: 44px; height: 44px; border-radius: 50%; overflow: hidden; background: var(--bg-soft); flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 18px; position: relative; }
 .seiyuu-avatar img { width: 100%; height: 100%; object-fit: cover; }
@@ -801,8 +797,24 @@ html[data-theme="light"] .modal { background: rgba(255, 255, 255, 0.72); }
 .seiyuu-name { font-size: 12.5px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .seiyuu-char { font-size: 11.5px; color: var(--text-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
-/* ── Synopsis: tóm tắt ngắn gọn + thanh cuộn dọc ── */
-.detail-synopsis-scroll { max-height: 190px; overflow-y: auto; padding-right: 6px; scrollbar-width: thin; }
+/* ── Synopsis: tóm tắt ngắn gọn (tối đa 5 dòng) + thanh cuộn dọc ── */
+.detail-synopsis-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.detail-synopsis-head > span { min-width: 0; }
+.synopsis-translate-btn {
+  flex-shrink: 0;
+  cursor: pointer;
+  font-size: 11.5px;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: rgba(255,255,255,0.06);
+  color: var(--text-dim);
+  transition: all 0.15s ease;
+}
+.synopsis-translate-btn:hover { border-color: var(--accent); color: var(--text); background: rgba(99,102,241,0.16); }
+.synopsis-translate-btn:disabled { opacity: 0.6; cursor: wait; }
+.detail-synopsis-scroll { max-height: 138px; overflow-y: auto; padding-right: 6px; scrollbar-width: thin; }
 
 /* ── Chip click để tìm anime theo thể loại ── */
 .chip-btn {
@@ -878,7 +890,7 @@ html[data-theme="light"] .modal { background: rgba(255, 255, 255, 0.72); }
 
 /* ── Số lần đã xem (chỉ trang chi tiết anime) ── */
 .detail-watch { /* kế thừa .detail-section */ }
-.detail-watch .detail-section-title { display: flex; align-items: center; gap: 8px; }
+.detail-watch .detail-section-title { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .detail-watch-title-txt { display: inline-flex; align-items: center; }
 .detail-watch-count {
   min-width: 24px; height: 24px; padding: 0 8px;
@@ -887,7 +899,7 @@ html[data-theme="light"] .modal { background: rgba(255, 255, 255, 0.72); }
   border-radius: 999px; font-size: 13px; font-weight: 800; color: var(--accent);
 }
 .detail-watch-again { margin-left: auto; }
-.detail-watch-body { display: flex; flex-direction: column; gap: 10px; }
+.detail-watch-body { display: flex; flex-direction: column; gap: 10px; margin-top: 12px; }
 .watch-dates-list {
   display: flex; flex-direction: column; gap: 6px;
   max-height: none; overflow-y: visible;

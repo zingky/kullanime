@@ -43,6 +43,7 @@
     lastRenderTime: 0,
     isAdmin: false,
     isLoggedIn: false,   // đã đăng nhập (thành viên hoặc admin)
+    synopsisCache: new Map(), // { animeId: { original, translated } } — cache bản dịch Google để bật/tắt không gọi lại API
     adminEmail: '',
     nickname: '',        // tên hiển thị (nickname) của tài khoản đã đăng nhập
     youtubeReady: false,
@@ -4250,11 +4251,12 @@ function setupSubPopupEvents() {
       : posterFallback(a);
 
     // Nút 🌸 (góc trên-phải) mở menu trạng thái — LUÔN hiển thị để sửa trạng thái nhanh + badge trạng thái (góc dưới-phải)
+    const wCountCard = (Array.isArray(a.watch_dates) ? a.watch_dates.filter(Boolean) : []).length;
     let badgeText;
     if (mySt.cls === 'my-watching') {
       const we = Number(a.watched_episodes) || 0;
       badgeText = '🔥 Đang xem' + ((we > 0 || totalEp > 0) ? ' ' + we + '/' + (totalEp || '?') + ' tập' : '');
-    } else if (mySt.cls === 'my-watched') badgeText = '✅ Đã xem';
+    } else if (mySt.cls === 'my-watched') badgeText = '✅ Đã xem' + (wCountCard > 0 ? ' · ' + wCountCard + ' lần' : '');
     else if (mySt.cls === 'my-planned') badgeText = '➕ Muốn xem';
     else badgeText = '⬜ Chưa xem';
     const statusUI =
@@ -4350,8 +4352,6 @@ function setupSubPopupEvents() {
     const seiyuu = Array.isArray(a.seiyuu) ? a.seiyuu : [];
     const rating = Number(a.rating) || 0;
     const total = a.total_episodes || 0;
-    const watched = a.watched_episodes || 0;
-    const pct = total > 0 ? Math.min(100, Math.round((watched / total) * 100)) : 0;
 
     // Trạng thái xem + điểm đánh giá của riêng chủ web
     const mySt = myStatusMeta(a.my_status);
@@ -4385,13 +4385,6 @@ function setupSubPopupEvents() {
       '<div class="detail-side-row">' +
         '<span class="detail-side-label">Điểm cộng đồng</span>' +
         '<span class="detail-side-value detail-rating">★ ' + rating.toFixed(1) + '/10</span>' +
-      '</div>'
-    );
-    sideRows.push(
-      '<div class="detail-side-row detail-side-progress">' +
-        '<span class="detail-side-label">Tiến độ</span>' +
-        '<div class="progress-bar"><div class="progress-fill" style="width:' + pct + '%"></div></div>' +
-        '<span class="detail-progress-text">' + watched + ' / ' + (total || '?') + ' tập · ' + pct + '%</span>' +
       '</div>'
     );
 
@@ -4456,18 +4449,21 @@ function setupSubPopupEvents() {
         ).join('')
       : '<div class="watch-date-empty">Chưa có lần xem nào được ghi nhận.</div>';
     const watchSection =
-      '<section class="detail-section detail-watch" data-anime="' + esc(a.id) + '">' +
-        '<h3 class="detail-section-title">' +
-          '<span class="detail-watch-title-txt">🎞️ Số lần đã xem</span>' +
-          '<span class="detail-watch-count">' + wCount + '</span>' +
-          (State.isAdmin
-            ? '<button type="button" class="btn btn-sm btn-primary detail-watch-again" id="btnWatchAgain">✅ Đã xem lần nữa</button>'
-            : '') +
-        '</h3>' +
+      '<details class="detail-section detail-collapse detail-watch" data-anime="' + esc(a.id) + '">' +
+        '<summary class="detail-collapse-head">' +
+          '<h3 class="detail-section-title">' +
+            '<span class="detail-watch-title-txt">🎞️ Số lần đã xem</span>' +
+            '<span class="detail-watch-count">' + wCount + '</span>' +
+            (State.isAdmin
+              ? '<button type="button" class="btn btn-sm btn-primary detail-watch-again" id="btnWatchAgain">✅ Đã xem lần nữa</button>'
+              : '') +
+          '</h3>' +
+          '<span class="detail-collapse-caret">▾</span>' +
+        '</summary>' +
         '<div class="detail-watch-body">' +
           '<div class="watch-dates-list' + (manyDates ? ' many' : '') + '">' + dateItems + '</div>' +
         '</div>' +
-      '</section>';
+      '</details>';
 
     el.innerHTML =
       '<div class="anime-detail">' +
@@ -4483,8 +4479,11 @@ function setupSubPopupEvents() {
           '</header>' +
           '<div class="detail-chips">' + chips.join('') + '</div>' +
           '<section class="detail-section">' +
-            '<h3 class="detail-section-title">📖 Tóm tắt (Synopsis)</h3>' +
-            '<div class="detail-synopsis-scroll"><p class="detail-synopsis">' + esc(synopsis) + '</p></div>' +
+            '<h3 class="detail-section-title detail-synopsis-head">' +
+              '<span>📖 Tóm tắt (Synopsis)</span>' +
+              '<button type="button" class="synopsis-translate-btn" id="synopsisTranslateBtn" data-anime="' + esc(a.id) + '" title="Dịch tóm tắt sang tiếng Việt">🌐 Dịch</button>' +
+            '</h3>' +
+            '<div class="detail-synopsis-scroll"><p class="detail-synopsis" id="synopsisText" data-original="' + esc(synopsis) + '">' + esc(synopsis) + '</p></div>' +
           '</section>' +
           seiyuuSection +
           watchSection +
@@ -4531,6 +4530,61 @@ function setupSubPopupEvents() {
       renderAnimeDetail(State.currentAnime);
     }
     return true;
+  }
+
+  // Bật/tắt bản dịch Google của phần tóm tắt (chỉ hiển thị ở máy người xem, không lưu DB).
+  // Lần đầu bấm "Dịch" sẽ gọi API Google 1 lần rồi cache; bấm lần sau chỉ bật/tắt hiển thị bản cache.
+  async function toggleSynopsisTranslation(animeId) {
+    const head = $('#synopsisTranslateBtn');
+    const p = $('#synopsisText');
+    if (!p || !head) return;
+    const original = p.dataset.original != null ? p.dataset.original : p.textContent.trim();
+    p.dataset.original = original;
+
+    // Đang hiển thị bản gốc -> cần dịch
+    if (p.dataset.mode !== 'translated') {
+      // 1) Nếu đã cache bản dịch trước đó thì dùng lại, không gọi API mới
+      const cached = State.synopsisCache.get(String(animeId));
+      if (cached && cached.translated != null) {
+        p.textContent = cached.translated;
+        p.dataset.mode = 'translated';
+        head.textContent = '🌐 Gốc';
+        head.title = 'Trở về bản tóm tắt gốc';
+        return;
+      }
+      // 2) Chưa có cache -> gọi Google Translate (miễn phí, không cần API key)
+      head.disabled = true;
+      head.textContent = '🌐 Đang dịch…';
+      try {
+        const src = original.slice(0, 4500); // tránh text quá dài bị Google cắt
+        const url = 'https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=vi&dt=t&q=' + encodeURIComponent(src);
+        const r = await fetch(url);
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        const data = await r.json();
+        const translated = (Array.isArray(data) && Array.isArray(data[0]))
+          ? data[0].map((seg) => (seg && seg[0]) || '').join('')
+          : '';
+        if (!translated.trim()) throw new Error('empty');
+        State.synopsisCache.set(String(animeId), { original, translated });
+        p.textContent = translated;
+        p.dataset.mode = 'translated';
+        head.textContent = '🌐 Gốc';
+        head.title = 'Trở về bản tóm tắt gốc';
+      } catch (err) {
+        head.textContent = '🌐 Dịch';
+        head.title = 'Dịch tóm tắt sang tiếng Việt';
+        toast('Không dịch được tóm tắt. Vui lòng thử lại.', 'error', 4000);
+      } finally {
+        head.disabled = false;
+      }
+      return;
+    }
+
+    // 3) Đang hiển thị bản dịch -> trở về bản gốc (bản dịch vẫn còn cache để bật lại sau)
+    p.textContent = original;
+    p.dataset.mode = 'original';
+    head.textContent = '🌐 Dịch';
+    head.title = 'Dịch tóm tắt sang tiếng Việt';
   }
 
   // Ghi nhận thêm 1 lần đã xem xong: +1 watch_count + thêm ngày hôm nay vào watch_dates
@@ -6632,8 +6686,26 @@ function setupSubPopupEvents() {
     // Lấy ảnh nhân vật cho toàn bộ anime cũ (admin)
     $('#backfillCharsBtn').addEventListener('click', () => backfillCharacterImages());
 
+    // Nút "✅ Đã xem lần nữa" nằm BÊN TRONG <summary> (khối sổ xuống) — capture sự kiện sớm để bấm nút không làm mở/đóng danh sách ngày
+    $('#animeModal').addEventListener('click', (e) => {
+      const againBtn = e.target.closest('#btnWatchAgain');
+      if (againBtn && againBtn.closest('.detail-watch')) {
+        e.preventDefault();
+        e.stopPropagation();
+        const section = againBtn.closest('.detail-watch');
+        const animeId = section && section.dataset.anime;
+        if (animeId) recordWatch(animeId);
+      }
+    }, true);
+
     // Comment actions trong modal anime (delegate)
     $('#animeModal').addEventListener('click', (e) => {
+      // Nút dịch tóm tắt sang tiếng Việt (Google Translate, chỉ hiển thị ở máy người xem)
+      const trBtn = e.target.closest('#synopsisTranslateBtn');
+      if (trBtn && trBtn.dataset.anime) {
+        toggleSynopsisTranslation(trBtn.dataset.anime);
+        return;
+      }
       // Nút trả lời bằng trích dẫn (ai cũng dùng được, kể cả chưa đăng nhập)
       const q = e.target.closest('[data-quote-src]');
       if (q) {
@@ -6684,14 +6756,6 @@ function setupSubPopupEvents() {
           e.__popOpened = true;
           openHeartPop(rateBtn, tracker.dataset.anime);
         }
-        return;
-      }
-      // Nút "Đã xem lần nữa" — ghi nhận +1 lượt xem + thêm ngày hôm nay
-      const againBtn = e.target.closest('#btnWatchAgain');
-      if (againBtn) {
-        const section = againBtn.closest('.detail-watch');
-        const animeId = section && section.dataset.anime;
-        if (animeId) recordWatch(animeId);
         return;
       }
       // Nút ✕ xoá một ngày đã xem khỏi danh sách
