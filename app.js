@@ -2914,10 +2914,10 @@
      ────────────────────────────────────────────────────── */
   const SUB_SETTINGS_KEY = 'kullanime_sub_settings_v1';
   const SUB_STORE_KEY = 'kullanime_sub_store_v2';     // lưu cài đặt theo từng video / file .ass
-  const SUB_ACTIVE_TAB_KEY = 'kullanime_sub_active_tab_v1'; // nhớ tab lớn (All/Global/Style/Effect) đang chọn
+  const SUB_ACTIVE_TAB_KEY = 'kullanime_sub_active_tab_v1'; // nhớ tab lớn (Global/All/Style/Effect) đang chọn
   const SUB_SETTINGS_DEFAULTS = {
     fontSize: 90, outlineWidth: 3, blur: 6, color1: '#ffffff', color3: '#000000',
-    spacing: 0, letterSpacing: 0.9, textZoom: 1.0, fontScale: 100, lineSpacing: 135,
+    spacing: 0, letterSpacing: 0.3, textZoom: 1.0, fontScale: 100, lineSpacing: 135,
     useBox: false, deepGlow: false, boxColor: '#000000', boxOpacity: 0.5, boxBlur: 0, fontFamily: 'VNF-Comic Sans',
     fadIn: 200, fadOut: 200, popupOpacity: 0.95, popupZoom: 1.0,
     posX: 350, posY: 100, width: 820, height: 600,
@@ -3186,8 +3186,8 @@
   // khi đang ở Cài đặt từng style. Thanh Timeshift nằm ở header (createSubPopup).
   function buildSubPopupHTML(gs) {
     const useCommon = !!(gs.useGlobalStyles);
-    // Tab Global/Style được quyết định bởi useGlobalStyles (đã persist theo từng video),
-    // nên CHỈ nhớ lại 2 tab "độc lập" là All / Effect; 2 tab mode (Global/Style) luôn
+    // Tab All/Style được quyết định bởi useGlobalStyles (đã persist theo từng video),
+    // nên CHỈ nhớ lại 2 tab "độc lập" là Global / Effect; 2 tab mode (All/Style) luôn
     // fallback theo mode đang dùng để tránh lệch với nút mode-on.
     if (!State._subActiveTab || State._subActiveTab === 'common' || State._subActiveTab === 'styles') {
       let saved = null;
@@ -3212,16 +3212,16 @@
         '<button type="button" class="sub-gtb-reset" id="sub-gtb-reset" title="Về mặc định: cỡ 100%, bỏ chọn B/I/U/S, font mặc định">⟳</button>' +
       '</div>' +
 
-      // ---------- 4 tab lớn: All / Global / Style / Effect ----------
+      // ---------- 4 tab lớn: Global / All / Style / Effect ----------
       '<div class="sub-mtabs" role="tablist">' +
         '<span class="sub-mtab-ind" aria-hidden="true"></span>' +
-        '<button type="button" class="sub-mtab' + (activeM === 'all' ? ' active' : '') + '" data-m="all" role="tab">🗂 All</button>' +
-        '<button type="button" class="sub-mtab' + (activeM === 'common' ? ' active' : '') + (useCommon ? ' mode-on' : '') + '" data-m="common" role="tab">🌍 Global</button>' +
+        '<button type="button" class="sub-mtab' + (activeM === 'all' ? ' active' : '') + '" data-m="all" role="tab">🗂 Global</button>' +
+        '<button type="button" class="sub-mtab' + (activeM === 'common' ? ' active' : '') + (useCommon ? ' mode-on' : '') + '" data-m="common" role="tab">🌍 All</button>' +
         '<button type="button" class="sub-mtab' + (activeM === 'styles' ? ' active' : '') + (!useCommon ? ' mode-on' : '') + '" data-m="styles" role="tab">🎨 Style</button>' +
         '<button type="button" class="sub-mtab' + (activeM === 'effect' ? ' active' : '') + '" data-m="effect" role="tab">✨ Effect</button>' +
       '</div>' +
 
-      // ---------- Panel 0: All (Fade + Box + LetterSpacing + Timeshift + Reset + Actions) ----------
+      // ---------- Panel 0: Global (Fade + Box + LetterSpacing + Timeshift + Reset + Actions) ----------
       '<div class="sub-mtab-panel" data-m="all" role="tabpanel" style="display:' + (activeM === 'all' ? 'block' : 'none') + ';">' +
         '<div class="sub-panel-footer">' +
           // ---- Hàng 1: Fade In/Out (sát trái) + Timeshift (sát phải) ----
@@ -3251,9 +3251,9 @@
           // ---- Hàng 3: Khoảng cách chữ ----
           '<div class="sub-foot-row">' +
             '<label class="sub-lsp-lab">Khoảng cách chữ</label>' +
-            '<input type="range" id="g-letterSpacing" min="-5" max="20" step="0.1" value="' + (gs.letterSpacing != null ? gs.letterSpacing : 0.9) + '" class="sub-letter-spacing">' +
-            '<input type="number" id="g-letterSpacingVal" min="-5" max="20" step="0.1" value="' + (gs.letterSpacing != null ? gs.letterSpacing : 0.9) + '" class="num-in sub-lsp-val">' +
-            '<button type="button" id="sub-lsp-reset" class="sub-lsp-reset" title="Reset khoảng cách chữ về mặc định (0.9)">⟳</button>' +
+            '<input type="range" id="g-letterSpacing" min="-5" max="20" step="0.1" value="' + (gs.letterSpacing != null ? gs.letterSpacing : 0.3) + '" class="sub-letter-spacing">' +
+            '<input type="number" id="g-letterSpacingVal" min="-5" max="20" step="0.1" value="' + (gs.letterSpacing != null ? gs.letterSpacing : 0.3) + '" class="num-in sub-lsp-val">' +
+            '<button type="button" id="sub-lsp-reset" class="sub-lsp-reset" title="Reset khoảng cách chữ về mặc định (0.3)">⟳</button>' +
           '</div>' +
           // ---- Hàng 3.5: Tự xuống dòng khi chữ quá dài ---- 
           '<div class="sub-foot-row">' +
@@ -3272,7 +3272,7 @@
         '</div>' +
       '</div>' +
 
-      // ---------- Panel 1: Global (chỉ 3 tab karaoke: Pre / Active / Post) ----------
+      // ---------- Panel 1: All (chỉ 3 tab karaoke: Pre / Active / Post) ----------
       '<div class="sub-mtab-panel" data-m="common" role="tabpanel" style="display:' + (activeM === 'common' ? 'block' : 'none') + ';">' +
 
         // ---- Cỡ chữ CHUNG: dùng cho cả 3 trạng thái karaoke + style không karaoke ----
@@ -3353,7 +3353,7 @@
   // 2) Panel chi tiết: hiển thị các thanh chỉnh cho style đang chọn
   // 3) Headbar "🎨 Style … ↺ ALL" được đặt dưới toàn bộ (xem buildSubPopupHTML)
   // ── Widget tăng/giảm nhanh (▲▼) cho ô nhập số KHÔNG có thanh trượt ──
-  // Dùng trong menu cài đặt phụ đề (Style tab, Global tab, All tab). Bọc input number
+  // Dùng trong menu cài đặt phụ đề (Style tab, All tab, Global tab). Bọc input number
   // với 2 nút mũi tên tăng/giảm theo bước cho sẵn; click nút sẽ điều chỉnh giá trị
   // và phát sự kiện input để logic renderer cập nhật như gõ tay.
   function numStepperHTML(inputHTML, step) {
@@ -3601,7 +3601,7 @@ function setupSubPopupEvents() {
       });
     }
 
-    // ===== 4 tab lớn: All / Global / Style / Effect =====
+    // ===== 4 tab lớn: Global / All / Style / Effect =====
     popup.querySelectorAll('.sub-mtab').forEach((tab) => {
       tab.onclick = () => {
         const m = tab.dataset.m;
@@ -3842,7 +3842,7 @@ function setupSubPopupEvents() {
     const lspResetBtn = popup.querySelector('#sub-lsp-reset');
     if (lspResetBtn) {
       lspResetBtn.onclick = () => {
-        const defaultLSP = SUB_SETTINGS_DEFAULTS.letterSpacing || 0.9;
+        const defaultLSP = SUB_SETTINGS_DEFAULTS.letterSpacing || 0.3;
         State.subSettings.letterSpacing = defaultLSP;
         const lspR = popup.querySelector('#g-letterSpacing');
         const lspV = popup.querySelector('#g-letterSpacingVal');
