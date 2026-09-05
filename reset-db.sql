@@ -33,6 +33,16 @@ create table public.animes (
   year              integer,
   total_episodes    integer not null default 0,
   watched_episodes  integer not null default 0,
+  -- thông tin bổ sung từ AniList (auto-fill / backfill)
+  title_romaji      text not null default '',
+  title_native      text not null default '',
+  title_synonyms    text[] not null default '{}',
+  start_date        text not null default '',
+  end_date          text not null default '',
+  season            text not null default '',
+  source            text not null default '',
+  hashtag           text not null default '',
+  producers         text[] not null default '{}',
   -- điểm đánh giá của riêng chủ web (0-10) & trạng thái xem cá nhân
   my_rating         numeric(3,1) not null default 0,
   my_status         text not null default 'Chưa xem',

@@ -1793,3 +1793,67 @@ select.input option { background: #141a2d; color: var(--text); }
 }
 .sub-gtb-reset:hover { background: rgba(255,170,0,0.22); color: #fff; }
 .sub-gtb-reset:active { transform: scale(.94); }
+
+/* ============================================================
+   MỞ RỘNG THÔNG TIN ANIME (AniList) + PHÂN TRANG BÌNH LUẬN
+   ============================================================ */
+
+/* ── Ô thông tin nâng cao trong form admin (details/summary) ── */
+.admin-adv-fields { border: var(--glass-border); border-radius: var(--radius-sm); padding: 0; background: rgba(255,255,255,0.03); }
+.admin-adv-summary {
+  list-style: none; cursor: pointer; display: flex; align-items: center; gap: 8px;
+  padding: 11px 14px; font-size: 13px; font-weight: 700; color: var(--text);
+  user-select: none; border-radius: var(--radius-sm);
+}
+.admin-adv-summary::-webkit-details-marker { display: none; }
+.admin-adv-summary:hover { color: var(--accent); }
+.admin-adv-grid { padding: 0 14px 14px; }
+
+/* ── Tên phụ (Native/Romaji) & synonyms trong header chi tiết ── */
+.detail-aliases { display: flex; flex-wrap: wrap; gap: 6px 14px; margin: 2px 0 6px; }
+.detail-alias { font-size: 13.5px; color: var(--text-dim); }
+.detail-alias em {
+  font-style: normal; font-size: 10px; font-weight: 800; letter-spacing: 0.05em;
+  color: var(--accent); border: 1px solid rgba(168,85,247,0.4); border-radius: 4px;
+  padding: 0 4px; margin-left: 5px; vertical-align: middle;
+}
+.detail-synonyms-line { margin: 0 0 4px; font-size: 12.5px; color: var(--text-dim); line-height: 1.6; }
+.detail-synonyms-label { font-weight: 700; color: var(--text); }
+
+/* ── Link bấm được trong cột meta (Season/Source/Studio) ── */
+.detail-side-link {
+  cursor: pointer; text-align: right; font-weight: 700; color: var(--accent);
+  border: none; background: none; padding: 0; text-decoration: underline;
+  text-decoration-style: dotted; text-underline-offset: 3px; transition: color .15s ease;
+}
+.detail-side-link:hover { color: var(--text); text-decoration-color: var(--accent); }
+
+/* ── Producers trong cột meta — xếp dọc từng nút ── */
+.detail-side-producers { display: flex; flex-direction: column; align-items: flex-end; gap: 3px; }
+.detail-producer-link {
+  cursor: pointer; text-align: right; font-weight: 700; color: var(--accent);
+  border: none; background: none; padding: 0; text-decoration: underline;
+  text-decoration-style: dotted; text-underline-offset: 3px; transition: color .15s ease;
+}
+.detail-producer-link:hover { color: var(--text); text-decoration-color: var(--accent); }
+
+/* ── Chip hashtag ── */
+.chip-hashtag { color: var(--text-dim); border-color: var(--border); background: rgba(255,255,255,0.03); }
+
+/* ── Thanh phân trang bình luận ‹ 1 2 3 … › ── */
+.comment-pagination {
+  display: flex; align-items: center; justify-content: center; gap: 6px;
+  padding: 14px 0 4px; flex-wrap: wrap;
+}
+.comment-pagination.hidden { display: none; }
+.comment-page-btn {
+  cursor: pointer; min-width: 34px; height: 34px; padding: 0 10px;
+  display: inline-flex; align-items: center; justify-content: center;
+  border: var(--glass-border); background: rgba(255,255,255,0.06);
+  color: var(--text); border-radius: 8px; font-size: 14px; font-weight: 700;
+  transition: all .15s ease;
+}
+.comment-page-btn:hover:not(.disabled):not(.current) { border-color: var(--accent); background: rgba(99,102,241,0.18); }
+.comment-page-btn.current { background: var(--accent); border-color: var(--accent); color: #fff; }
+.comment-page-btn.disabled { opacity: 0.4; cursor: not-allowed; }
+.comment-page-ellipsis { color: var(--text-dim); padding: 0 2px; }

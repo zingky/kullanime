@@ -350,9 +350,7 @@
         </div>
 
         <div id="commentList" class="comment-list"></div>
-        <div class="load-more-wrap" id="commentLoadMoreWrap">
-          <button type="button" class="btn btn-primary load-more-btn" id="commentLoadMoreBtn">Xem thêm bình luận ▼</button>
-        </div>
+        <div class="comment-pagination hidden" id="commentPagination"></div>
         <div class="load-state hidden" id="commentLoading">
           <div class="spinner" aria-hidden="true"></div>
           <p>Đang tải bình luận...</p>
@@ -408,6 +406,7 @@
           <h4 class="admin-pane-title">Danh sách anime</h4>
           <div class="admin-pane-actions">
             <button class="btn btn-ghost" id="backfillCharsBtn" title="Tự tìm trên AniList và bổ sung ảnh nhân vật (character art) cho các anime đã có, chạy từ từ theo thứ tự toàn bộ danh sách">🧑‍🎤 Lấy ảnh nhân vật</button>
+            <button class="btn btn-ghost" id="backfillDataBtn" title="Tự tìm trên AniList và bổ sung toàn bộ thông tin mới (tên Romaji/Native, synonyms, ngày phát hành, mùa, nguồn, hashtag, producers) cho các anime đã có">📋 Cập nhật dữ liệu AniList</button>
             <button class="btn btn-primary" id="addAnimeBtn">＋ Thêm anime mới</button>
           </div>
         </div>
@@ -540,6 +539,47 @@
             <label for="af_synopsis">Synopsis (Tóm tắt)</label>
             <textarea id="af_synopsis" class="input" rows="4"></textarea>
           </div>
+          <details class="field field-span-2 admin-adv-fields">
+            <summary class="admin-adv-summary">📋 Thông tin nâng cao (từ AniList) ▾</summary>
+            <div class="form-grid admin-adv-grid">
+              <div class="field">
+                <label for="af_title_romaji">Tên Romaji</label>
+                <input type="text" id="af_title_romaji" class="input" placeholder="Shingeki no Kyojin" />
+              </div>
+              <div class="field">
+                <label for="af_title_native">Tên Native (Nhật)</label>
+                <input type="text" id="af_title_native" class="input" placeholder="進撃の巨人" />
+              </div>
+              <div class="field field-span-2">
+                <label for="af_title_synonyms">Synonyms (tên khác, phân cách dấu phẩy)</label>
+                <input type="text" id="af_title_synonyms" class="input" placeholder="Attack on Titan, AoT..." />
+              </div>
+              <div class="field">
+                <label for="af_start_date">Ngày phát hành (start)</label>
+                <input type="text" id="af_start_date" class="input" placeholder="2013-04-07" />
+              </div>
+              <div class="field">
+                <label for="af_end_date">Ngày kết thúc (end)</label>
+                <input type="text" id="af_end_date" class="input" placeholder="2013-09-29" />
+              </div>
+              <div class="field">
+                <label for="af_season">Mùa</label>
+                <input type="text" id="af_season" class="input" placeholder="Xuân / Hạ / Thu / Đông" />
+              </div>
+              <div class="field">
+                <label for="af_source">Nguồn (Source)</label>
+                <input type="text" id="af_source" class="input" placeholder="Manga / Light Novel..." />
+              </div>
+              <div class="field">
+                <label for="af_hashtag">Hashtag</label>
+                <input type="text" id="af_hashtag" class="input" placeholder="shingekinokyojin" />
+              </div>
+              <div class="field field-span-2">
+                <label for="af_producers">Producers (phân cách dấu phẩy)</label>
+                <input type="text" id="af_producers" class="input" placeholder="Pony Canyon, Kodansha..." />
+              </div>
+            </div>
+          </details>
           <div class="field field-span-2">
             <label>Dàn diễn viên lồng tiếng (Seiyuu)</label>
             <div id="afSeiyuuList" class="seiyuu-list"></div>
