@@ -4439,31 +4439,32 @@ function setupSubPopupEvents() {
       : '';
 
     // Số lần đã xem + danh sách ngày tick "đã xem xong" (chỉ trang chi tiết anime)
-    const wCount = Number(a.watch_count) || 0;
     const wDates = Array.isArray(a.watch_dates) ? a.watch_dates.filter(Boolean) : [];
+    const wCount = wDates.length; // luôn hiển thị theo số ngày thực tế để không lệch
     const manyDates = wDates.length > 3;
     const dateItems = wDates.length
       ? wDates.map((d) =>
-          '<div class="watch-date-row">' +
-            '<span class="watch-date-txt">📅 ' + esc(d) + '</span>' +
+          '<div class="watch-date-row" data-date="' + esc(d) + '">' +
+            '<span class="watch-date-txt" data-date-txt>📅 ' + esc(d) + '</span>' +
             (State.isAdmin
-              ? '<button type="button" class="watch-date-del" data-watch-del="' + esc(d) + '" title="Xoá ngày này">✕</button>'
+              ? '<span class="watch-date-actions">' +
+                  '<button type="button" class="watch-date-edit" data-watch-edit="' + esc(d) + '" title="Sửa ngày">✏️</button>' +
+                  '<button type="button" class="watch-date-del" data-watch-del="' + esc(d) + '" title="Xoá ngày này">✕</button>' +
+                '</span>'
               : '') +
           '</div>'
         ).join('')
       : '<div class="watch-date-empty">Chưa có lần xem nào được ghi nhận.</div>';
     const watchSection =
       '<section class="detail-section detail-watch" data-anime="' + esc(a.id) + '">' +
-        '<h3 class="detail-section-title">🎞️ Số lần đã xem' +
+        '<h3 class="detail-section-title">' +
+          '<span class="detail-watch-title-txt">🎞️ Số lần đã xem</span>' +
           '<span class="detail-watch-count">' + wCount + '</span>' +
+          (State.isAdmin
+            ? '<button type="button" class="btn btn-sm btn-primary detail-watch-again" id="btnWatchAgain">✅ Đã xem lần nữa</button>'
+            : '') +
         '</h3>' +
         '<div class="detail-watch-body">' +
-          '<div class="detail-watch-top">' +
-            '<span class="detail-watch-note">Đã xem xong <b>' + wCount + '</b> lần</span>' +
-            (State.isAdmin
-              ? '<button type="button" class="btn btn-sm btn-primary" id="btnWatchAgain">✅ Đã xem lần nữa</button>'
-              : '') +
-          '</div>' +
           '<div class="watch-dates-list' + (manyDates ? ' many' : '') + '">' + dateItems + '</div>' +
         '</div>' +
       '</section>';
@@ -4481,12 +4482,12 @@ function setupSubPopupEvents() {
             '<p class="detail-subtitle">' + esc([a.studio, a.year].filter(Boolean).join(' · ') || '—') + '</p>' +
           '</header>' +
           '<div class="detail-chips">' + chips.join('') + '</div>' +
-          watchSection +
           '<section class="detail-section">' +
             '<h3 class="detail-section-title">📖 Tóm tắt (Synopsis)</h3>' +
             '<div class="detail-synopsis-scroll"><p class="detail-synopsis">' + esc(synopsis) + '</p></div>' +
           '</section>' +
           seiyuuSection +
+          watchSection +
         '</div>' +
       '</div>';
   }
@@ -4537,12 +4538,17 @@ function setupSubPopupEvents() {
     if (!State.isAdmin) { toast('Bạn không có quyền.', 'error'); return false; }
     const a = State.animes.find((x) => String(x.id) === String(animeId));
     if (!a) return false;
-    const dates = Array.isArray(a.watch_dates) ? a.watch_dates.filter(Boolean) : [];
+    const dates = (Array.isArray(a.watch_dates) ? a.watch_dates : []).filter(Boolean);
     const now = new Date();
     const today = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0'); // YYYY-MM-DD (giờ địa phương)
+    if (dates.includes(today)) {
+      toast('Hôm nay (📅 ' + today + ') đã được ghi nhận rồi.', 'warning');
+      return false;
+    }
+    dates.push(today);
     const patch = {
-      watch_count: (Number(a.watch_count) || 0) + 1,
-      watch_dates: dates.concat(today)
+      watch_count: dates.length,
+      watch_dates: dates
     };
     const ok = await saveMyTracker(animeId, patch);
     if (ok) toast('Đã ghi nhận: xem xong lần ' + patch.watch_count + ' (📅 ' + today + ') ✅', 'success');
@@ -4557,11 +4563,58 @@ function setupSubPopupEvents() {
     const dates = (Array.isArray(a.watch_dates) ? a.watch_dates : []).filter((d) => d !== date);
     const patch = {
       watch_dates: dates,
-      watch_count: Math.max(0, (Number(a.watch_count) || 0) - 1)
+      watch_count: dates.length // luôn đồng bộ = số ngày còn lại
     };
     const ok = await saveMyTracker(animeId, patch);
     if (ok) toast('Đã xoá ngày ' + date + ' 📅', 'success');
     return ok;
+  }
+
+  // Sửa một ngày đã xem (admin): đổi ngày cũ thành ngày mới, không làm đổi số lần
+  async function editWatchDate(animeId, oldDate, newDate) {
+    if (!State.isAdmin) { toast('Bạn không có quyền.', 'error'); return false; }
+    oldDate = String(oldDate || '').trim();
+    newDate = String(newDate || '').trim();
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(newDate)) { toast('Ngày không hợp lệ.', 'error'); return false; }
+    if (oldDate === newDate) return true;
+    const a = State.animes.find((x) => String(x.id) === String(animeId));
+    if (!a) return false;
+    const dates = (Array.isArray(a.watch_dates) ? a.watch_dates : []).filter(Boolean);
+    const idx = dates.indexOf(oldDate);
+    if (idx === -1) return false;
+    dates[idx] = newDate;
+    const patch = { watch_dates: dates, watch_count: dates.length };
+    const ok = await saveMyTracker(animeId, patch);
+    if (ok) toast('Đã sửa ngày: ' + oldDate + ' → ' + newDate + ' 📅', 'success');
+    return ok;
+  }
+
+  // Đặt trạng thái xem + tự đồng bộ số lần đã xem:
+  //   chọn "Đã xem"  → +1 lần + thêm ngày hôm nay (nếu chưa có hôm nay)
+  //   chọn "Chưa xem" → xoá 1 lần đã xem nếu đã có (xoá ngày gần nhất)
+  async function syncWatchOnStatus(animeId, newStatus, extra) {
+    const a = State.animes.find((x) => String(x.id) === String(animeId));
+    if (!a) return false;
+    const patch = { my_status: newStatus };
+    if (extra) Object.assign(patch, extra);
+    if (newStatus === 'Đã xem' && String(a.my_status || '') !== 'Đã xem') {
+      const dates = (Array.isArray(a.watch_dates) ? a.watch_dates : []).filter(Boolean);
+      const now = new Date();
+      const today = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0');
+      if (!dates.includes(today)) {
+        dates.push(today);
+        patch.watch_dates = dates;
+        patch.watch_count = dates.length;
+      }
+    } else if (newStatus === 'Chưa xem' && String(a.my_status || '') === 'Đã xem') {
+      const dates = (Array.isArray(a.watch_dates) ? a.watch_dates : []).filter(Boolean);
+      if (dates.length) {
+        dates.pop(); // xoá lần xem gần nhất
+        patch.watch_dates = dates;
+        patch.watch_count = dates.length;
+      }
+    }
+    return saveMyTracker(animeId, patch);
   }
 
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -4652,7 +4705,7 @@ function setupSubPopupEvents() {
     const val = Math.max(1, Math.min(Number(ep) || 1, total > 0 ? total : Infinity));
     closeMiniPop();
     const my_status = total > 0 && val >= total ? 'Đã xem' : 'Đang xem';
-    await saveMyTracker(id, { my_status, watched_episodes: val });
+    await syncWatchOnStatus(id, my_status, { watched_episodes: val });
     toast('Đã cập nhật: xem đến tập ' + val + '/' + (total || '?') + (my_status === 'Đã xem' ? ' ✅' : ''), 'success');
   }
 
@@ -6618,7 +6671,7 @@ function setupSubPopupEvents() {
             openEpisodePop(watchIco, tracker.dataset.anime);
             saveMyTracker(tracker.dataset.anime, { my_status: 'Đang xem' });
           } else {
-            saveMyTracker(tracker.dataset.anime, { my_status: watchIco.dataset.status });
+            syncWatchOnStatus(tracker.dataset.anime, watchIco.dataset.status);
           }
         }
         return;
@@ -6647,6 +6700,32 @@ function setupSubPopupEvents() {
         const section = delBtn.closest('.detail-watch');
         const animeId = section && section.dataset.anime;
         if (animeId) removeWatchDate(animeId, delBtn.dataset.watchDel);
+        return;
+      }
+      // Nút ✏️ sửa ngày — đổi ô ngày thành input date để chỉnh
+      const editBtn = e.target.closest('.watch-date-edit');
+      if (editBtn && editBtn.dataset.watchEdit) {
+        const row = editBtn.closest('.watch-date-row');
+        const section = editBtn.closest('.detail-watch');
+        const animeId = section && section.dataset.anime;
+        if (row && animeId) {
+          const txt = row.querySelector('[data-date-txt]');
+          if (txt) txt.innerHTML = '<input type="date" class="watch-date-input" value="' + editBtn.dataset.watchEdit + '" />';
+          const actions = row.querySelector('.watch-date-actions');
+          if (actions) {
+            actions.innerHTML = '<button type="button" class="watch-date-save" data-watch-save="' + editBtn.dataset.watchEdit + '" title="Lưu ngày">✔</button>';
+          }
+        }
+        return;
+      }
+      // Nút ✔ lưu ngày đã sửa
+      const saveBtn = e.target.closest('.watch-date-save');
+      if (saveBtn && saveBtn.dataset.watchSave) {
+        const row = saveBtn.closest('.watch-date-row');
+        const section = saveBtn.closest('.detail-watch');
+        const animeId = section && section.dataset.anime;
+        const input = row && row.querySelector('.watch-date-input');
+        if (animeId && input && input.value) editWatchDate(animeId, saveBtn.dataset.watchSave, input.value);
         return;
       }
     });
@@ -6679,7 +6758,7 @@ function setupSubPopupEvents() {
             if (a && myStatusMeta(a.my_status).cls !== 'my-watching') saveMyTracker(id, { my_status: 'Đang xem' });
           } else {
             closeMiniPop();
-            saveMyTracker(id, { my_status: lbl }).then((ok) => {
+            syncWatchOnStatus(id, lbl).then((ok) => {
               if (ok) toast('Đã đặt trạng thái: ' + lbl, 'success');
             });
           }
