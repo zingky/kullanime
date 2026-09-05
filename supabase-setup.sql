@@ -35,6 +35,9 @@ create table if not exists public.animes (
   -- điểm đánh giá của riêng chủ web (0-10) & trạng thái xem cá nhân
   my_rating       numeric(3,1) not null default 0,
   my_status       text         not null default 'Chưa xem',
+  -- số lần đã xem hết + danh sách ngày tick "đã xem xong" (chỉ chủ web ghi)
+  watch_count     integer      not null default 0,
+  watch_dates     text[]       not null default '{}',
   -- danh sách seiyuu: [{"name":"...","character":"...","image":"..."}]
   seiyuu          jsonb not null default '[]'::jsonb,
   created_at      timestamptz not null default now(),
@@ -89,6 +92,10 @@ alter table public.comments add column if not exists author_name text    not nul
 --  thêm "điểm đánh giá của tôi" & "trạng thái xem của tôi")
 alter table public.animes add column if not exists my_rating numeric(3,1) not null default 0;
 alter table public.animes add column if not exists my_status text         not null default 'Chưa xem';
+
+-- (Tự sửa schema nếu bảng animes thiếu cột đếm lượt xem — thêm "số lần đã xem" & "danh sách ngày xem")
+alter table public.animes add column if not exists watch_count integer not null default 0;
+alter table public.animes add column if not exists watch_dates text[]  not null default '{}';
 
 
 -- ============================================================
