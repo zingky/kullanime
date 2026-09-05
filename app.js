@@ -67,7 +67,8 @@
     animeVisible: 10,      // số anime render mỗi lượt
     songVisible: 15,       // số bài hát render mỗi lượt
     commentAll: [],        // toàn bộ bình luận của anime đang mở
-    commentVisible: 20,    // số bình luận anime hiển thị hiện tại
+    commentPage: 1,        // trang bình luận đang hiển thị (5 bình luận/trang)
+    commentPerPage: 5,     // số bình luận mỗi trang
     chatAll: [],           // toàn bộ tin chat chung
     chatVisible: 3,        // số tin chat hiển thị (thu gọn = 3)
     chatExpanded: false    // trạng thái mở rộng sticky chat
@@ -4168,8 +4169,13 @@ function setupSubPopupEvents() {
     if (search) {
       list = list.filter((a) => {
         const genres = Array.isArray(a.genres) ? a.genres.join(' ') : String(a.genres || '');
-        const haystack = [a.title, a.studio, genres, (a.seiyuu || []).map((s) => s.name).join(' ')]
-          .filter(Boolean).join(' ').toLowerCase();
+        const haystack = [
+          a.title, a.title_romaji, a.title_native,
+          (a.title_synonyms || []).join(' '),
+          a.studio, (a.producers || []).join(' '),
+          a.season, a.year, a.source, a.hashtag,
+          genres, (a.seiyuu || []).map((s) => s.name).join(' ')
+        ].filter(Boolean).join(' ').toLowerCase();
         return haystack.includes(search);
       });
     }
@@ -4239,6 +4245,15 @@ function setupSubPopupEvents() {
     if (/đang xem|đang/i.test(s)) return { label: 'Đang xem', icon: '⏳', cls: 'my-watching' };
     if (/ý định|định xem|muốn xem|dự định/i.test(s)) return { label: 'Muốn xem', icon: '➕', cls: 'my-planned' };
     return { label: 'Chưa xem', icon: '⬜', cls: 'my-unwatched' };
+  }
+
+  // Helper: quãng ngày phát hành "2013-04-07 → 2013-09-29" (bỏ → nếu trùng/thiếu)
+  function formatDateRange(start, end) {
+    const s = String(start || '').trim();
+    const e = String(end || '').trim();
+    if (!s) return e;
+    if (!e || e === s) return s;
+    return s + ' → ' + e;
   }
 
   function animeCardHTML(a) {
@@ -4387,6 +4402,58 @@ function setupSubPopupEvents() {
         '<span class="detail-side-value detail-rating">★ ' + rating.toFixed(1) + '/10</span>' +
       '</div>'
     );
+    // Ngày phát hành (Start → End)
+    const dateRange = formatDateRange(a.start_date, a.end_date);
+    if (dateRange) {
+      sideRows.push(
+        '<div class="detail-side-row">' +
+          '<span class="detail-side-label">Phát hành</span>' +
+          '<span class="detail-side-value">' + esc(dateRange) + '</span>' +
+        '</div>'
+      );
+    }
+    // Mùa (click để lọc anime cùng mùa)
+    const seasonVal = [a.season, a.year].filter(Boolean).join(' ');
+    if (seasonVal) {
+      sideRows.push(
+        '<div class="detail-side-row">' +
+          '<span class="detail-side-label">Mùa</span>' +
+          '<span class="detail-side-value detail-side-link" data-search="' + esc([a.season, a.year].filter(Boolean).join(' ')) + '" title="Tìm anime theo mùa">' + esc(seasonVal) + '</span>' +
+        '</div>'
+      );
+    }
+    // Nguồn (click để lọc anime cùng nguồn)
+    if (a.source) {
+      sideRows.push(
+        '<div class="detail-side-row">' +
+          '<span class="detail-side-label">Nguồn</span>' +
+          '<button type="button" class="detail-side-value detail-side-link" data-search="' + esc(a.source) + '" title="Tìm anime theo nguồn">' + esc(a.source) + '</button>' +
+        '</div>'
+      );
+    }
+    // Studio chính (click để lọc anime cùng studio)
+    if (a.studio) {
+      sideRows.push(
+        '<div class="detail-side-row">' +
+          '<span class="detail-side-label">Studio</span>' +
+          '<button type="button" class="detail-side-value detail-side-link" data-search="' + esc(a.studio) + '" title="Tìm anime theo studio">' + esc(a.studio) + '</button>' +
+        '</div>'
+      );
+    }
+    // Producers (click để lọc)
+    const producers = Array.isArray(a.producers) ? a.producers.filter(Boolean) : [];
+    if (producers.length) {
+      sideRows.push(
+        '<div class="detail-side-row">' +
+          '<span class="detail-side-label">Producers</span>' +
+          '<span class="detail-side-value detail-side-producers">' +
+            producers.map((p) =>
+              '<button type="button" class="detail-producer-link" data-search="' + esc(p) + '" title="Tìm anime theo nhà sản xuất">' + esc(p) + '</button>'
+            ).join('') +
+          '</span>' +
+        '</div>'
+      );
+    }
 
     // ══ Phần phải: thể loại (5 cái + nút mở rộng) + chips + synopsis + seiyuu ══
     const chips = [];
@@ -4398,6 +4465,14 @@ function setupSubPopupEvents() {
       ? '<button type="button" class="chip chip-more" data-genre-more title="Xem toàn bộ thể loại"><span data-more-caret>▾</span> <span data-more-label>' + (genres.length - maxGenres) + ' thể loại</span></button>'
       : '';
     chips.push('<div class="genre-chips' + (genres.length > maxGenres ? ' has-more' : '') + '">' + genreBtns + genreMore + '</div>');
+    // Nguồn (click để lọc anime cùng nguồn)
+    if (a.source) {
+      chips.push('<button type="button" class="chip chip-btn" data-search="' + esc(a.source) + '" title="Tìm anime theo nguồn">📚 ' + esc(a.source) + '</button>');
+    }
+    // Hashtag (chỉ hiển thị)
+    if (a.hashtag) {
+      chips.push('<span class="chip chip-hashtag" title="Hashtag">🏷️ ' + esc(a.hashtag) + '</span>');
+    }
     chips.push('<span class="chip">📺 ' + (total || '?') + ' tập</span>');
     chips.push('<span class="chip my-status-chip ' + mySt.cls + '">' + mySt.icon + ' ' + esc(mySt.label) + '</span>');
     if (myRating > 0) chips.push('<span class="chip chip-mine">♥ ' + myRating + '/10</span>');
@@ -4432,7 +4507,8 @@ function setupSubPopupEvents() {
       : '';
 
     // Số lần đã xem + danh sách ngày tick "đã xem xong" (chỉ trang chi tiết anime)
-    const wDates = Array.isArray(a.watch_dates) ? a.watch_dates.filter(Boolean) : [];
+    const wDates = (Array.isArray(a.watch_dates) ? a.watch_dates.filter(Boolean) : [])
+      .slice().sort((x, y) => String(y).localeCompare(String(x))); // mới nhất lên đầu
     const wCount = wDates.length; // luôn hiển thị theo số ngày thực tế để không lệch
     const manyDates = wDates.length > 3;
     const dateItems = wDates.length
@@ -4465,6 +4541,21 @@ function setupSubPopupEvents() {
         '</div>' +
       '</details>';
 
+    // Tên phụ (Native / Romaji) — chỉ hiện nếu khác tên chính (English)
+    const altNames = [];
+    if (a.title_native && a.title_native !== a.title) {
+      altNames.push('<span class="detail-alias">' + esc(a.title_native) + ' <em>Native</em></span>');
+    }
+    if (a.title_romaji && a.title_romaji !== a.title && a.title_romaji !== a.title_native) {
+      altNames.push('<span class="detail-alias">' + esc(a.title_romaji) + ' <em>Romaji</em></span>');
+    }
+    // Synonyms — danh sách tên khác (bỏ trùng với tên chính)
+    const synonyms = (Array.isArray(a.title_synonyms) ? a.title_synonyms : [])
+      .filter((s) => s && s !== a.title);
+    const synonymsLine = synonyms.length
+      ? '<p class="detail-synonyms-line"><span class="detail-synonyms-label">Tên khác:</span> ' + esc(synonyms.join(' · ')) + '</p>'
+      : '';
+
     el.innerHTML =
       '<div class="anime-detail">' +
         '<aside class="detail-side">' +
@@ -4475,6 +4566,8 @@ function setupSubPopupEvents() {
         '<div class="detail-main">' +
           '<header class="detail-header">' +
             '<h2 class="detail-title">' + esc(a.title || '') + '</h2>' +
+            (altNames.length ? '<div class="detail-aliases">' + altNames.join('') + '</div>' : '') +
+            synonymsLine +
             '<p class="detail-subtitle">' + esc([a.studio, a.year].filter(Boolean).join(' · ') || '—') + '</p>' +
           '</header>' +
           '<div class="detail-chips">' + chips.join('') + '</div>' +
@@ -4803,7 +4896,7 @@ function setupSubPopupEvents() {
     }
     const comments = data || [];
     State.commentAll = comments;
-    State.commentVisible = 20;
+    State.commentPage = 1;
     renderCommentList();
   }
 
@@ -4815,14 +4908,55 @@ function setupSubPopupEvents() {
       list.innerHTML = '';
       list.classList.add('hidden');
       empty.classList.remove('hidden');
-      updateLoadMore('#commentLoadMoreWrap', 0);
+      renderCommentPagination();
       return;
     }
     empty.classList.add('hidden');
     list.classList.remove('hidden');
-    const visible = comments.slice(0, State.commentVisible);
+    const totalPages = Math.ceil(comments.length / State.commentPerPage);
+    const page = Math.min(Math.max(1, State.commentPage), totalPages);
+    State.commentPage = page;
+    const start = (page - 1) * State.commentPerPage;
+    const visible = comments.slice(start, start + State.commentPerPage);
     list.innerHTML = visible.map((c) => commentHTML(c)).join('');
-    updateLoadMore('#commentLoadMoreWrap', comments.length - State.commentVisible);
+    renderCommentPagination();
+  }
+
+  // Thanh phân trang bình luận: ‹ 1 2 3 … › — 5 bình luận/trang
+  function renderCommentPagination() {
+    const wrap = $('#commentPagination');
+    if (!wrap) return;
+    const comments = State.commentAll || [];
+    const totalPages = Math.max(1, Math.ceil(comments.length / State.commentPerPage));
+    if (comments.length === 0 || totalPages <= 1) {
+      wrap.classList.add('hidden');
+      wrap.innerHTML = '';
+      return;
+    }
+    wrap.classList.remove('hidden');
+    const page = State.commentPage;
+    // Tạo dãy số trang thông minh: luôn có 1, trang cuối, và trang hiện tại ±1
+    const pages = new Set([1, totalPages, page - 1, page, page + 1]);
+    const arr = Array.from(pages).filter((p) => p >= 1 && p <= totalPages).sort((a, b) => a - b);
+    const btns = [];
+    // Nút trang trước
+    btns.push(
+      '<button type="button" class="comment-page-btn' + (page <= 1 ? ' disabled' : '') + '" data-cpage="' + (page - 1) + '" title="Trang trước" ' + (page <= 1 ? 'disabled' : '') + '>‹</button>'
+    );
+    // Dãy số trang (chèn '…' khi có khoảng trống)
+    let prev = 0;
+    arr.forEach((p) => {
+      if (prev && p - prev > 1) btns.push('<span class="comment-page-ellipsis">…</span>');
+      btns.push(
+        '<button type="button" class="comment-page-btn' + (p === page ? ' current' : '') + '" data-cpage="' + p + '">' + p + '</button>'
+      );
+      prev = p;
+    });
+    // Nút trang sau
+    btns.push(
+      '<button type="button" class="comment-page-btn' + (page >= totalPages ? ' disabled' : '') + '" data-cpage="' + (page + 1) + '" title="Trang sau" ' + (page >= totalPages ? 'disabled' : '') + '>›</button>'
+    );
+    wrap.innerHTML = btns.join('');
   }
 
   function commentHTML(c) {
@@ -5470,13 +5604,25 @@ function setupSubPopupEvents() {
     $('#af_poster').value = a.poster_url || '';
     $('#af_genres').value = (Array.isArray(a.genres) ? a.genres : []).join(', ');
     $('#af_synopsis').value = a.synopsis || '';
+    // Thông tin bổ sung từ AniList
+    $('#af_title_romaji').value = a.title_romaji || '';
+    $('#af_title_native').value = a.title_native || '';
+    $('#af_title_synonyms').value = (Array.isArray(a.title_synonyms) ? a.title_synonyms : []).join(', ');
+    $('#af_start_date').value = a.start_date || '';
+    $('#af_end_date').value = a.end_date || '';
+    $('#af_season').value = a.season || '';
+    $('#af_source').value = a.source || '';
+    $('#af_hashtag').value = a.hashtag || '';
+    $('#af_producers').value = (Array.isArray(a.producers) ? a.producers : []).join(', ');
     renderSeiyuuEditors(Array.isArray(a.seiyuu) ? a.seiyuu : []);
     updatePosterPreview();
     openModal('animeFormModal');
   }
 
   function resetAnimeForm() {
-    ['af_title', 'af_year', 'af_studio', 'af_poster', 'af_genres', 'af_synopsis'].forEach((id) => {
+    ['af_title', 'af_year', 'af_studio', 'af_poster', 'af_genres', 'af_synopsis',
+     'af_title_romaji', 'af_title_native', 'af_title_synonyms', 'af_start_date',
+     'af_end_date', 'af_season', 'af_source', 'af_hashtag', 'af_producers'].forEach((id) => {
       $('#' + id).value = '';
     });
     $('#af_rating').value = 0;
@@ -5535,18 +5681,29 @@ function setupSubPopupEvents() {
   }
 
   function animFormPayload() {
+    const splitList = (id) => $('#' + id).value.split(',').map((s) => s.trim()).filter(Boolean);
     return {
       title: $('#af_title').value.trim(),
       synopsis: $('#af_synopsis').value.trim(),
       poster_url: $('#af_poster').value.trim(),
       status: $('#af_status').value,
       rating: parseFloat($('#af_rating').value) || 0,
-      genres: $('#af_genres').value.split(',').map((g) => g.trim()).filter(Boolean),
+      genres: splitList('af_genres'),
       studio: $('#af_studio').value.trim(),
       year: $('#af_year').value ? parseInt($('#af_year').value, 10) : null,
       total_episodes: parseInt($('#af_total_ep').value, 10) || 0,
       watched_episodes: parseInt($('#af_watched_ep').value, 10) || 0,
-      seiyuu: collectSeiyuuFromEditors()
+      seiyuu: collectSeiyuuFromEditors(),
+      // Thông tin bổ sung từ AniList
+      title_romaji: $('#af_title_romaji').value.trim(),
+      title_native: $('#af_title_native').value.trim(),
+      title_synonyms: splitList('af_title_synonyms'),
+      start_date: $('#af_start_date').value.trim(),
+      end_date: $('#af_end_date').value.trim(),
+      season: $('#af_season').value.trim(),
+      source: $('#af_source').value.trim(),
+      hashtag: $('#af_hashtag').value.trim(),
+      producers: splitList('af_producers')
     };
   }
 
@@ -5762,7 +5919,7 @@ function setupSubPopupEvents() {
     results.innerHTML = '<p class="empty-desc">Đang tra cứu trên AniList...</p>';
     show('jikanResults');
     try {
-      const gql = 'query ($search: String) { Page(page: 1, perPage: 6) { media(search: $search, type: ANIME, sort: SEARCH_MATCH, isAdult: false) { id title { romaji english } coverImage { extraLarge large } description status averageScore seasonYear studios(isMain: true) { nodes { name } } episodes genres } } }';
+      const gql = 'query ($search: String) { Page(page: 1, perPage: 6) { media(search: $search, type: ANIME, sort: SEARCH_MATCH, isAdult: false) { id title { romaji english native synonyms } coverImage { extraLarge large } description status averageScore seasonYear season source hashtag startDate { year month day } endDate { year month day } studios(isMain: true) { nodes { id name isAnimationStudio } } episodes genres } } }';
       let data = null;
       let lastErr = null;
       // Thử lại tối đa 3 lần nếu gặp lỗi tạm thời (429/503/504)
@@ -5891,16 +6048,135 @@ function setupSubPopupEvents() {
     toast('Xong! Đã bổ sung ảnh nhân vật cho ' + updated + ' anime' + (skipped ? ' (bỏ qua ' + skipped + ' đã có/không có nhân vật)' : '') + '.', 'success', 6000);
   }
 
+  // Lấy toàn bộ thông tin bổ sung từ AniList cho anime cũ (tên Romaji/Native, synonyms,
+  // ngày phát hành, mùa, nguồn, hashtag, producers) — chạy từ từ tránh rate-limit.
+  async function backfillAnimeData() {
+    if (!State.isAdmin) { toast('Bạn không có quyền.', 'error'); return; }
+    const btn = $('#backfillDataBtn');
+    if (!btn || btn.disabled) return;
+    btn.disabled = true;
+    const list = State.animes.slice();
+    let updated = 0;
+    let skipped = 0;
+    for (let i = 0; i < list.length; i++) {
+      const a = list[i];
+      // Bỏ qua anime đã có đầy đủ dữ liệu bổ sung (title_native + season + start_date + source)
+      if (a.title_native && a.season && a.start_date && a.source) { skipped++; continue; }
+      toast('Cập nhật dữ liệu AniList: ' + (i + 1) + '/' + list.length + ' — ' + (a.title || ''), 'info');
+      try {
+        const media = await anilistFindMediaByTitle(a.title);
+        if (!media) { await sleep(400); continue; }
+        const mainStudio = anilistMainStudio(media);
+        const producers = anilistProducers(media).filter((p) => p !== mainStudio);
+        const patch = {
+          title_romaji: (media.title && media.title.romaji) || a.title_romaji || '',
+          title_native: (media.title && media.title.native) || a.title_native || '',
+          title_synonyms: (media.title && Array.isArray(media.title.synonyms) ? media.title.synonyms : []).filter((s) => s !== a.title),
+          start_date: anilistDateStr(media.startDate) || a.start_date || '',
+          end_date: anilistDateStr(media.endDate) || a.end_date || '',
+          season: mapAnilistSeason(media.season) || a.season || '',
+          source: mapAnilistSource(media.source) || a.source || '',
+          hashtag: media.hashtag || a.hashtag || '',
+          // Studio chính: chỉ ghi đè nếu chưa có studio
+          producers
+        };
+        if (!a.studio) patch.studio = mainStudio;
+        const { error } = await State.supabase.from('animes').update(patch).eq('id', a.id);
+        if (!error) {
+          Object.assign(a, patch);
+          updated++;
+        }
+      } catch (err) {
+        console.warn('Lỗi backfill dữ liệu AniList cho', a.title, err);
+      }
+      await sleep(600);
+    }
+    btn.disabled = false;
+    renderAnimeGrid();
+    toast('Xong! Đã cập nhật dữ liệu AniList cho ' + updated + ' anime' + (skipped ? ' (bỏ qua ' + skipped + ' đã có đầy đủ)' : '') + '.', 'success', 6000);
+  }
+
+  // Tìm Media AniList theo tên (kèm toàn bộ thông tin bổ sung) — dùng cho backfill dữ liệu
+  async function anilistFindMediaByTitle(title) {
+    const gql = 'query ($search: String) { Page(page: 1, perPage: 1) { media(search: $search, type: ANIME, isAdult: false) { id title { romaji english native synonyms } startDate { year month day } endDate { year month day } season source hashtag studios(isMain: true) { nodes { id name isAnimationStudio } } } } }';
+    const data = await anilistGraphQL(gql, { search: title });
+    const m = data && data.data && data.data.Page && data.data.Page.media;
+    return (m && m[0]) || null;
+  }
+
+  // Chuyển object ngày {year,month,day} → chuỗi YYYY-MM-DD ('' nếu thiếu)
+  function anilistDateStr(d) {
+    if (!d || !d.year) return '';
+    const m = d.month != null ? String(d.month).padStart(2, '0') : '01';
+    const day = d.day != null ? String(d.day).padStart(2, '0') : '01';
+    return d.year + '-' + m + '-' + day;
+  }
+
+  // Map mùa AniList → tiếng Việt
+  function mapAnilistSeason(s) {
+    const map = { 'WINTER': 'Đông', 'SPRING': 'Xuân', 'SUMMER': 'Hạ', 'FALL': 'Thu' };
+    return map[s] || '';
+  }
+
+  // Map nguồn AniList → nhãn dễ đọc
+  function mapAnilistSource(s) {
+    const map = {
+      'ORIGINAL': 'Nguyên tác',
+      'MANGA': 'Manga',
+      'LIGHT_NOVEL': 'Light Novel',
+      'VISUAL_NOVEL': 'Visual Novel',
+      'VIDEO_GAME': 'Video Game',
+      'OTHER': 'Khác',
+      'OTHER_MEDIA': 'Phương tiện khác',
+      'NOVEL': 'Tiểu thuyết',
+      'WEB_MANGA': 'Web Manga',
+      'WEB_NOVEL': 'Web Novel',
+      'GAME': 'Trò chơi',
+      'COMIC': 'Comic',
+      'MUSIC': 'Âm nhạc',
+      'PICTURE_BOOK': 'Picture Book',
+      'RADIO': 'Radio',
+      'THEATRE': 'Kịch'
+    };
+    return map[s] || s || '';
+  }
+
+  // Tên studio animation chính (main) — ưu tiên isAnimationStudio, nếu không có thì lấy node đầu
+  function anilistMainStudio(it) {
+    const nodes = (it.studios && it.studios.nodes) || [];
+    if (!nodes.length) return '';
+    const anim = nodes.find((n) => n && n.isAnimationStudio);
+    return (anim && anim.name) || nodes[0].name || '';
+  }
+
+  // Toàn bộ studio (kể cả main) → mảng tên, ưu tiên animation studio
+  function anilistProducers(it) {
+    const nodes = (it.studios && it.studios.nodes) || [];
+    return nodes.map((n) => (n && n.name) || '').filter(Boolean);
+  }
+
   // Điền dữ liệu AniList vào form + fetch seiyuu + ảnh nhân vật
   async function applyAnilistToForm(it) {
     if (!it) return;
+    const mainStudio = anilistMainStudio(it);
+    const producers = anilistProducers(it);
+    const producersNoMain = producers.filter((p) => p !== mainStudio);
     $('#af_title').value = (it.title && (it.title.english || it.title.romaji)) || '';
+    $('#af_title_romaji').value = (it.title && it.title.romaji) || '';
+    $('#af_title_native').value = (it.title && it.title.native) || '';
+    $('#af_title_synonyms').value = (it.title && Array.isArray(it.title.synonyms) ? it.title.synonyms : []).join(', ');
+    $('#af_start_date').value = anilistDateStr(it.startDate);
+    $('#af_end_date').value = anilistDateStr(it.endDate);
+    $('#af_season').value = mapAnilistSeason(it.season);
+    $('#af_source').value = mapAnilistSource(it.source);
+    $('#af_hashtag').value = it.hashtag || '';
+    $('#af_producers').value = producersNoMain.join(', ');
     $('#af_poster').value = (it.coverImage && (it.coverImage.extraLarge || it.coverImage.large)) || '';
     $('#af_synopsis').value = stripHtml(it.description || '');
     $('#af_status').value = mapAnilistStatus(it.status);
     $('#af_rating').value = it.averageScore != null ? Math.round((it.averageScore / 10) * 10) / 10 : 0;
     $('#af_year').value = it.seasonYear || '';
-    $('#af_studio').value = (it.studios && it.studios.nodes && it.studios.nodes[0] && it.studios.nodes[0].name) || '';
+    $('#af_studio').value = mainStudio;
     $('#af_total_ep').value = it.episodes != null ? it.episodes : 0;
     $('#af_genres').value = (it.genres || []).join(', ');
 
@@ -6153,8 +6429,15 @@ function setupSubPopupEvents() {
     const commentBox = $('#commentBox');
     if (commentBox) commentBox.addEventListener('paste', (e) => onSmartPaste(e, commentBox));
     $('#uploadImgInput').addEventListener('change', handleImageUpload);
-    $('#commentLoadMoreBtn').addEventListener('click', () => {
-      State.commentVisible += 20;
+    const _oldCommentLoadMore = $('#commentLoadMoreBtn');
+    if (_oldCommentLoadMore) _oldCommentLoadMore.remove();
+    // Thanh phân trang bình luận (5/trang) — delegate trên modal
+    const cpWrap = $('#commentPagination');
+    if (cpWrap && cpWrap._bound) cpWrap.removeEventListener('click', cpWrap._bound);
+    if (cpWrap) cpWrap.addEventListener('click', (e) => {
+      const btn = e.target.closest('[data-cpage]');
+      if (!btn || btn.disabled) return;
+      State.commentPage = parseInt(btn.dataset.cpage, 10) || 1;
       renderCommentList();
     });
 
@@ -6685,6 +6968,7 @@ function setupSubPopupEvents() {
 
     // Lấy ảnh nhân vật cho toàn bộ anime cũ (admin)
     $('#backfillCharsBtn').addEventListener('click', () => backfillCharacterImages());
+    $('#backfillDataBtn').addEventListener('click', () => backfillAnimeData());
 
     // Nút "✅ Đã xem lần nữa" nằm BÊN TRONG <summary> (khối sổ xuống) — capture sự kiện sớm để bấm nút không làm mở/đóng danh sách ngày
     $('#animeModal').addEventListener('click', (e) => {
