@@ -7,7 +7,7 @@ Website quản lý, đánh giá và chia sẻ danh sách Anime cá nhân & cộn
 ## ✨ Tính năng
 
 - **2 tab điều hướng (nav trên đầu trang):** `Anime` và `Song` (Nhạc OST) — chuyển tab bằng nav; **Chat chung** là bong bóng chat nổi (góc dưới màn hình), không phải tab
-- **Bộ sưu tập anime:** lưới card có poster, tìm theo tên/studio/thể loại, lọc theo trạng thái, sắp xếp (mới nhất / đánh giá cao / A-Z)
+- **Bộ sưu tập anime:** lưới card có poster, tìm theo tên/studio/thể loại, lọc theo trạng thái + thể loại + trạng thái xem của tôi, sắp xếp (Gần đây / Phát hành / Đánh giá / Tên A-Z) kèm nút đảo chiều ▼/▲; nút **✕** cạnh ô tìm kiếm hoặc logo **KullAnime** ở header để xoá toàn bộ bộ lọc
 - **Chi tiết anime (modal):** synopsis, studio, năm, rating, thanh tiến độ tập, dàn seiyuu (voice actors + ảnh nhân vật)
 - **Auto-fill từ AniList / Jikan:** nhập tên anime → tự điền đầy đủ metadata + seiyuu; fallback Jikan/MAL khi AniList tạm ngừng
 - **Nhạc OST:** danh sách bài hát + player YouTube, tải phụ đề `.ass` từ GitHub + cập nhật Romaji/Vietsub theo thời gian phát, cài đặt phụ đề popup (font size, màu, karaoke, timeshift)

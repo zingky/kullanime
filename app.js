@@ -65,6 +65,9 @@
     jikanAbort: null,
     // Phân trang hiển thị trên 1 trang
     animeVisible: 10,      // số anime render mỗi lượt
+    // Sắp xếp tab Anime: chế độ + chiều (desc/asc) để bấm lại nút sắp xếp đảo chiều
+    animeSortMode: 'recent',   // recent (Gần đây) | release (Phát hành) | rating (Đánh giá) | title (Tên A-Z)
+    animeSortDir: 'desc',      // desc = ▼ (giảm dần), asc = ▲ (tăng dần)
     songVisible: 15,       // số bài hát render mỗi lượt
     commentAll: [],        // toàn bộ bình luận của anime đang mở
     commentPage: 1,        // trang bình luận đang hiển thị (5 bình luận/trang)
@@ -4143,7 +4146,6 @@ function setupSubPopupEvents() {
     const empty = $('#animeEmpty');
     const search = $('#animeSearch').value.trim().toLowerCase();
     const status = $('#statusFilter').value;
-    const sort = $('#sortFilter').value;
     syncGenreFilter();
 
     let list = State.animes.slice();
@@ -4179,14 +4181,21 @@ function setupSubPopupEvents() {
         return haystack.includes(search);
       });
     }
-    // Sắp xếp
-    if (sort === 'rating') {
-      list.sort((a, b) => (Number(b.rating) || 0) - (Number(a.rating) || 0));
-    } else if (sort === 'title') {
+    // Sắp xếp — theo mode trong State (đồng bộ với select #sortFilter)
+    const mode = State.animeSortMode;
+    // Sort tăng dần theo tiêu chí, sau đó đảo list nếu chiều mong muốn là giảm dần
+    if (mode === 'rating') {
+      list.sort((a, b) => (Number(a.rating) || 0) - (Number(b.rating) || 0));
+    } else if (mode === 'release') {
+      // Phát hành: năm mới nhất lên trước; hoà năm thì theo mùa+tiêu đề cho ổn định
+      list.sort((a, b) => (a.year || 0) - (b.year || 0) || String(a.title || '').localeCompare(String(b.title || ''), 'vi'));
+    } else if (mode === 'title') {
       list.sort((a, b) => String(a.title || '').localeCompare(String(b.title || ''), 'vi'));
-    } else { // newest
-      list.sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
+    } else { // recent — mới thêm vào dữ liệu (created_at)
+      list.sort((a, b) => new Date(a.created_at || 0) - new Date(b.created_at || 0));
     }
+    if (State.animeSortDir === 'desc') list.reverse();
+    updateSortDirBtn();
 
     if (list.length === 0) {
       grid.innerHTML = '';
@@ -4199,6 +4208,26 @@ function setupSubPopupEvents() {
     const visible = list.slice(0, State.animeVisible);
     grid.innerHTML = visible.map((a) => animeCardHTML(a)).join('');
     updateLoadMore('#animeLoadMoreWrap', list.length - State.animeVisible);
+  }
+
+  // Cập nhật mũi tên chiều sắp xếp trên nút đảo chiều (▼ giảm dần / ▲ tăng dần)
+  function updateSortDirBtn() {
+    const b = $('#sortDirBtn');
+    if (b) b.textContent = State.animeSortDir === 'desc' ? '▼' : '▲';
+  }
+
+  // Xoá toàn bộ bộ lọc + sắp xếp tab Anime về mặc định (Gần đây / giảm dần)
+  function resetAnimeFilters() {
+    const as = $('#animeSearch');    if (as) as.value = '';
+    const gFil = $('#genreFilter');  if (gFil) gFil.value = 'all';
+    const mSf = $('#myStatusFilter'); if (mSf) mSf.value = 'all';
+    const stf = $('#statusFilter');  if (stf) stf.value = 'all';
+    const srt = $('#sortFilter');    if (srt) srt.value = 'recent';
+    State.animeSortMode = 'recent';
+    State.animeSortDir = 'desc';
+    State.animeVisible = 10;
+    updateSortDirBtn();
+    renderAnimeGrid();
   }
 
   // Helper: hiện/ẩn nút "Xem thêm" và cập nhật số còn lại
@@ -4232,7 +4261,7 @@ function setupSubPopupEvents() {
     sel.dataset.sig = sig;
     const cur = sel.value;
     sel.innerHTML =
-      '<option value="all">Tất cả thể loại</option>' +
+      '<option value="all">Thể loại</option>' +
       genres.map((g) => '<option value="' + esc(g) + '">' + esc(g) + '</option>').join('');
     if (cur !== 'all' && genres.includes(cur)) sel.value = cur;
     else sel.value = 'all';
@@ -6518,9 +6547,12 @@ function setupSubPopupEvents() {
      19. EVENT BINDINGS (delegated handlers)
      ────────────────────────────────────────────────────── */
   function bindEvents() {
-    // Brand: cuộn về đầu trang
+    // Brand (KullAnime): cuộn về đầu trang + xoá toàn bộ bộ lọc anime
     const brandBtn = $('#brandBtn');
-    if (brandBtn) brandBtn.addEventListener('click', () => window.scrollTo({ top: 0, behavior: 'smooth' }));
+    if (brandBtn) brandBtn.addEventListener('click', () => {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      resetAnimeFilters();
+    });
 
     // Tab Section (Anime / Music) — work với .main-nav có [data-tab]
     const mainNav = $('.main-nav');
@@ -6573,8 +6605,11 @@ function setupSubPopupEvents() {
         const stf = $('#statusFilter');
         if (stf) stf.value = 'all';
         const srt = $('#sortFilter');
-        if (srt) srt.value = 'newest';
+        if (srt) srt.value = 'recent';
+        State.animeSortMode = 'recent';
+        State.animeSortDir = 'desc';
         State.animeVisible = 10;
+        updateSortDirBtn();
         renderAnimeGrid();
         window.scrollTo({ top: 0, behavior: 'smooth' });
       });
@@ -6586,7 +6621,23 @@ function setupSubPopupEvents() {
     const stf = $('#statusFilter');
     if (stf) stf.addEventListener('change', renderAnimeGrid);
     const srt = $('#sortFilter');
-    if (srt) srt.addEventListener('change', renderAnimeGrid);
+    if (srt) srt.addEventListener('change', () => {
+      // Chọn chế độ sắp xếp khác → đặt lại chiều mặc định (tên A-Z tăng dần, còn lại giảm dần)
+      State.animeSortMode = srt.value;
+      State.animeSortDir = srt.value === 'title' ? 'asc' : 'desc';
+      updateSortDirBtn();
+      renderAnimeGrid();
+    });
+    // Nút đảo chiều sắp xếp (▼/▲): bấm lại → đảo ngược thứ tự hiện tại
+    const sdb = $('#sortDirBtn');
+    if (sdb) sdb.addEventListener('click', () => {
+      State.animeSortDir = State.animeSortDir === 'desc' ? 'asc' : 'desc';
+      updateSortDirBtn();
+      renderAnimeGrid();
+    });
+    // Nút ✕ xoá toàn bộ bộ lọc (kế bên ô tìm kiếm)
+    const cfb = $('#clearFiltersBtn');
+    if (cfb) cfb.addEventListener('click', resetAnimeFilters);
     const gFil = $('#genreFilter');
     if (gFil) gFil.addEventListener('change', renderAnimeGrid);
     const mSf = $('#myStatusFilter');
