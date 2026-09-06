@@ -243,4 +243,4 @@ create index if not exists idx_animes_title_tsv on public.animes using gin (titl
 -- update auth.users
 -- set raw_app_meta_data = coalesce(raw_app_meta_data,'{}'::jsonb)
 --     || '{"is_admin":"true"}'::jsonb
--- where email = 'datkullaquarius@gmail.com';
+-- where email = 'EMAIL_CỦA_ADMIN';
