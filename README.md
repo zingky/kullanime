@@ -309,6 +309,7 @@ Dưới đây là các giới hạn chính khi dùng bản free. Hầu hết sit
 - **DOMPurify** lọc mọi HTML render từ user (chống XSS) + fallback sanitizer tự viết khi CDN lỗi
 - **Captcha + Rate limit (45s/lần)** chống spam bình luận — captcha chỉ bắt khách chưa đăng nhập; tài khoản đã đăng nhập (thành viên/admin) không cần captcha
 - **Rate-limit SERVER-SIDE** (trigger `prevent_comment_spam` trong SQL): tối đa **1 bình luận forum / 45 giây / người**, tính theo `user_id` (server gán qua `auth.uid()`). Kẻ mở F12 gọi thẳng API cũng bị chặn
+- **Cache dữ liệu công khai** (24h TTL): `localStorage` lưu toàn bộ danh sách anime/songs/chat — lần đầu load đọc từ cache, không gửi request Supabase. Nút **🔄 Tải lại** dùng RPC `get_data_versions()` (1 request nhẹ) để kiểm tra phiên bản trước khi fetch — tránh lãng phí quota khi dữ liệu chưa thay đổi
 - `.env.local` / key riêng tư không commit — chỉ chứa key publishable ở client
 
 ### Những gì AN TOÀN khi public trong `config.js`

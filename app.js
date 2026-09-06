@@ -425,9 +425,16 @@
     }
   }
 
-  async function loadAnimes() {
+  async function loadAnimes(force) {
     if (!State.supabase) return;
     const grid = $('#animeGrid');
+    // Cache-first: render ngay từ cache nếu còn fresh (0 request Supabase)
+    const cache = readPubDataCache();
+    if (!force && cache && isPubCacheFresh(cache) && cache.animes.length) {
+      State.animes = cache.animes;
+      renderAnimeGrid();
+      return;
+    }
     $('#animeLoading').classList.remove('hidden');
     $('#animeEmpty').classList.add('hidden');
     const { data, error } = await State.supabase
@@ -438,15 +445,32 @@
     if (error) {
       console.error('Lỗi đọc animes:', error);
       toast('Không tải được danh sách anime: ' + error.message, 'error', 5000);
+      // Fallback: vẫn hiển thị cache cũ nếu có (dù hết hạn)
+      if (cache && cache.animes.length) {
+        State.animes = cache.animes;
+        renderAnimeGrid();
+      }
       return;
     }
-    State.animes = data || [];
+    const list = data || [];
+    State.animes = list;
+    persistPubCachePart('animes', list, computeMaxUpdated(list));
     renderAnimeGrid();
   }
 
-  async function loadSongs() {
+  async function loadSongs(force) {
     if (!State.supabase) return;
     const loading = $('#songLoading');
+    // Cache-first: render ngay từ cache nếu còn fresh (0 request Supabase)
+    const cache = readPubDataCache();
+    if (!force && cache && isPubCacheFresh(cache) && cache.songs.length) {
+      State.songs = cache.songs;
+      if (loading) loading.classList.add('hidden');
+      const empty = $('#songEmpty');
+      if (empty) empty.classList.add('hidden');
+      renderSongList();
+      return;
+    }
     if (loading) loading.classList.remove('hidden');
     const empty = $('#songEmpty');
     if (empty) empty.classList.add('hidden');
@@ -459,10 +483,107 @@
     if (error) {
       console.error('Lỗi đọc songs:', error);
       toast('Không tải được danh sách nhạc: ' + error.message, 'error', 5000);
+      // Fallback: hiển thị cache cũ nếu có
+      if (cache && cache.songs.length) {
+        State.songs = cache.songs;
+        renderSongList();
+      }
       return;
     }
-    State.songs = data || [];
+    const list = data || [];
+    State.songs = list;
+    persistPubCachePart('songs', list, computeMaxUpdated(list));
     renderSongList();
+  }
+
+
+
+  /* ──────────────────────────────────────────────────────
+     4b. CACHE DỮ LIỆU CÔNG KHAI (animes/songs/chat)
+     Giảm request Supabase (chống DDoS/quota) + nút "Tải lại" thông minh.
+     ────────────────────────────────────────────────────── */
+  const PUB_DATA_CACHE_KEY = 'kullanime_pub_data_v1';
+  const PUB_DATA_CACHE_TTL = 24 * 60 * 60 * 1000; // 24h
+
+  // Đọc cache tổng hợp (animes, songs, chatAll + dấu thời gian từng phần)
+  function readPubDataCache() {
+    try {
+      const raw = localStorage.getItem(PUB_DATA_CACHE_KEY);
+      if (!raw) return null;
+      const c = JSON.parse(raw);
+      if (!c || !Array.isArray(c.animes) || !Array.isArray(c.songs)) return null;
+      return c;
+    } catch (_e) { return null; }
+  }
+
+  // Ghi 1 phần (animes/songs/chat) vào cache tổng hợp, giữ nguyên phần khác
+  function persistPubCachePart(kind, list, lastUpdated) {
+    const cur = readPubDataCache() || { animes: [], songs: [], chatAll: [] };
+    if (kind === 'animes') { cur.animes = list; cur.animeUpdated = lastUpdated || cur.animeUpdated || Date.now(); }
+    else if (kind === 'songs') { cur.songs = list; cur.songUpdated = lastUpdated || cur.songUpdated || Date.now(); }
+    else if (kind === 'chat') { cur.chatAll = list; cur.chatUpdated = lastUpdated || cur.chatUpdated || Date.now(); }
+    // Luôn cập nhật savedAt để cache được coi là "đã làm mới"
+    cur.savedAt = Date.now();
+    try {
+      localStorage.setItem(PUB_DATA_CACHE_KEY, JSON.stringify(cur));
+    } catch (_e) { /* quota — bỏ qua */ }
+  }
+
+  function isPubCacheFresh(c) {
+    return !!c && (Date.now() - (c.savedAt || 0)) < PUB_DATA_CACHE_TTL;
+  }
+
+  function clearPubDataCache() {
+    try { localStorage.removeItem(PUB_DATA_CACHE_KEY); } catch (_e) { /* ignore */ }
+  }
+
+  // Lấy timestamp updated_at lớn nhất trong danh sách (dùng làm mốc so sánh version)
+  function computeMaxUpdated(list) {
+    let max = 0;
+    (Array.isArray(list) ? list : []).forEach((row) => {
+      const t = row && row.updated_at ? Date.parse(row.updated_at) : 0;
+      if (t > max) max = t;
+    });
+    return max || Date.now();
+  }
+
+  // Gọi RPC get_data_versions() — 1 request nhẹ trả về timestamp mới nhất từng bảng
+  async function fetchDataVersions() {
+    const { data, error } = await State.supabase.rpc('get_data_versions');
+    if (error) throw error;
+    const map = {};
+    (data || []).forEach((r) => {
+      map[r.entity] = r.last_updated ? Date.parse(r.last_updated) : 0;
+    });
+    return map;
+  }
+
+  // "Tải lại" thông minh: check version → chỉ fetch phần thay đổi
+  async function smartRefreshData(force) {
+    const cache = readPubDataCache();
+    const lastAnime = cache && cache.animeUpdated ? cache.animeUpdated : 0;
+    const lastSong  = cache && cache.songUpdated  ? cache.songUpdated  : 0;
+    const lastCom   = cache && cache.chatUpdated  ? cache.chatUpdated  : 0;
+    try {
+      const versions = await fetchDataVersions();
+      const wantsAnime = force || !lastAnime || (versions.animes && versions.animes > lastAnime);
+      const wantsSong  = force || !lastSong  || (versions.songs  && versions.songs  > lastSong);
+      const wantsCom   = force || !lastCom   || (versions.comments && versions.comments > lastCom);
+      if (!wantsAnime && !wantsSong && !wantsCom) {
+        toast('✅ Dữ liệu đã mới nhất.', 'success', 2000);
+        return;
+      }
+      if (wantsAnime) await loadAnimes(true);
+      if (wantsSong)  await loadSongs(true);
+      if (wantsCom)   await loadGlobalChat(true);
+      toast('🔄 Đã làm mới dữ liệu.', 'success', 2000);
+    } catch (err) {
+      console.warn('smartRefreshData lỗi:', err);
+      // Nếu RPC chưa được tạo trên DB → fallback: force fetch toàn bộ
+      toast('⚠️ Không kiểm tra được phiên bản — tải lại toàn bộ.', 'warning', 3000);
+      await Promise.all([loadAnimes(true), loadSongs(true)]);
+      await loadGlobalChat(true);
+    }
   }
 
 
@@ -5107,8 +5228,18 @@ function setupSubPopupEvents() {
   }
 
   // Tải toàn bộ chat chung (anime_id = null + tất cả bình luận trong phim, kèm tên anime)
-  async function loadGlobalChat() {
+  async function loadGlobalChat(force) {
     if (!State.supabase) return;
+    // Cache-first: dùng chat cache khi còn fresh (0 request Supabase)
+    const cache = readPubDataCache();
+    if (!force && cache && isPubCacheFresh(cache) && Array.isArray(cache.chatAll)) {
+      State.chatAll = cache.chatAll;
+      const animeMap = {};
+      State.animes.forEach((a) => { animeMap[String(a.id)] = a; });
+      State.chatMap = animeMap;
+      renderGlobalChat();
+      return;
+    }
     const { data, error } = await State.supabase
       .from('comments')
       .select('*')
@@ -5116,6 +5247,14 @@ function setupSubPopupEvents() {
       .limit(100);
     if (error) {
       console.error('Lỗi đọc chat chung:', error);
+      // Fallback: hiển thị cache cũ nếu có
+      if (cache && Array.isArray(cache.chatAll)) {
+        State.chatAll = cache.chatAll;
+        const animeMap = {};
+        State.animes.forEach((a) => { animeMap[String(a.id)] = a; });
+        State.chatMap = animeMap;
+        renderGlobalChat();
+      }
       return;
     }
     const comments = data || [];
@@ -5123,6 +5262,7 @@ function setupSubPopupEvents() {
     State.animes.forEach((a) => { animeMap[String(a.id)] = a; });
     State.chatAll = comments;
     State.chatMap = animeMap;
+    persistPubCachePart('chat', comments, computeMaxUpdated(comments));
     renderGlobalChat();
   }
 
@@ -5617,6 +5757,14 @@ function setupSubPopupEvents() {
       openModal('loginModal');
     }
   });
+
+  // Nút "Tải lại" 🔄 — làm mới dữ liệu mới nhất (smart: chỉ fetch phần thay đổi)
+  const refreshBtn = $('#refreshBtn');
+  if (refreshBtn) {
+    refreshBtn.addEventListener('click', () => {
+      smartRefreshData(true);
+    });
+  }
 
   async function handleLogin(e) {
     e.preventDefault();
@@ -7675,7 +7823,13 @@ function setupSubPopupEvents() {
     let lastTab = 'anime';
     try { lastTab = localStorage.getItem('kullanime_lastTab') || 'anime'; } catch (_e) {}
     switchTab(lastTab);
-    // Tải dữ liệu công khai
+    // Cache-first: render ngay từ cache nếu còn fresh (0 request Supabase)
+    const _pubCache = readPubDataCache();
+    if (_pubCache && isPubCacheFresh(_pubCache)) {
+      if (_pubCache.animes.length) { State.animes = _pubCache.animes; renderAnimeGrid(); }
+      if (_pubCache.songs.length)  { State.songs  = _pubCache.songs;  renderSongList(); }
+    }
+    // Tải dữ liệu công khai (loadAnimes/loadSongs bỏ qua nếu cache còn fresh)
     await Promise.all([loadAnimes(), loadSongs()]);
     updateLoginUI();
     refreshAuthState();

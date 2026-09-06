@@ -157,6 +157,13 @@ p, h1, h2, h3, h4, h5, h6, li, a, span, div, td, th {
 .btn-block { width: 100%; }
 .btn-login { background: var(--bg-elev); border: var(--glass-border); }
 .btn-admin { background: linear-gradient(135deg, #f59e0b, #ef4444); border-color: transparent; color: #fff; }
+/* Nút Tải lại 🔄 — chỉ icon, vuông gọn, cạnh nút Đăng nhập */
+.btn-refresh { background: var(--bg-elev); border: var(--glass-border); padding: 9px 12px; min-width: 40px; }
+.btn-refresh:hover { border-color: var(--accent, #8b3df0); color: #fff; }
+.btn-refresh span { font-size: 16px; line-height: 1; }
+@media (max-width: 600px) {
+  .btn-refresh { padding: 8px 10px; min-width: 36px; }
+}
 
 /* ============ SECTION HEADINGS ============ */
 .section-heading { padding: 22px 0 8px; }
