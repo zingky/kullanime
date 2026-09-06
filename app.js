@@ -227,6 +227,22 @@
     });
   });
 
+  // Header dính của modal chi tiết anime: bật class "scrolled" khi cuộn xuống đủ sâu
+  // (làm hiện thanh glass + thu nhỏ tiêu đề to), tắt khi cuộn lên đầu — gói rAF để mượt.
+  const animeOverlay = $('#animeModal');
+  if (animeOverlay) {
+    const animeCard = $('#animeModal .anime-modal');
+    if (animeCard) {
+      animeOverlay.addEventListener('scroll', () => {
+        if (animeCard._stickyRaf) return;
+        animeCard._stickyRaf = requestAnimationFrame(() => {
+          animeCard._stickyRaf = 0;
+          animeCard.classList.toggle('scrolled', animeOverlay.scrollTop > 140);
+        });
+      }, { passive: true });
+    }
+  }
+
   function statusClass(status) {
     const s = String(status || '');
     if (/hoàn|finish|completed/i.test(s)) return 'finish';
@@ -4464,12 +4480,26 @@ function setupSubPopupEvents() {
     State.currentAnime = anime;
     renderAnimeDetail(anime);
     openModal('animeModal');
+    // Mở lại modal luôn bắt đầu từ đầu trang — tránh sót lại trạng thái cuộn/header dính của lần mở trước.
+    // Reset scroll PHẢI sau openModal: overlay lúc này mới display:flex nên scrollTop mới có hiệu lực.
+    const ov = $('#animeModal');
+    if (ov) {
+      ov.scrollTop = 0;
+      const amCard = $('#animeModal .anime-modal');
+      if (amCard) amCard.classList.remove('scrolled');
+      // Thu gọn ô bình luận lại 1 dòng (phòng trường hợp lần trước đóng modal khi đang soạn)
+      const cBox = $('#commentBox');
+      if (cBox) { cBox.style.height = ''; cBox.style.overflowY = 'hidden'; }
+    }
     loadComments(anime.id);
     newCaptcha();
   }
 
   function renderAnimeDetail(a) {
     const el = $('#animeDetail');
+    // Đồng bộ tên anime vào thanh header dính (hiển thị chữ nhỏ khi cuộn xuống)
+    const stTitle = $('#animeStickyTitle');
+    if (stTitle) stTitle.textContent = a.title || '';
     const genres = Array.isArray(a.genres) ? a.genres : [];
     const seiyuu = Array.isArray(a.seiyuu) ? a.seiyuu : [];
     const rating = Number(a.rating) || 0;
@@ -6842,6 +6872,18 @@ function setupSubPopupEvents() {
     if (commentBox) {
       commentBox.addEventListener('paste', (e) => onSmartPaste(e, commentBox));
       commentBox.addEventListener('input', () => autoResizeComposer(commentBox));
+      // Bình luận: thu gọn ô nhập lại 1 dòng khi không còn soạn thảo (blur ra ngoài composer)
+      commentBox.addEventListener('blur', () => {
+        setTimeout(() => {
+          const comp = commentBox.closest('.composer');
+          if (!comp || !comp.matches(':focus-within')) {
+            commentBox.style.height = '';
+            commentBox.style.overflowY = 'hidden';
+          }
+        }, 140);
+      });
+      // Mở rộng ngay khi vừa bấm vào (nếu còn chữ từ lần trước vẫn giãn đúng nội dung)
+      commentBox.addEventListener('focus', () => autoResizeComposer(commentBox));
       autoResizeComposer(commentBox);
     }
     $('#uploadImgInput').addEventListener('change', handleImageUpload);
@@ -6873,10 +6915,16 @@ function setupSubPopupEvents() {
       autoResizeComposer(chatBox);
     }
     // Khách: lưu tên hiển thị vào localStorage ngay khi gõ — lần truy cập sau
-    // sẽ tự điền lại để nhận diện tin chat của chính mình
+    // sẽ tự điền lại để nhận diện tin chat của chính mình. Đồng thời đồng bộ SONG SONG
+    // 2 ô tên (chat ↔ bình luận): gõ ở ô nào thì ô kia cũng đổi theo, cùng một tên.
     ['chatAuthor', 'commentAuthor'].forEach((id) => {
       const el = $('#' + id);
-      if (el) el.addEventListener('input', () => { if (!State.isLoggedIn) saveGuestName(el.value); });
+      if (el) el.addEventListener('input', () => {
+        if (State.isLoggedIn) return;
+        saveGuestName(el.value);
+        const otherEl = $('#' + (id === 'chatAuthor' ? 'commentAuthor' : 'chatAuthor'));
+        if (otherEl && otherEl.value !== el.value) otherEl.value = el.value;
+      });
     });
     $('#chatUploadImgInput').addEventListener('change', handleChatImageUpload);
     $('#chatLoadMoreBtn').addEventListener('click', () => {

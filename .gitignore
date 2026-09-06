@@ -19,7 +19,9 @@ Clipboard*.txt
 
 # Công cụ chụp màn hình / debug tạm — KHÔNG commit lên repo
 .shots/
+_shots/
 _repro_*.html
+_verify_*.html
 _shot_*.png
 *wide_*.png
 # Thu muc nguon engine extension (Aegisub) - KHONG push len repo
