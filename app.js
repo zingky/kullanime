@@ -227,22 +227,6 @@
     });
   });
 
-  // Header dính của modal chi tiết anime: bật class "scrolled" khi cuộn xuống đủ sâu
-  // (làm hiện thanh glass + thu nhỏ tiêu đề to), tắt khi cuộn lên đầu — gói rAF để mượt.
-  const animeOverlay = $('#animeModal');
-  if (animeOverlay) {
-    const animeCard = $('#animeModal .anime-modal');
-    if (animeCard) {
-      animeOverlay.addEventListener('scroll', () => {
-        if (animeCard._stickyRaf) return;
-        animeCard._stickyRaf = requestAnimationFrame(() => {
-          animeCard._stickyRaf = 0;
-          animeCard.classList.toggle('scrolled', animeOverlay.scrollTop > 140);
-        });
-      }, { passive: true });
-    }
-  }
-
   function statusClass(status) {
     const s = String(status || '');
     if (/hoàn|finish|completed/i.test(s)) return 'finish';
@@ -4485,8 +4469,6 @@ function setupSubPopupEvents() {
     const ov = $('#animeModal');
     if (ov) {
       ov.scrollTop = 0;
-      const amCard = $('#animeModal .anime-modal');
-      if (amCard) amCard.classList.remove('scrolled');
       // Thu gọn ô bình luận lại 1 dòng (phòng trường hợp lần trước đóng modal khi đang soạn)
       const cBox = $('#commentBox');
       if (cBox) { cBox.style.height = ''; cBox.style.overflowY = 'hidden'; }
@@ -4497,9 +4479,6 @@ function setupSubPopupEvents() {
 
   function renderAnimeDetail(a) {
     const el = $('#animeDetail');
-    // Đồng bộ tên anime vào thanh header dính (hiển thị chữ nhỏ khi cuộn xuống)
-    const stTitle = $('#animeStickyTitle');
-    if (stTitle) stTitle.textContent = a.title || '';
     const genres = Array.isArray(a.genres) ? a.genres : [];
     const seiyuu = Array.isArray(a.seiyuu) ? a.seiyuu : [];
     const rating = Number(a.rating) || 0;

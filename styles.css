@@ -751,70 +751,22 @@ html[data-theme="light"] .modal { background: rgba(255, 255, 255, 0.72); }
 .modal-title { margin: 0 0 6px; font-size: 20px; font-weight: 800; }
 .modal-subtitle { margin: 0 0 18px; color: var(--text-dim); font-size: 13.5px; }
 
-/* ── Modal chi tiết anime: thanh header dính khi cuộn (nút ✕ + tên phim thu nhỏ) ──
+/* ── Modal chi tiết anime: nút ✕ dính theo khi cuộn ──
    Zone này cao 0px trong dòng chảy (không đẩy nội dung), nhưng "dính" (position: sticky)
-   theo scroll container #animeModal. Nút ✕ luôn hiển thị; thanh glass chỉ hiện khi đã
-   cuộn qua vùng tiêu đề (class .scrolled được JS gắn vào thẻ `.modal.anime-modal`). */
+   theo scroll container #animeModal — nút ✕ luôn bấm được dù đã cuộn xuống dưới. */
 .anime-modal-sticky {
   position: sticky;
   top: 20px;
   height: 0;
   overflow: visible;
   z-index: 40;
-  pointer-events: none;          /* nền thanh không chặn click nội dung; chỉ riêng nút ✕ được bấm */
+  pointer-events: none;          /* zone vô hình không chặn click nội dung; chỉ riêng nút ✕ được bấm */
 }
 .anime-modal-sticky .modal-close {
   position: absolute;
   top: -10px;
   right: -6px;
   pointer-events: auto;
-}
-.anime-sticky-bar {
-  position: absolute;
-  top: -10px;
-  left: -6px;
-  right: -6px;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 9px 54px 9px 14px;
-  min-height: 46px;
-  background: rgba(13, 17, 32, 0.86);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 16px;
-  box-shadow: 0 14px 40px rgba(0, 0, 0, 0.4);
-  opacity: 0;
-  transform: translateY(-10px) scale(0.98);
-  transition: opacity 0.28s ease, transform 0.28s cubic-bezier(0.22, 1, 0.36, 1), background 0.28s ease;
-  backdrop-filter: blur(20px) saturate(160%);
-  -webkit-backdrop-filter: blur(20px) saturate(160%);
-  pointer-events: none;
-}
-.anime-modal.scrolled .anime-sticky-bar {
-  opacity: 1;
-  transform: translateY(0) scale(1);
-  pointer-events: auto;
-}
-html[data-theme="light"] .anime-sticky-bar { background: rgba(255, 255, 255, 0.9); }
-.anime-sticky-title {
-  flex: 1 1 auto;
-  min-width: 0;
-  margin: 0;
-  font-size: 15px;
-  font-weight: 700;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  color: var(--text);
-}
-/* Tiêu đề to trong nội dung: co nhỏ + nhạt dần khi đã cuộn sang header dính (animation mượt) */
-.anime-modal .anime-detail .detail-title {
-  transform-origin: left top;
-  transition: transform 0.32s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.32s ease;
-}
-.anime-modal.scrolled .anime-detail .detail-title {
-  transform: scale(0.86);
-  opacity: 0.4;
 }
 
 /* ── Flex chính: mặc định 1 cột (mobile); từ 641px thành 2 cột: poster trái + chữ phải ──
