@@ -356,6 +356,17 @@
     return sb;
   }
 
+  // Tên hiển thị của khách (chưa đăng nhập) — lưu localStorage để lần sau vào lại,
+  // chat/bình luận cũ của họ vẫn được nhận diện là "tin của mình" (bong bóng căn phải)
+  const GUEST_NAME_KEY = 'kullanime_guest_name_v1';
+
+  function readGuestName() {
+    try { return (localStorage.getItem(GUEST_NAME_KEY) || '').trim(); } catch (_e) { return ''; }
+  }
+  function saveGuestName(name) {
+    try { localStorage.setItem(GUEST_NAME_KEY, String(name || '').trim().slice(0, 60)); } catch (_e) { /* ignore */ }
+  }
+
   async function refreshAuthState() {
     if (!State.supabase) return;
     const { data } = await State.supabase.auth.getSession();
@@ -401,6 +412,17 @@
       if (authLine) authLine.classList.toggle('hidden', !loggedIn);
       if (authVal) authVal.textContent = name;
     });
+    // Khách: tự điền lại tên đã dùng lần trước (nếu ô còn trống) để tin cũ
+    // của họ tiếp tục hiển thị như "tin của mình"
+    if (!loggedIn) {
+      const saved = readGuestName();
+      if (saved) {
+        ['comment', 'chat'].forEach((pfx) => {
+          const authorEl = $('#' + pfx + 'Author');
+          if (authorEl && !String(authorEl.value || '').trim()) authorEl.value = saved;
+        });
+      }
+    }
   }
 
   async function loadAnimes() {
@@ -5208,8 +5230,11 @@ function setupSubPopupEvents() {
     const anime = animeMap[String(c.anime_id)] || null;
     const isPinned = !!c.is_pinned;
     const author = c.author_name || 'Ẩn danh';
-    // Bong bóng của mình (trùng tên đang nhập ở ô chat) sẽ căn phải
-    const ownAuthor = ($('#chatAuthor') && $('#chatAuthor').value.trim().toLowerCase()) || '';
+    // Bong bóng của mình (căn phải): khách → khớp tên đang nhập ở ô chat
+    // (đã tự điền lại từ localStorage lần trước); thành viên → khớp nickname
+    const ownAuthor = State.isLoggedIn
+      ? (State.nickname || (State.adminEmail ? State.adminEmail.split('@')[0] : '') || '').trim().toLowerCase()
+      : (($('#chatAuthor') && $('#chatAuthor').value.trim().toLowerCase()) || '');
     const isOwn = !!ownAuthor && String(author).trim().toLowerCase() === ownAuthor;
     let actions =
       '<div class="comment-actions">' +
@@ -5288,6 +5313,7 @@ function setupSubPopupEvents() {
     }
     if (!author) { toast('Vui lòng nhập tên hiển thị.', 'warning'); return; }
     if (!content) { toast('Vui lòng nhập nội dung bình luận.', 'warning'); return; }
+    if (!loggedIn && author) saveGuestName(author); // khách: nhớ tên để lần sau nhận diện lại tin của mình
     if (!enforceRateLimit()) return;
     if (!loggedIn) {
       const captchaVal = parseInt($('#captchaInput').value, 10);
@@ -5341,6 +5367,7 @@ function setupSubPopupEvents() {
     }
     if (!author) { toast('Vui lòng nhập tên hiển thị.', 'warning'); return; }
     if (!content) { toast('Vui lòng nhập nội dung chat.', 'warning'); return; }
+    if (!loggedIn && author) saveGuestName(author); // khách: nhớ tên để lần sau nhận diện lại tin của mình
     if (!enforceChatRateLimit()) return;
     if (!loggedIn) {
       const captchaVal = parseInt($('#chatCaptchaInput').value, 10);
@@ -6845,6 +6872,12 @@ function setupSubPopupEvents() {
       chatBox.addEventListener('input', () => autoResizeComposer(chatBox));
       autoResizeComposer(chatBox);
     }
+    // Khách: lưu tên hiển thị vào localStorage ngay khi gõ — lần truy cập sau
+    // sẽ tự điền lại để nhận diện tin chat của chính mình
+    ['chatAuthor', 'commentAuthor'].forEach((id) => {
+      const el = $('#' + id);
+      if (el) el.addEventListener('input', () => { if (!State.isLoggedIn) saveGuestName(el.value); });
+    });
     $('#chatUploadImgInput').addEventListener('change', handleChatImageUpload);
     $('#chatLoadMoreBtn').addEventListener('click', () => {
       State.chatVisible += 20;
