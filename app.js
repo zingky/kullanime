@@ -4789,8 +4789,9 @@ function setupSubPopupEvents() {
     // Synonyms — danh sách tên khác (bỏ trùng với tên chính)
     const synonyms = (Array.isArray(a.title_synonyms) ? a.title_synonyms : [])
       .filter((s) => s && s !== a.title);
+    // Hiển thị mỗi tên khác kèm nhãn "(Other)" — vd: "Sigururi (Other)"
     const synonymsLine = synonyms.length
-      ? '<p class="detail-synonyms-line"><span class="detail-synonyms-label">Tên khác:</span> ' + esc(synonyms.join(' · ')) + '</p>'
+      ? '<p class="detail-synonyms-line">' + synonyms.map((s) => esc(s) + ' <em class="detail-alias-tag">(Other)</em>').join(' · ') + '</p>'
       : '';
 
     el.innerHTML =
@@ -4805,7 +4806,6 @@ function setupSubPopupEvents() {
             '<h2 class="detail-title">' + esc(a.title || '') + '</h2>' +
             (altNames.length ? '<div class="detail-aliases">' + altNames.join('') + '</div>' : '') +
             synonymsLine +
-            '<p class="detail-subtitle">' + esc([a.studio, a.year].filter(Boolean).join(' · ') || '—') + '</p>' +
           '</header>' +
           '<div class="detail-chips">' + chips.join('') + '</div>' +
           '<section class="detail-section">' +

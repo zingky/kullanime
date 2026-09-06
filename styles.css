@@ -1943,6 +1943,12 @@ select.input option { background: #141a2d; color: var(--text); }
 }
 .detail-synonyms-line { margin: 0 0 4px; font-size: 12.5px; color: var(--text-dim); line-height: 1.6; }
 .detail-synonyms-label { font-weight: 700; color: var(--text); }
+/* Nhãn "(Other)" cạnh mỗi tên khác trong synonyms line */
+.detail-alias-tag {
+  font-style: normal; font-size: 10px; font-weight: 800; letter-spacing: 0.05em;
+  color: var(--accent); border: 1px solid rgba(168,85,247,0.4); border-radius: 4px;
+  padding: 0 4px; margin-left: 4px; vertical-align: middle;
+}
 
 /* ── Link bấm được trong cột meta (Season/Source/Studio) ── */
 .detail-side-link {
