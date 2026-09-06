@@ -90,9 +90,9 @@ NEXT_PUBLIC_JIKAN_API_URL=https://api.jikan.moe/v4
 
 1. Tạo project tại [supabase.com](https://supabase.com) (chọn region gần bạn)
 2. Vào **SQL Editor** → dán toàn bộ nội dung `supabase-setup.sql` → bấm **RUN**
-3. **Tạo tài khoản admin:**
-   - Đăng ký / đăng nhập trên web bằng email + password
-   - Trên Supabase Dashboard: `Authentication → Users → chọn user → Edit → App Metadata` → thêm `{"is_admin": "true"}`
+3. **Tạo tài khoản admin** qua Supabase Dashboard:
+   - `Authentication → Users → Add user` → nhập email + password → **Create User**
+   - Click user vừa tạo → `Edit → App Metadata` → thêm `{"is_admin":"true"}` → **Save**
    - Hoặc dùng SQL:
      ```sql
      update auth.users
@@ -100,7 +100,7 @@ NEXT_PUBLIC_JIKAN_API_URL=https://api.jikan.moe/v4
          coalesce(raw_app_meta_data,'{}'::jsonb) || '{"is_admin":"true"}'::jsonb
      where email = 'EMAIL_CỦA_ADMIN';
      ```
-4. **Tạo tài khoản thành viên** (bình luận/chat): `Authentication → Users → Add user` → nhập email + password, không cần mời
+4. **Tạo tài khoản thành viên** (bình luận/chat): `Authentication → Users → Add user` → nhập email + password (chỉ admin mới tạo được user — site đã tắt self-registration)
 5. **Lấy thông tin kết nối:** `Project Settings → API` → sao chép `URL` và `anon public` key
 
 ### Đăng nhập & nickname
@@ -312,6 +312,8 @@ Dưới đây là các giới hạn chính khi dùng bản free. Hầu hết sit
 - **Validate nội dung server-side** (trigger `validate_comment_content`): chặn bình luận rỗng hoặc quá dài (> 5000 ký tự) ngay tại DB
 - **Auto-block khách spam** (trigger `auto_block_guest_spam`): khách chưa đăng nhập dùng cùng 1 tên gửi ≥ 10 bình luận trong 10 phút thì bị khóa tên đó 12 giờ (bảng `blocked_guest_names` chỉ admin mới đọc được)
 - **Cache dữ liệu công khai** (24h TTL): `localStorage` lưu toàn bộ danh sách anime/songs/chat — lần đầu load đọc từ cache, không gửi request Supabase. Nút **🔄 Tải lại** dùng RPC `get_data_versions()` (1 request nhẹ) để kiểm tra phiên bản trước khi fetch — tránh lãng phí quota khi dữ liệu chưa thay đổi
+- **Tắt self-registration** (khuyến dùng): site chỉ có tài khoản do **admin tự tạo** — người ngoài không thể đăng ký, triệt tiêu spam tài khoản. Bật trong Dashboard:
+  - `Authentication → Sign In / Up → Profile` → bật **"Disable sign ups"** → **Save**
 - `.env.local` / key riêng tư không commit — chỉ chứa key publishable ở client
 
 ### Những gì AN TOÀN khi public trong `config.js`
