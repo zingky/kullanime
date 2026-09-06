@@ -53,6 +53,8 @@ create table public.animes (
   -- số lần đã xem hết + danh sách ngày tick "đã xem xong" (chỉ chủ web ghi)
   watch_count       integer not null default 0,
   watch_dates       text[]  not null default '{}',
+  -- tags từ AniList: [{"name":"Yuri","rank":87,"spoiler":false}, ...]
+  tags              jsonb not null default '[]'::jsonb,
   seiyuu            jsonb not null default '[]'::jsonb,
   created_at        timestamptz not null default now(),
   updated_at        timestamptz not null default now()
@@ -259,6 +261,7 @@ create table if not exists public.blocked_guest_names (
   expiry_at   timestamptz not null default now() + interval '12 hours'
 );
 alter table public.blocked_guest_names enable row level security;
+drop policy if exists "blocked_guest_names_admin_all" on public.blocked_guest_names;
 create policy "blocked_guest_names_admin_all"
   on public.blocked_guest_names for all
   to authenticated
