@@ -169,6 +169,27 @@ p, h1, h2, h3, h4, h5, h6, li, a, span, div, td, th {
 .input::placeholder { color: var(--text-faint); }
 .input:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(168, 85, 247, 0.2); }
 .filter-input { flex: 1 1 260px; min-width: 160px; }
+/* Ô tìm kiếm + nút ✕ xoá toàn bộ bộ lọc đặt bên trong */
+.filter-search-wrap { position: relative; flex: 1 1 260px; min-width: 160px; display: flex; align-items: center; }
+.filter-search-wrap .filter-input { flex: 1 1 auto; min-width: 0; width: 100%; padding-right: 42px; }
+.filter-clear-btn {
+  position: absolute; right: 5px; top: 50%; transform: translateY(-50%);
+  width: 28px; height: 28px; border: none; border-radius: 9px;
+  background: transparent; color: var(--text-faint); font-size: 13px; line-height: 1;
+  cursor: pointer; display: inline-flex; align-items: center; justify-content: center;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.filter-clear-btn:hover { background: rgba(255, 255, 255, 0.14); color: var(--text); }
+/* Nút đảo chiều sắp xếp (▼/▲) — nằm cạnh select Sắp xếp */
+.sort-dir-btn {
+  flex: 0 0 auto; min-width: 40px; padding: 11px 12px;
+  background: rgba(255, 255, 255, 0.07); border: var(--glass-border); border-radius: var(--radius-sm);
+  color: var(--text); font-size: 14px; line-height: 1; cursor: pointer;
+  display: inline-flex; align-items: center; justify-content: center;
+  transition: border 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+}
+.sort-dir-btn:hover { background: rgba(255, 255, 255, 0.12); border-color: var(--primary); }
+.sort-dir-btn:active { transform: translateY(1px); }
 .filter-select { flex: 0 1 auto; width: auto; min-width: 140px; cursor: pointer; }
 select.input { appearance: none; -webkit-appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23aab3d0' stroke-width='2' fill='none' stroke-linecap='round'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 14px center; padding-right: 34px; }
 

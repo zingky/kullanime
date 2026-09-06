@@ -80,30 +80,37 @@
     <section class="tab-panel active" id="tab-anime" data-panel="anime">
       <!-- Thanh lọc -->
       <div class="filter-bar">
-        <input type="search" id="animeSearch" class="input filter-input"
-               placeholder="🔍 Tìm theo tên, studio, thể loại..." autocomplete="off" />
+        <div class="filter-search-wrap">
+          <input type="search" id="animeSearch" class="input filter-input"
+                 placeholder="🔍 Tìm theo tên, studio, thể loại..." autocomplete="off" />
+          <button type="button" class="filter-clear-btn" id="clearFiltersBtn"
+                  title="Xoá toàn bộ bộ lọc tìm kiếm" aria-label="Xoá toàn bộ bộ lọc">✕</button>
+        </div>
         <select id="genreFilter" class="input filter-select" aria-label="Lọc theo thể loại">
-          <option value="all">All thể loại</option>
+          <option value="all">Thể loại</option>
         </select>
         <select id="myStatusFilter" class="input filter-select" aria-label="Lọc theo trạng thái xem của tôi">
-          <option value="all">All My Status</option>
+          <option value="all">-----</option>
           <option value="Đã xem">✅ Đã xem</option>
           <option value="Đang xem">⏳ Đang xem</option>
           <option value="Muốn xem">➕ Muốn xem</option>
           <option value="Chưa xem">⬜ Chưa xem</option>
         </select>
         <select id="statusFilter" class="input filter-select" aria-label="Lọc theo tình trạng phát hành">
-          <option value="all">All tình trạng</option>
+          <option value="all">-----</option>
           <option value="Đang chiếu">Đang chiếu</option>
           <option value="Hoàn thành">Hoàn thành</option>
           <option value="Sắp chiếu">Sắp chiếu</option>
           <option value="Tạm ngưng">Tạm ngưng</option>
         </select>
         <select id="sortFilter" class="input filter-select" aria-label="Sắp xếp">
-          <option value="newest">Mới nhất</option>
-          <option value="rating">Đánh giá cao</option>
+          <option value="recent">Gần đây</option>
+          <option value="release">Phát hành</option>
+          <option value="rating">Đánh giá</option>
           <option value="title">Tên A-Z</option>
         </select>
+        <button type="button" class="sort-dir-btn" id="sortDirBtn"
+                title="Đảo chiều sắp xếp (bấm để đảo ngược thứ tự)" aria-label="Đảo chiều sắp xếp">▼</button>
       </div>
 
       <!-- Lưới thẻ anime -->
