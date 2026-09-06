@@ -4290,6 +4290,7 @@ function setupSubPopupEvents() {
     const search = $('#animeSearch').value.trim().toLowerCase();
     const status = $('#statusFilter').value;
     syncGenreFilter();
+    syncTagFilter();
     syncYearFilter();
     updateFilterBadge();
 
@@ -4305,6 +4306,14 @@ function setupSubPopupEvents() {
       list = list.filter((a) => {
         const gs = Array.isArray(a.genres) ? a.genres : String(a.genres || '').split(',').map((s) => s.trim()).filter(Boolean);
         return gs.some((g) => String(g).toLowerCase() === String(genre).toLowerCase());
+      });
+    }
+    // Lọc theo tag
+    const tagFilter = $('#tagFilter').value;
+    if (tagFilter !== 'all') {
+      list = list.filter((a) => {
+        const tags = Array.isArray(a.tags) ? a.tags : [];
+        return tags.some((t) => t && String(t.name || '').toLowerCase() === String(tagFilter).toLowerCase());
       });
     }
     // Lọc theo trạng thái xem của tôi (Đã xem / Đang xem / Muốn xem / Chưa xem)
@@ -4326,12 +4335,13 @@ function setupSubPopupEvents() {
     if (search) {
       list = list.filter((a) => {
         const genres = Array.isArray(a.genres) ? a.genres.join(' ') : String(a.genres || '');
+        const tagNames = (Array.isArray(a.tags) ? a.tags : []).map((t) => t && t.name || '').join(' ');
         const haystack = [
           a.title, a.title_romaji, a.title_native,
           (a.title_synonyms || []).join(' '),
           a.studio, (a.producers || []).join(' '),
           a.season, a.year, a.source, a.hashtag,
-          genres, (a.seiyuu || []).map((s) => s.name).join(' ')
+          genres, tagNames, (a.seiyuu || []).map((s) => s.name).join(' ')
         ].filter(Boolean).join(' ').toLowerCase();
         return haystack.includes(search);
       });
@@ -4375,6 +4385,7 @@ function setupSubPopupEvents() {
   function resetAnimeFilters() {
     const as = $('#animeSearch');    if (as) as.value = '';
     const gFil = $('#genreFilter');  if (gFil) gFil.value = 'all';
+    const tFil = $('#tagFilter');    if (tFil) tFil.value = 'all';
     const mSf = $('#myStatusFilter'); if (mSf) mSf.value = 'all';
     const stf = $('#statusFilter');  if (stf) stf.value = 'all';
     const sFil = $('#seasonFilter'); if (sFil) sFil.value = 'all';
@@ -4391,7 +4402,7 @@ function setupSubPopupEvents() {
   // Đếm số bộ lọc nâng cao đang bật (khác "all") để hiện badge trên nút 🔽
   function updateFilterBadge() {
     let count = 0;
-    ['genreFilter', 'myStatusFilter', 'statusFilter', 'seasonFilter', 'yearFilter'].forEach((id) => {
+    ['genreFilter', 'tagFilter', 'myStatusFilter', 'statusFilter', 'seasonFilter', 'yearFilter'].forEach((id) => {
       const el = $(id);
       if (el && el.value !== 'all') count++;
     });
@@ -4463,6 +4474,31 @@ function setupSubPopupEvents() {
       '<option value="all">Thể loại</option>' +
       genres.map((g) => '<option value="' + esc(g) + '">' + esc(g) + '</option>').join('');
     if (cur !== 'all' && genres.includes(cur)) sel.value = cur;
+    else sel.value = 'all';
+  }
+
+  // Đổ danh sách tag vào select lọc Tag — tự động liệt kê mọi tag đã lưu (không hiện tag spoiler)
+  function syncTagFilter() {
+    const sel = $('#tagFilter');
+    if (!sel) return;
+    const set = new Set();
+    State.animes.forEach((a) => {
+      const tags = Array.isArray(a.tags) ? a.tags : [];
+      tags.forEach((t) => {
+        if (t && t.spoiler) return;
+        const v = String(t && t.name || '').trim();
+        if (v) set.add(v);
+      });
+    });
+    const tagNames = Array.from(set).sort((a, b) => a.localeCompare(b, 'vi'));
+    const sig = tagNames.join('|');
+    if (sel.dataset.sig === sig) return;
+    sel.dataset.sig = sig;
+    const cur = sel.value;
+    sel.innerHTML =
+      '<option value="all">Tag</option>' +
+      tagNames.map((t) => '<option value="' + esc(t) + '">' + esc(t) + '</option>').join('');
+    if (cur !== 'all' && tagNames.includes(cur)) sel.value = cur;
     else sel.value = 'all';
   }
 
@@ -4598,6 +4634,20 @@ function setupSubPopupEvents() {
     newCaptcha();
   }
 
+  // Helper: sắp xếp tag để hiển thị — bỏ tag spoiler, sort theo rank giảm dần,
+  // ưu tiên đưa Yuri / Girls Love lên đầu danh sách
+  function sortedTagsForDisplay(tags) {
+    const arr = (Array.isArray(tags) ? tags : []).filter((t) => t && t.name && !t.spoiler);
+    const priorNames = new Set(['yuri', 'girls love']);
+    // 1) Sort theo rank giảm dần (rank cao nhất trước)
+    arr.sort((a, b) => (Number(b.rank) || 0) - (Number(a.rank) || 0));
+    // 2) Đưa tag ưu tiên (Yuri / Girls Love) lên đầu, giữ nguyên thứ tự rank giữa nhóm
+    const prior = [];
+    const rest = [];
+    arr.forEach((t) => (priorNames.has(String(t.name || '').toLowerCase()) ? prior : rest).push(t));
+    return prior.concat(rest);
+  }
+
   function renderAnimeDetail(a) {
     const el = $('#animeDetail');
     const genres = Array.isArray(a.genres) ? a.genres : [];
@@ -4702,6 +4752,27 @@ function setupSubPopupEvents() {
       ? '<button type="button" class="chip chip-more" data-genre-more title="Xem toàn bộ thể loại"><span data-more-caret>▾</span> <span data-more-label>' + (genres.length - maxGenres) + ' thể loại</span></button>'
       : '';
     chips.push('<div class="genre-chips' + (genres.length > maxGenres ? ' has-more' : '') + '">' + genreBtns + genreMore + '</div>');
+
+    // Tag: hiện 3 tag rank cao nhất (ưu tiên Yuri/Girls Love) + nút tròn "+N" mở popup toàn bộ
+    const tagItems = sortedTagsForDisplay(a.tags);
+    if (tagItems.length) {
+      const maxTags = 3;
+      const topTags = tagItems.slice(0, maxTags);
+      const restTags = tagItems.slice(maxTags);
+      const priorNames = new Set(['yuri', 'girls love']);
+      const tagChip = (t) => {
+        const isPrior = priorNames.has(String(t.name).toLowerCase());
+        return '<button type="button" class="chip chip-tag' + (isPrior ? ' chip-tag-prior' : '') + '" data-search="' + esc(t.name) + '" title="Tìm anime theo tag: ' + esc(t.name) + '">' + esc(t.name) + '</button>';
+      };
+      let tagHtml = topTags.map(tagChip).join('');
+      if (restTags.length) {
+        tagHtml +=
+          '<span class="chip chip-tag-more" data-tag-more role="button" tabindex="0" title="Hiện toàn bộ tag">+' + restTags.length +
+            '<span class="tag-popup" data-tag-popup>' + restTags.map(tagChip).join('') + '</span>' +
+          '</span>';
+      }
+      chips.push('<div class="tag-chips">' + tagHtml + '</div>');
+    }
     // Nguồn (click để lọc anime cùng nguồn)
     if (a.source) {
       chips.push('<button type="button" class="chip chip-btn" data-search="' + esc(a.source) + '" title="Tìm anime theo nguồn">📚 ' + esc(a.source) + '</button>');
@@ -5911,6 +5982,7 @@ function setupSubPopupEvents() {
     $('#af_watched_ep').value = a.watched_episodes || 0;
     $('#af_poster').value = a.poster_url || '';
     $('#af_genres').value = (Array.isArray(a.genres) ? a.genres : []).join(', ');
+    $('#af_tags').value = (Array.isArray(a.tags) ? a.tags : []).map((t) => (t && t.name) || '').join(', ');
     $('#af_synopsis').value = a.synopsis || '';
     // Thông tin bổ sung từ AniList
     $('#af_title_romaji').value = a.title_romaji || '';
@@ -5928,7 +6000,7 @@ function setupSubPopupEvents() {
   }
 
   function resetAnimeForm() {
-    ['af_title', 'af_year', 'af_studio', 'af_poster', 'af_genres', 'af_synopsis',
+    ['af_title', 'af_year', 'af_studio', 'af_poster', 'af_genres', 'af_tags', 'af_synopsis',
      'af_title_romaji', 'af_title_native', 'af_title_synonyms', 'af_start_date',
      'af_end_date', 'af_season', 'af_source', 'af_hashtag', 'af_producers'].forEach((id) => {
       $('#' + id).value = '';
@@ -5997,6 +6069,8 @@ function setupSubPopupEvents() {
       status: $('#af_status').value,
       rating: parseFloat($('#af_rating').value) || 0,
       genres: splitList('af_genres'),
+      // Tags: chuyển danh sách tên thành [{"name","rank","spoiler"}] — rank mặc định 0 nếu nhập thủ công
+      tags: splitList('af_tags').map((n) => ({ name: n, rank: 0, spoiler: false })),
       studio: $('#af_studio').value.trim(),
       year: $('#af_year').value ? parseInt($('#af_year').value, 10) : null,
       total_episodes: parseInt($('#af_total_ep').value, 10) || 0,
@@ -6365,7 +6439,7 @@ function setupSubPopupEvents() {
     results.innerHTML = '<p class="empty-desc">Đang tra cứu trên AniList...</p>';
     show('jikanResults');
     try {
-      const gql = 'query ($search: String) { Page(page: 1, perPage: 6) { media(search: $search, type: ANIME, sort: SEARCH_MATCH, isAdult: false) { id title { romaji english native } synonyms coverImage { extraLarge large } description status averageScore seasonYear season source hashtag startDate { year month day } endDate { year month day } studios(isMain: true) { nodes { id name isAnimationStudio } } episodes genres } } }';
+      const gql = 'query ($search: String) { Page(page: 1, perPage: 6) { media(search: $search, type: ANIME, sort: SEARCH_MATCH, isAdult: false) { id title { romaji english native } synonyms coverImage { extraLarge large } description status averageScore seasonYear season source hashtag startDate { year month day } endDate { year month day } studios(isMain: true) { nodes { id name isAnimationStudio } } episodes genres tags { name rank isMediaSpoiler isGeneralSpoiler } } } }';
       let data = null;
       let lastErr = null;
       // Thử lại tối đa 3 lần nếu gặp lỗi tạm thời (429/503/504)
@@ -6581,6 +6655,11 @@ function setupSubPopupEvents() {
           // Studio chính: chỉ ghi đè nếu chưa có studio
           producers
         };
+        // Tags: chỉ cập nhật nếu anime chưa có tag (tránh ghi đè tag admin chỉnh tay)
+        const mediaTags = (Array.isArray(media.tags) ? media.tags : [])
+          .filter((t) => t && t.name && !t.isMediaSpoiler && !t.isGeneralSpoiler)
+          .map((t) => ({ name: String(t.name).trim(), rank: Number(t.rank) || 0, spoiler: false }));
+        if (mediaTags.length && (!Array.isArray(a.tags) || !a.tags.length)) patch.tags = mediaTags;
         if (!a.studio) patch.studio = mainStudio;
         const { error } = await State.supabase.from('animes').update(patch).eq('id', a.id);
         if (!error) {
@@ -6599,7 +6678,7 @@ function setupSubPopupEvents() {
 
   // Tìm Media AniList theo tên (kèm toàn bộ thông tin bổ sung) — dùng cho backfill dữ liệu
   async function anilistFindMediaByTitle(title) {
-    const gql = 'query ($search: String) { Page(page: 1, perPage: 1) { media(search: $search, type: ANIME, isAdult: false) { id title { romaji english native } synonyms startDate { year month day } endDate { year month day } season source hashtag studios(isMain: true) { nodes { id name isAnimationStudio } } } } }';
+    const gql = 'query ($search: String) { Page(page: 1, perPage: 1) { media(search: $search, type: ANIME, isAdult: false) { id title { romaji english native } synonyms startDate { year month day } endDate { year month day } season source hashtag studios(isMain: true) { nodes { id name isAnimationStudio } } tags { name rank isMediaSpoiler isGeneralSpoiler } } } }';
     const data = await anilistGraphQL(gql, { search: title });
     const m = data && data.data && data.data.Page && data.data.Page.media;
     if (m && m[0]) return m[0];
@@ -6705,6 +6784,12 @@ function setupSubPopupEvents() {
     $('#af_studio').value = mainStudio;
     $('#af_total_ep').value = it.episodes != null ? it.episodes : 0;
     $('#af_genres').value = (it.genres || []).join(', ');
+    // Tags: lọc bỏ tag spoiler, lưu kèm rank để phục vụ sort hiển thị
+    const tagsRaw = Array.isArray(it.tags) ? it.tags : [];
+    const tagsClean = tagsRaw
+      .filter((t) => t && t.name && !t.isMediaSpoiler && !t.isGeneralSpoiler)
+      .map((t) => ({ name: String(t.name).trim(), rank: Number(t.rank) || 0, spoiler: false }));
+    $('#af_tags').value = tagsClean.map((t) => t.name).join(', ');
 
     updatePosterPreview();
 
@@ -6880,6 +6965,8 @@ function setupSubPopupEvents() {
     if (cfb) cfb.addEventListener('click', resetAnimeFilters);
     const gFil = $('#genreFilter');
     if (gFil) gFil.addEventListener('change', renderAnimeGrid);
+    const tFil = $('#tagFilter');
+    if (tFil) tFil.addEventListener('change', renderAnimeGrid);
     const mSf = $('#myStatusFilter');
     if (mSf) mSf.addEventListener('change', renderAnimeGrid);
     const sFil = $('#seasonFilter');
@@ -7619,6 +7706,29 @@ function setupSubPopupEvents() {
         }
         return;
       }
+      // Tag: nút "+N" mở/đóng popup toàn bộ tag (click — fallback cho mobile, nơi không có hover)
+      const tmore = e.target.closest('[data-tag-more]');
+      if (tmore) {
+        // Click vào chính tag (data-search) bên trong popup → để sự kiện search chạy, không đóng/thao tác ở đây
+        if (!e.target.closest('[data-search]')) {
+          const popup = tmore.querySelector('[data-tag-popup]');
+          if (popup) {
+            const willOpen = !popup.classList.contains('open');
+            // Đóng mọi popup tag khác đang mở
+            $('#animeModal').querySelectorAll('.tag-popup.open').forEach((p) => {
+              if (p !== popup) p.classList.remove('open');
+            });
+            popup.classList.toggle('open', willOpen);
+          }
+          e.stopPropagation();
+        }
+        return;
+      }
+      // Click ra ngoài popup tag → đóng
+      if (!e.target.closest('[data-tag-popup]')) {
+        const modal = $('#animeModal');
+        modal.querySelectorAll('.tag-popup.open').forEach((p) => p.classList.remove('open'));
+      }
       // Icon trạng thái xem của tôi — bấm là lưu liền (⏳ lưu "Đang xem" + mở popup chọn tập)
       const watchIco = e.target.closest('.watch-ico');
       if (watchIco && watchIco.dataset.status) {
@@ -7729,6 +7839,25 @@ function setupSubPopupEvents() {
       }
       if (!e.target.closest('#heartPop, #epPop, #statusPop') && !e.__popOpened) closeMiniPop();
     });
+
+    // Hover (desktop) mở popup tag — mouseover/mouseout delegate trên modal
+    const animModalEl = $('#animeModal');
+    if (animModalEl) {
+      animModalEl.addEventListener('mouseover', (e) => {
+        const tmore = e.target.closest('[data-tag-more]');
+        if (!tmore) return;
+        const popup = tmore.querySelector('[data-tag-popup]');
+        if (popup) popup.classList.add('open');
+      });
+      animModalEl.addEventListener('mouseout', (e) => {
+        // Chỉ đóng nếu chuột rời khỏi toàn bộ nút "+N" (và popup bên trong nó)
+        const tmore = e.target.closest('[data-tag-more]');
+        if (!tmore) return;
+        if (tmore.contains(e.relatedTarget)) return;
+        const popup = tmore.querySelector('[data-tag-popup]');
+        if (popup) popup.classList.remove('open');
+      });
+    }
   }
 
   /* ──────────────────────────────────────────────────────

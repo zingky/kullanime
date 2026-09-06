@@ -127,6 +127,9 @@
             <option value="fall">🍂 Thu</option>
             <option value="winter">❄️ Đông</option>
           </select>
+          <select id="tagFilter" class="input filter-select" aria-label="Lọc theo tag">
+            <option value="all">Tag</option>
+          </select>
           <select id="yearFilter" class="input filter-select" aria-label="Lọc theo năm phát hành">
             <option value="all">Năm</option>
           </select>
@@ -564,6 +567,10 @@
           <div class="field field-span-2">
             <label for="af_genres">Thể loại (phân cách bằng dấu phẩy)</label>
             <input type="text" id="af_genres" class="input" placeholder="Action, Adventure, Fantasy" />
+          </div>
+          <div class="field field-span-2">
+            <label for="af_tags">Tags (auto từ AniList, hoặc nhập thủ công, phân cách dấu phẩy)</label>
+            <input type="text" id="af_tags" class="input" placeholder="Yuri, Girls Love, Romance..." />
           </div>
           <div class="field field-span-2">
             <label for="af_synopsis">Synopsis (Tóm tắt)</label>

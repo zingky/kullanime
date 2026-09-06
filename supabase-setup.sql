@@ -50,6 +50,8 @@ create table if not exists public.animes (
   watch_dates     text[]       not null default '{}',
   -- danh sách seiyuu: [{"name":"...","character":"...","image":"..."}]
   seiyuu          jsonb not null default '[]'::jsonb,
+  -- tags từ AniList: [{"name":"Yuri","rank":87,"spoiler":false}, ...]
+  tags            jsonb not null default '[]'::jsonb,
   created_at      timestamptz not null default now(),
   updated_at      timestamptz not null default now()
 );
@@ -117,6 +119,7 @@ alter table public.animes add column if not exists season         text    not nu
 alter table public.animes add column if not exists source         text    not null default '';
 alter table public.animes add column if not exists hashtag        text    not null default '';
 alter table public.animes add column if not exists producers      text[]  not null default '{}';
+alter table public.animes add column if not exists tags            jsonb   not null default '[]'::jsonb;
 
 
 -- ============================================================
@@ -377,6 +380,7 @@ comment on table public.blocked_guest_names is
   'Tên khách bị tạm khóa vì spam — chỉ để chặn insert trong trigger, không expose cho public.';
 alter table public.blocked_guest_names enable row level security;
 -- Không cho public đọc/ghi bảng này — chỉ admin.
+drop policy if exists "blocked_guest_names_admin_all" on public.blocked_guest_names;
 create policy "blocked_guest_names_admin_all"
   on public.blocked_guest_names for all
   to authenticated
