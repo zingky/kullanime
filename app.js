@@ -4849,7 +4849,7 @@ function setupSubPopupEvents() {
         '</div>' +
       '</details>';
 
-    // Tên phụ (Native / Romaji) — chỉ hiện nếu khác tên chính (English)
+    // Tên phụ (Native / Romaji / Synonyms) — tất cả hiển thị chung 1 hàng
     const altNames = [];
     if (a.title_native && a.title_native !== a.title) {
       altNames.push('<span class="detail-alias">' + esc(a.title_native) + ' <em>Native</em></span>');
@@ -4857,13 +4857,12 @@ function setupSubPopupEvents() {
     if (a.title_romaji && a.title_romaji !== a.title && a.title_romaji !== a.title_native) {
       altNames.push('<span class="detail-alias">' + esc(a.title_romaji) + ' <em>Romaji</em></span>');
     }
-    // Synonyms — danh sách tên khác (bỏ trùng với tên chính)
+    // Synonyms — hiển thị cùng hàng với Native/Romaji
     const synonyms = (Array.isArray(a.title_synonyms) ? a.title_synonyms : [])
-      .filter((s) => s && s !== a.title);
-    // Hiển thị mỗi tên khác kèm nhãn "(Other)" — vd: "Sigururi (Other)"
-    const synonymsLine = synonyms.length
-      ? '<p class="detail-synonyms-line">' + synonyms.map((s) => esc(s) + ' <em class="detail-alias-tag">(Other)</em>').join(' · ') + '</p>'
-      : '';
+      .filter((s) => s && s !== a.title && s !== a.title_native && s !== a.title_romaji);
+    synonyms.forEach((s) => {
+      altNames.push('<span class="detail-alias">' + esc(s) + ' <em class="detail-alias-tag">Other</em></span>');
+    });
 
     el.innerHTML =
       '<div class="anime-detail">' +
@@ -4876,7 +4875,6 @@ function setupSubPopupEvents() {
           '<header class="detail-header">' +
             '<h2 class="detail-title">' + esc(a.title || '') + '</h2>' +
             (altNames.length ? '<div class="detail-aliases">' + altNames.join('') + '</div>' : '') +
-            synonymsLine +
           '</header>' +
           '<div class="detail-chips">' + chips.join('') + '</div>' +
           '<section class="detail-section">' +

@@ -333,6 +333,8 @@ select.input { appearance: none; -webkit-appearance: none; background-image: url
 .card-heart-btn:active { transform: scale(0.92); }
 /* ============ EMPTY / LOAD STATES ============ */
 .empty-state, .load-state { text-align: center; padding: 48px 20px; color: var(--text-dim); }
+#commentEmpty { padding: 18px 20px; }
+#commentEmpty .empty-title { margin: 0; font-size: 14.5px; }
 .empty-emoji { font-size: 44px; margin: 0 0 10px; }
 .empty-title { font-size: 18px; font-weight: 700; margin: 0 0 6px; color: var(--text); }
 .empty-desc { font-size: 14px; margin: 0; }
@@ -743,6 +745,7 @@ html[data-theme="light"] .modal { background: rgba(255, 255, 255, 0.72); }
 .modal-lg { max-width: 820px; }
 .modal-xl { max-width: 960px; }
 /* Modal chi tiết anime: rộng hơn hẳn để cột chữ đọc thoải mái — áp dụng ngay từ mốc bố cục 2 cột (641px) */
+.anime-modal { padding: 16px 16px; }
 @media (min-width: 641px) {
   .anime-modal { max-width: min(96vw, 1040px); }
 }
@@ -779,7 +782,7 @@ html[data-theme="light"] .modal { background: rgba(255, 255, 255, 0.72); }
 /* ── Flex chính: mặc định 1 cột (mobile); từ 641px thành 2 cột: poster trái + chữ phải ──
    Dùng flex (không dùng grid) để cột poster khóa cứng bằng flex-basis + max-width,
    không có cơ chế "growth limit" của grid track làm cột chữ bị ép về 0. */
-.anime-detail { display: flex; flex-direction: column; gap: 20px; padding: 4px 4px 10px; min-width: 0; align-items: stretch; }
+.anime-detail { display: flex; flex-direction: column; gap: 14px; padding: 4px 4px 10px; min-width: 0; align-items: stretch; }
 
 /* Bảo vệ layout modal: chặn style ngoài (CDN inject / extension) làm chữ dựng đứng
    từng ký tự một dòng trong khối thông tin anime. */
@@ -798,13 +801,13 @@ html[data-theme="light"] .modal { background: rgba(255, 255, 255, 0.72); }
   /* Chốt chặn quan trọng nhất: cột poster CỐ ĐỊNH 240px. Flex basis fixed + max-width cứng
      không bao giờ bị phình theo min-content, còn cột chữ flex:1 1 0%; min-width:0 luôn
      chiếm phần còn lại — không còn cơ chế ép cột chữ như dải minmax của grid. */
-  .anime-detail { flex-direction: row; align-items: flex-start; gap: clamp(18px, 3vw, 34px); width: 100%; }
+  .anime-detail { flex-direction: row; align-items: flex-start; gap: clamp(14px, 2vw, 24px); width: 100%; }
   .anime-detail .detail-side { flex: 0 0 240px; width: 240px; max-width: 240px; }
   .anime-detail .detail-main { flex: 1 1 0%; width: auto; }
 }
 
 /* ── Cột trái: poster + thông tin nhanh ── */
-.detail-side { min-width: 0; display: flex; flex-direction: column; gap: 14px; }
+.detail-side { min-width: 0; display: flex; flex-direction: column; gap: 10px; }
 .anime-detail-poster {
   width: 100%;
   max-width: 100%;
@@ -839,12 +842,12 @@ html[data-theme="light"] .modal { background: rgba(255, 255, 255, 0.72); }
 .detail-rating { color: var(--warning); }
 
 /* ── Cột phải: nội dung chính — chữ thoáng, căn đều ── */
-.detail-main { min-width: 0; width: 100%; display: flex; flex-direction: column; gap: 18px; }
-.detail-header { border-bottom: 1px solid var(--border); padding-bottom: 14px; }
-.detail-title { margin: 0 0 6px; font-size: clamp(20px, 3vw, 27px); font-weight: 800; line-height: 1.28; letter-spacing: -0.01em; }
+.detail-main { min-width: 0; width: 100%; display: flex; flex-direction: column; gap: 12px; }
+.detail-header { border-bottom: 1px solid var(--border); padding-bottom: 8px; }
+.detail-title { margin: 0 0 4px; font-size: clamp(20px, 3vw, 27px); font-weight: 800; line-height: 1.28; letter-spacing: -0.01em; }
 .detail-subtitle { margin: 0; font-size: 13.5px; color: var(--text-dim); }
 
-.detail-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.detail-chips { display: flex; flex-wrap: wrap; gap: 6px; }
 .chip {
   padding: 5px 12px;
   background: rgba(255,255,255,0.06);
@@ -861,16 +864,16 @@ html[data-theme="light"] .modal { background: rgba(255, 255, 255, 0.72); }
   border: var(--glass-border);
   background: var(--bg-card);
   border-radius: var(--radius);
-  padding: 16px 18px;
+  padding: 12px 14px;
   backdrop-filter: blur(12px) saturate(150%);
   -webkit-backdrop-filter: blur(12px) saturate(150%);
   box-shadow: var(--shadow-soft);
 }
-.detail-section-title { margin: 0 0 12px; font-size: 15px; font-weight: 700; color: var(--text); }
+.detail-section-title { margin: 0 0 8px; font-size: 14px; font-weight: 700; color: var(--text); }
 .detail-synopsis {
   margin: 0;
   font-size: 14.5px;
-  line-height: 1.9;
+  line-height: 1.75;
   color: color-mix(in srgb, var(--text) 90%, transparent);
   white-space: pre-wrap;
   text-align: justify;
@@ -1961,15 +1964,13 @@ select.input option { background: #141a2d; color: var(--text); }
 .admin-adv-grid { padding: 0 14px 14px; }
 
 /* ── Tên phụ (Native/Romaji) & synonyms trong header chi tiết ── */
-.detail-aliases { display: flex; flex-wrap: wrap; gap: 6px 14px; margin: 2px 0 6px; }
+.detail-aliases { display: flex; flex-wrap: wrap; gap: 4px 12px; margin: 2px 0 4px; }
 .detail-alias { font-size: 13.5px; color: var(--text-dim); }
 .detail-alias em {
   font-style: normal; font-size: 10px; font-weight: 800; letter-spacing: 0.05em;
   color: var(--accent); border: 1px solid rgba(168,85,247,0.4); border-radius: 4px;
   padding: 0 4px; margin-left: 5px; vertical-align: middle;
 }
-.detail-synonyms-line { margin: 0 0 4px; font-size: 12.5px; color: var(--text-dim); line-height: 1.6; }
-.detail-synonyms-label { font-weight: 700; color: var(--text); }
 /* Nhãn "(Other)" cạnh mỗi tên khác trong synonyms line */
 .detail-alias-tag {
   font-style: normal; font-size: 10px; font-weight: 800; letter-spacing: 0.05em;
