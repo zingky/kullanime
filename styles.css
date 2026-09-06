@@ -190,6 +190,36 @@ p, h1, h2, h3, h4, h5, h6, li, a, span, div, td, th {
 }
 .sort-dir-btn:hover { background: rgba(255, 255, 255, 0.12); border-color: var(--primary); }
 .sort-dir-btn:active { transform: translateY(1px); }
+/* Nút bộ lọc nâng cao (🔥 hiện panel Mùa/Năm/Thể loại/Trạng thái) + badge đếm bộ lọc đang bật */
+.filter-toggle-btn {
+  position: relative; flex: 0 0 auto; min-width: 40px; padding: 11px 12px;
+  background: rgba(255, 255, 255, 0.07); border: var(--glass-border); border-radius: var(--radius-sm);
+  color: var(--text); font-size: 14px; line-height: 1; cursor: pointer;
+  display: inline-flex; align-items: center; justify-content: center;
+  transition: border 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+}
+.filter-toggle-btn:hover { background: rgba(255, 255, 255, 0.12); border-color: var(--primary); }
+.filter-toggle-btn.open { background: rgba(168, 85, 247, 0.16); border-color: var(--primary); }
+.filter-toggle-btn:active { transform: translateY(1px); }
+.filter-badge {
+  position: absolute; top: -7px; right: -7px; min-width: 17px; height: 17px;
+  padding: 0 4px; border-radius: 9px; background: var(--danger, #ef4444); color: #fff;
+  font-size: 10px; font-weight: 700; line-height: 17px; text-align: center;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+}
+/* Hàng bộ lọc nâng cao — ẩn mặc định, mở ra khi nút 🔽 có class .open */
+.filter-advanced {
+  flex-basis: 100%; display: none; flex-wrap: wrap; gap: 8px; margin-top: 2px;
+  padding: 10px; border-radius: var(--radius-sm); background: rgba(255, 255, 255, 0.04);
+  border: 1px dashed rgba(255, 255, 255, 0.14);
+  animation: filterAdvancedIn 0.18s ease;
+}
+.filter-advanced.open { display: flex; }
+.filter-advanced .filter-select { flex: 1 1 140px; min-width: 120px; }
+@keyframes filterAdvancedIn {
+  from { opacity: 0; transform: translateY(-4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
 .filter-select { flex: 0 1 auto; width: auto; min-width: 140px; cursor: pointer; }
 select.input { appearance: none; -webkit-appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23aab3d0' stroke-width='2' fill='none' stroke-linecap='round'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 14px center; padding-right: 34px; }
 
