@@ -5559,8 +5559,10 @@ function setupSubPopupEvents() {
     items.sort((a, b) => {
       if (sortVal === 'oldest') return (a.year || 0) - (b.year || 0) || String(a.title || '').localeCompare(String(b.title || ''));
       if (sortVal === 'title') return String(a.title || '').localeCompare(String(b.title || ''));
-      // newest
-      return (b.year || 0) - (a.year || 0) || String(b.title || '').localeCompare(String(a.title || ''));
+      // newest (mặc định): anime mới thêm vào gần nhất lên đầu; hoà nhau thì năm mới + tên A-Z
+      return new Date(b.created_at || 0) - new Date(a.created_at || 0)
+        || (b.year || 0) - (a.year || 0)
+        || String(b.title || '').localeCompare(String(a.title || ''));
     });
     if (items.length === 0) {
       list.innerHTML = '<p class="empty-desc">Không có anime khớp.</p>';
