@@ -6,13 +6,13 @@ Website quản lý, đánh giá và chia sẻ danh sách Anime cá nhân & cộn
 
 ## ✨ Tính năng
 
-- **Tab Anime / Nhạc OST / Chat chung** — chuyển tab bằng nav trên đầu trang
+- **2 tab điều hướng (nav trên đầu trang):** `Anime` và `Song` (Nhạc OST) — chuyển tab bằng nav; **Chat chung** là bong bóng chat nổi (góc dưới màn hình), không phải tab
 - **Bộ sưu tập anime:** lưới card có poster, tìm theo tên/studio/thể loại, lọc theo trạng thái, sắp xếp (mới nhất / đánh giá cao / A-Z)
 - **Chi tiết anime (modal):** synopsis, studio, năm, rating, thanh tiến độ tập, dàn seiyuu (voice actors + ảnh nhân vật)
 - **Auto-fill từ AniList / Jikan:** nhập tên anime → tự điền đầy đủ metadata + seiyuu; fallback Jikan/MAL khi AniList tạm ngừng
 - **Nhạc OST:** danh sách bài hát + player YouTube, tải phụ đề `.ass` từ GitHub + cập nhật Romaji/Vietsub theo thời gian phát, cài đặt phụ đề popup (font size, màu, karaoke, timeshift)
 - **Bình luận:** rich text (BBCode + Markdown, lọc qua DOMPurify chống XSS), upload ảnh qua Cloudinary, captcha + rate-limit 45s chống spam, admin ghim/xóa
-- **💬 Chat chung:** tab tổng hợp toàn bộ tin nhắn — cả tin chat tự do (không gắn phim) lẫn bình luận trong từng phim, click nhãn phim để mở chi tiết; tự làm mới mỗi 30s
+- **💬 Chat chung:** bong bóng chat nổi (góc dưới màn hình) tổng hợp toàn bộ tin nhắn — cả tin chat tự do (không gắn phim) lẫn bình luận trong từng phim, click nhãn phim để mở chi tiết; tự làm mới mỗi 30s
 - **Admin Panel (đăng nhập):** CRUD anime & bài hát, quản lý bình luận, auto-fill form từ AniList API, upload poster Cloudinary, export/import backup JSON
 - **Trạng thái xem:** mỗi anime có thể đặt `Đã xem / Chưa xem / Có ý định xem` + điểm đánh giá (0–10)
 

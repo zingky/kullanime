@@ -947,7 +947,7 @@ html[data-theme="light"] .modal { background: rgba(255, 255, 255, 0.72); }
 .tb-btn { min-width: 32px; height: 32px; padding: 0 8px; border: 1px solid transparent; border-radius: 8px; background: transparent; color: var(--text-dim); cursor: pointer; font-size: 14px; transition: all 0.12s ease; }
 .tb-btn:hover { background: rgba(255,255,255,0.08); color: var(--text); border-color: var(--border); }
 .tb-btn:active { transform: scale(0.94); }
-.composer-input { width: 100%; min-height: 78px; resize: vertical; background: transparent; border: none; outline: none; color: var(--text); font-size: 14px; font-family: inherit; line-height: 1.5; }
+.composer-input { width: 100%; min-height: 78px; resize: vertical; background: transparent; border: none; outline: none; color: var(--text); font-size: 14px; font-family: inherit; line-height: 1.5; max-height: 231px; /* 11 dòng */ }
 .composer-footer { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding-top: 8px; }
 .comment-author-input { flex: 1 1 150px; min-width: 120px; }
 .captcha-wrap { display: flex; align-items: center; gap: 8px; }
@@ -1217,7 +1217,7 @@ html[data-theme="light"] .modal { background: rgba(255, 255, 255, 0.72); }
 /* Khung chat: mặc định chỉ hiện ô nhập 1 dòng gọn; khi bấm vào ô nhập mới hiện thanh công cụ (đậm/nghiêng/...) */
 .chat-layout .composer-toolbar { display: none; }
 .chat-layout .composer:focus-within .composer-toolbar { display: flex; }
-.chat-layout .composer-input { min-height: 40px; resize: none; max-height: 180px; }
+.chat-layout .composer-input { min-height: 40px; resize: none; max-height: 231px; } /* 11 dòng (14px x 1.5) */
 .chat-layout .composer:focus-within .composer-input { min-height: 78px; resize: vertical; }
 
 /* Mobile: bong bóng + panel gọn theo mép */

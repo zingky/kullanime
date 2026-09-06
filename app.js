@@ -5039,10 +5039,27 @@ function setupSubPopupEvents() {
     }
     if (empty) empty.classList.add('hidden');
     const visible = comments.slice(0, State.chatVisible);
+    // Giữ vị trí đọc (Discord-style) khi "Xem thêm tin cũ": tin cũ được chèn lên phía trên,
+    // nên đo scrollHeight/scrollTop TRƯỚC khi rebuild rồi hoàn nguyên theo delta sau khi vẽ lại,
+    // để vùng đang nhìn không bị nhảy lên đầu chat.
+    const wrap = $('#chatMessages') || $('#chatDockBody');
+    const prevScrollHeight = wrap ? wrap.scrollHeight : 0;
+    const prevScrollTop = wrap ? wrap.scrollTop : 0;
+    const wasScrolledToBottom = wrap ? (wrap.scrollHeight - wrap.scrollTop - wrap.clientHeight) < 2 : true;
     if (list) {
       list.classList.remove('hidden');
       // Discord style: tin mới nhất ở dưới cùng, tin cũ hơn ở phía trên
       list.innerHTML = visible.slice().reverse().map((c) => chatHTML(c, map)).join('');
+    }
+    // Khôi phục vị trí sau khi đã chèn thêm tin cũ phía trên
+    if (wrap) {
+      if (wasScrolledToBottom) {
+        // Đang đọc tin mới nhất → bám sát đáy (tin mới nhất)
+        wrap.scrollTop = wrap.scrollHeight;
+      } else {
+        // Đang đọc tin cũ → giữ nguyên neo bằng delta chiều cao mới tăng thêm
+        wrap.scrollTop = prevScrollTop + (wrap.scrollHeight - prevScrollHeight);
+      }
     }
     updateLoadMore('#chatLoadMoreWrap', comments.length - State.chatVisible);
   }
@@ -5051,6 +5068,17 @@ function setupSubPopupEvents() {
   function scrollChatToBottom() {
     const wrap = $('#chatMessages') || $('#chatDockBody');
     if (wrap) wrap.scrollTop = wrap.scrollHeight;
+  }
+
+  // Tự giãn ô nhập (chat/comment) theo nội dung — tối đa 11 dòng rồi cuộn nội bộ (Discord-style)
+  function autoResizeComposer(box) {
+    if (!box || !box.getClientRects || !box.getClientRects().length) return; // đang ẩn (display:none) → bỏ qua
+    const cs = getComputedStyle(box);
+    const lineH = parseFloat(cs.lineHeight) || 21;   // px mỗi dòng
+    const maxH = Math.round(lineH * 11);             // giới hạn 11 dòng
+    box.style.height = 'auto';
+    box.style.height = Math.min(box.scrollHeight, maxH) + 'px';
+    box.style.overflowY = box.scrollHeight > maxH ? 'auto' : 'hidden';
   }
 
   // Bỏ [quote]...[/quote] cũ trong nội dung (tránh quote lồng nhau hỏng cấu trúc)
@@ -5065,6 +5093,7 @@ function setupSubPopupEvents() {
     const quote = '[quote]' + (author ? author + ':\n' : '') + stripQuotes(src) + '[/quote]\n\n';
     box.value = quote + box.value;
     box.focus();
+    autoResizeComposer(box);
   }
 
   // Nút "❝ Trả lời" trong bình luận anime: chèn trích dẫn vào đầu ô nhập bình luận
@@ -5074,6 +5103,7 @@ function setupSubPopupEvents() {
     const quote = '[quote]' + (author ? author + ':\n' : '') + stripQuotes(src) + '[/quote]\n\n';
     box.value = quote + box.value;
     box.focus();
+    autoResizeComposer(box);
   }
 
   // Bật/tắt "Xem thêm / Thu gọn" cho bình luận & tin nhắn dài
@@ -5192,6 +5222,7 @@ function setupSubPopupEvents() {
     }
     State.lastCommentAt = Date.now();
     $('#commentBox').value = '';
+    autoResizeComposer($('#commentBox'));
     newCaptcha();
     toast('Đã gửi bình luận ✅', 'success');
     loadComments(anime.id);
@@ -5244,6 +5275,7 @@ function setupSubPopupEvents() {
     }
     State.lastChatAt = Date.now();
     $('#chatBox').value = '';
+    autoResizeComposer($('#chatBox'));
     newChatCaptcha();
     toast('Đã gửi tin nhắn 💬', 'success');
     loadGlobalChat();
@@ -5368,6 +5400,7 @@ function setupSubPopupEvents() {
     pos = start + insert.length;
     box.focus();
     box.setSelectionRange(pos, pos);
+    autoResizeComposer(box);
   }
 
   /* ──────────────────────────────────────────────────────
@@ -5382,6 +5415,7 @@ function setupSubPopupEvents() {
     const pos = start + text.length;
     box.focus();
     box.setSelectionRange(pos, pos);
+    autoResizeComposer(box);
   }
 
   function isLikelyUrl(s) {
@@ -6656,7 +6690,11 @@ function setupSubPopupEvents() {
       btn.addEventListener('click', () => applyFormat(btn.dataset.fmt));
     });
     const commentBox = $('#commentBox');
-    if (commentBox) commentBox.addEventListener('paste', (e) => onSmartPaste(e, commentBox));
+    if (commentBox) {
+      commentBox.addEventListener('paste', (e) => onSmartPaste(e, commentBox));
+      commentBox.addEventListener('input', () => autoResizeComposer(commentBox));
+      autoResizeComposer(commentBox);
+    }
     $('#uploadImgInput').addEventListener('change', handleImageUpload);
     const _oldCommentLoadMore = $('#commentLoadMoreBtn');
     if (_oldCommentLoadMore) _oldCommentLoadMore.remove();
@@ -6680,7 +6718,11 @@ function setupSubPopupEvents() {
       });
     });
     const chatBox = $('#chatBox');
-    if (chatBox) chatBox.addEventListener('paste', (e) => onSmartPaste(e, chatBox));
+    if (chatBox) {
+      chatBox.addEventListener('paste', (e) => onSmartPaste(e, chatBox));
+      chatBox.addEventListener('input', () => autoResizeComposer(chatBox));
+      autoResizeComposer(chatBox);
+    }
     $('#chatUploadImgInput').addEventListener('change', handleChatImageUpload);
     $('#chatLoadMoreBtn').addEventListener('click', () => {
       State.chatVisible += 20;
@@ -6697,6 +6739,7 @@ function setupSubPopupEvents() {
       if (State.chatExpanded) {
         renderGlobalChat();
         newChatCaptcha();
+        autoResizeComposer($('#chatBox'));
         scrollChatToBottom();
         // KHÔNG tự focus ô nhập → tránh bàn phím ảo tự bật trên điện thoại
       }
