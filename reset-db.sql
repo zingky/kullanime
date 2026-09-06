@@ -14,9 +14,13 @@ set role postgres;
 drop table if exists public.comments cascade;
 drop table if exists public.songs    cascade;
 drop table if exists public.animes   cascade;
+drop table if exists public.blocked_guest_names cascade;
 drop function if exists public.set_updated_at() cascade;
 drop function if exists public.is_admin() cascade;
 drop function if exists public.prevent_comment_spam() cascade;
+drop function if exists public.validate_comment_content() cascade;
+drop function if exists public.auto_block_guest_spam() cascade;
+drop function if exists public.get_data_versions() cascade;
 
 -- ===== 2) TẠO LẠI =====
 create extension if not exists "pgcrypto";
@@ -225,6 +229,79 @@ $$;
 create trigger trg_prevent_comment_spam
   before insert on public.comments
   for each row execute function public.prevent_comment_spam();
+
+-- ===== 6c) VALIDATE NỘI DUNG BÌNH LUẬN (server-side) =====
+create or replace function public.validate_comment_content()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if new.content is null or length(btrim(new.content)) = 0 then
+    raise exception 'Bình luận không được để trống.';
+  end if;
+  if length(new.content) > 5000 then
+    raise exception 'Bình luận quá dài (tối đa 5000 ký tự).';
+  end if;
+  return new;
+end;
+$$;
+
+create trigger trg_validate_comment_content
+  before insert on public.comments
+  for each row execute function public.validate_comment_content();
+
+-- ===== 6d) AUTO-BLOCK KHÁCH SPAM (server-side) =====
+create table if not exists public.blocked_guest_names (
+  name        text primary key,
+  blocked_at  timestamptz not null default now(),
+  expiry_at   timestamptz not null default now() + interval '12 hours'
+);
+alter table public.blocked_guest_names enable row level security;
+create policy "blocked_guest_names_admin_all"
+  on public.blocked_guest_names for all
+  to authenticated
+  using (public.is_admin())
+  with check (public.is_admin());
+
+create or replace function public.auto_block_guest_spam()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  _recent integer;
+begin
+  if new.user_id is not null then
+    return new;
+  end if;
+  if exists (
+    select 1 from public.blocked_guest_names
+    where name = new.author_name and expiry_at > now()
+  ) then
+    raise exception 'Tên này đang bị tạm khóa vì spam. Vui lòng đổi tên khác.';
+  end if;
+  select count(*) into _recent
+    from public.comments
+    where user_id is null
+      and author_name = new.author_name
+      and created_at > now() - interval '10 minutes';
+  if _recent >= 10 then
+    insert into public.blocked_guest_names (name, expiry_at)
+    values (new.author_name, now() + interval '12 hours')
+    on conflict (name) do update
+      set expiry_at = excluded.expiry_at;
+    raise exception 'Bạn gửi quá nhanh, tên này bị tạm khóa 12 giờ. Vui lòng đổi tên.';
+  end if;
+  return new;
+end;
+$$;
+
+create trigger trg_auto_block_guest_spam
+  before insert on public.comments
+  for each row execute function public.auto_block_guest_spam();
 
 -- ===== 7) INDEX =====
 create index if not exists idx_animes_title        on public.animes (title);

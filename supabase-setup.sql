@@ -333,6 +333,104 @@ create trigger trg_prevent_comment_spam
 create index if not exists idx_comments_user_id on public.comments (user_id);
 
 -- ============================================================
+-- 9c) VALIDATE NỘI DUNG BÌNH LUẬN (server-side)
+--     Chặn insert bình luận rỗng hoặc quá dài ngay tại DB —
+--     kẻ gọi thẳng API cũng không bypass được.
+--     GIỮ NGUYÊN giới hạn tối đa: 5000 ký tự.
+-- ============================================================
+create or replace function public.validate_comment_content()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if new.content is null or length(btrim(new.content)) = 0 then
+    raise exception 'Bình luận không được để trống.';
+  end if;
+  if length(new.content) > 5000 then
+    raise exception 'Bình luận quá dài (tối đa 5000 ký tự).';
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists trg_validate_comment_content on public.comments;
+create trigger trg_validate_comment_content
+  before insert on public.comments
+  for each row execute function public.validate_comment_content();
+
+-- ============================================================
+-- 9d) AUTO-BLOCK KHÁCH SPAM (server-side)
+--     Khách chưa đăng nhập dùng cùng 1 tên mà gửi >= 10 bình luận
+--     trong 10 phút thì tự khóa tên đó 12 tiếng (không thể spam
+--     dưới tên cũ, buộc phải đổi tên/captcha lại).
+--     Cảnh báo: nếu để bảng này trống thì public bị socket/realtime
+--     subscribe — KHÔNG UI nào lấy dữ liệu từ nó.
+-- ============================================================
+create table if not exists public.blocked_guest_names (
+  name        text primary key,
+  blocked_at  timestamptz not null default now(),
+  expiry_at   timestamptz not null default now() + interval '12 hours'
+);
+comment on table public.blocked_guest_names is
+  'Tên khách bị tạm khóa vì spam — chỉ để chặn insert trong trigger, không expose cho public.';
+alter table public.blocked_guest_names enable row level security;
+-- Không cho public đọc/ghi bảng này — chỉ admin.
+create policy "blocked_guest_names_admin_all"
+  on public.blocked_guest_names for all
+  to authenticated
+  using (public.is_admin())
+  with check (public.is_admin());
+
+create or replace function public.auto_block_guest_spam()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  _recent integer;
+begin
+  -- Chỉ áp dụng cho khách chưa đăng nhập (user_id null)
+  if new.user_id is not null then
+    return new;
+  end if;
+
+  -- Nếu tên đang bị khóa → chặn
+  if exists (
+    select 1 from public.blocked_guest_names
+    where name = new.author_name and expiry_at > now()
+  ) then
+    raise exception 'Tên này đang bị tạm khóa vì spam. Vui lòng đổi tên khác.';
+  end if;
+
+  -- Đếm số bình luận của tên này trong 10 phút gần nhất
+  select count(*) into _recent
+    from public.comments
+    where user_id is null
+      and author_name = new.author_name
+      and created_at > now() - interval '10 minutes';
+
+  -- Nếu đang "phát sinh" quá nhanh (>= 10 trong 10 phút) → khóa tên 12h
+  if _recent >= 10 then
+    insert into public.blocked_guest_names (name, expiry_at)
+    values (new.author_name, now() + interval '12 hours')
+    on conflict (name) do update
+      set expiry_at = excluded.expiry_at;
+    raise exception 'Bạn gửi quá nhanh, tên này bị tạm khóa 12 giờ. Vui lòng đổi tên.';
+  end if;
+
+  return new;
+end;
+$$;
+
+drop trigger if exists trg_auto_block_guest_spam on public.comments;
+create trigger trg_auto_block_guest_spam
+  before insert on public.comments
+  for each row execute function public.auto_block_guest_spam();
+
+-- ============================================================
 -- 10) INDEX TĂNG TỐC TRUY VẤN
 -- ============================================================
 create index if not exists idx_animes_title        on public.animes (title);
