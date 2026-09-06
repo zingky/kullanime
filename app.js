@@ -5070,12 +5070,15 @@ function setupSubPopupEvents() {
     if (wrap) wrap.scrollTop = wrap.scrollHeight;
   }
 
-  // Tự giãn ô nhập (chat/comment) theo nội dung — tối đa 11 dòng rồi cuộn nội bộ (Discord-style)
+  // Tự giãn ô nhập (chat/comment) theo nội dung.
+  // - Ô nhập chat (#chatBox): tối đa 5 dòng rồi cuộn nội bộ (Discord-style)
+  // - Ô nhập bình luận anime (#commentBox): tối đa 11 dòng rồi cuộn nội bộ
   function autoResizeComposer(box) {
     if (!box || !box.getClientRects || !box.getClientRects().length) return; // đang ẩn (display:none) → bỏ qua
     const cs = getComputedStyle(box);
-    const lineH = parseFloat(cs.lineHeight) || 21;   // px mỗi dòng
-    const maxH = Math.round(lineH * 11);             // giới hạn 11 dòng
+    const lineH = parseFloat(cs.lineHeight) || 21;          // px mỗi dòng
+    const maxLines = box.id === 'chatBox' ? 5 : 11;          // chat: 5 dòng; bình luận: 11 dòng
+    const maxH = Math.round(lineH * maxLines);               // giới hạn số dòng
     box.style.height = 'auto';
     box.style.height = Math.min(box.scrollHeight, maxH) + 'px';
     box.style.overflowY = box.scrollHeight > maxH ? 'auto' : 'hidden';
