@@ -168,10 +168,25 @@ p, h1, h2, h3, h4, h5, h6, li, a, span, div, td, th {
 .input { width: 100%; padding: 11px 14px; background: rgba(255, 255, 255, 0.07); border: var(--glass-border); border-radius: var(--radius-sm); color: var(--text); font-size: 14px; outline: none; transition: border 0.15s ease, box-shadow 0.15s ease; backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); }
 .input::placeholder { color: var(--text-faint); }
 .input:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(168, 85, 247, 0.2); }
-.filter-input { flex: 1 1 260px; min-width: 160px; }
-/* Ô tìm kiếm + nút ✕ xoá toàn bộ bộ lọc đặt bên trong */
-.filter-search-wrap { position: relative; flex: 1 1 260px; min-width: 160px; display: flex; align-items: center; }
+.filter-input { flex: 1 1 220px; min-width: 0; }
+/* Ô tìm kiếm + nút ✕ xoá toàn bộ bộ lọc đặt bên trong — co được xuống mức tối thiểu
+   để luôn nằm 1 dòng với Sắp xếp + đảo chiều + nút lọc; desktop hiển thị rộng sẵn */
+.filter-search-wrap {
+  position: relative; flex: 2 1 180px; min-width: 0;
+  display: flex; align-items: center;
+  transition: flex-basis 0.18s ease;
+}
 .filter-search-wrap .filter-input { flex: 1 1 auto; min-width: 0; width: 100%; padding-right: 42px; }
+/* ——— Mobile (< 640px): 4 phần tử (tìm kiếm / Sắp xếp / đảo chiều / lọc) luôn cùng 1 dòng.
+       Ô tìm kiếm co nhỏ để nhường chỗ; bấm vào ô tìm kiếm → kéo dài hết thanh lọc,
+       tạm ẩn Sắp xếp + nút đảo chiều + nút 🔽, nhấn ra ngoài → quay lại gọn ——— */
+@media (max-width: 640px) {
+  .filter-bar { gap: 6px; }
+  .filter-search-wrap { flex: 1 1 0; min-width: 0; }
+  .filter-search-wrap:focus-within { flex: 1 1 100%; }
+  .filter-search-wrap:focus-within ~ select,
+  .filter-search-wrap:focus-within ~ button { display: none; }
+}
 .filter-clear-btn {
   position: absolute; right: 5px; top: 50%; transform: translateY(-50%);
   width: 28px; height: 28px; border: none; border-radius: 9px;
@@ -1470,6 +1485,8 @@ html[data-theme="light"] .modal { background: rgba(255, 255, 255, 0.72); }
   .nav-tab .tab-icon { font-size: 18px; }
   .btn .btn-label { display: none; }
   .btn { padding: 9px 11px; }
+  /* Thanh lọc trên mobile: thu nút đảo chiều + nút 🔽 để 1 dòng vừa khít */
+  .sort-dir-btn, .filter-toggle-btn { min-width: 36px; padding: 10px 9px; }
   .modal { padding: 18px 14px; margin-top: 2vh; }
   .composer-footer { flex-direction: column; align-items: stretch; }
   .composer-footer .btn { width: 100%; }
