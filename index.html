@@ -86,23 +86,6 @@
           <button type="button" class="filter-clear-btn" id="clearFiltersBtn"
                   title="Xoá toàn bộ bộ lọc tìm kiếm" aria-label="Xoá toàn bộ bộ lọc">✕</button>
         </div>
-        <select id="genreFilter" class="input filter-select" aria-label="Lọc theo thể loại">
-          <option value="all">Thể loại</option>
-        </select>
-        <select id="myStatusFilter" class="input filter-select" aria-label="Lọc theo trạng thái xem của tôi">
-          <option value="all">-----</option>
-          <option value="Đã xem">✅ Đã xem</option>
-          <option value="Đang xem">⏳ Đang xem</option>
-          <option value="Muốn xem">➕ Muốn xem</option>
-          <option value="Chưa xem">⬜ Chưa xem</option>
-        </select>
-        <select id="statusFilter" class="input filter-select" aria-label="Lọc theo tình trạng phát hành">
-          <option value="all">-----</option>
-          <option value="Đang chiếu">Đang chiếu</option>
-          <option value="Hoàn thành">Hoàn thành</option>
-          <option value="Sắp chiếu">Sắp chiếu</option>
-          <option value="Tạm ngưng">Tạm ngưng</option>
-        </select>
         <select id="sortFilter" class="input filter-select" aria-label="Sắp xếp">
           <option value="recent">Gần đây</option>
           <option value="release">Phát hành</option>
@@ -111,6 +94,39 @@
         </select>
         <button type="button" class="sort-dir-btn" id="sortDirBtn"
                 title="Đảo chiều sắp xếp (bấm để đảo ngược thứ tự)" aria-label="Đảo chiều sắp xếp">▼</button>
+        <button type="button" class="filter-toggle-btn" id="filterToggleBtn"
+                title="Bộ lọc nâng cao (Thể loại, Mùa, Năm, Trạng thái...)" aria-label="Mở bộ lọc nâng cao">
+          <span aria-hidden="true">🔽</span><span class="filter-badge hidden" id="filterBadge">0</span>
+        </button>
+        <div class="filter-advanced" id="filterAdvanced">
+          <select id="genreFilter" class="input filter-select" aria-label="Lọc theo thể loại">
+            <option value="all">Thể loại</option>
+          </select>
+          <select id="myStatusFilter" class="input filter-select" aria-label="Lọc theo trạng thái xem của tôi">
+            <option value="all">-----</option>
+            <option value="Đã xem">✅ Đã xem</option>
+            <option value="Đang xem">⏳ Đang xem</option>
+            <option value="Muốn xem">➕ Muốn xem</option>
+            <option value="Chưa xem">⬜ Chưa xem</option>
+          </select>
+          <select id="statusFilter" class="input filter-select" aria-label="Lọc theo tình trạng phát hành">
+            <option value="all">-----</option>
+            <option value="Đang chiếu">Đang chiếu</option>
+            <option value="Hoàn thành">Hoàn thành</option>
+            <option value="Sắp chiếu">Sắp chiếu</option>
+            <option value="Tạm ngưng">Tạm ngưng</option>
+          </select>
+          <select id="seasonFilter" class="input filter-select" aria-label="Lọc theo mùa phát hành">
+            <option value="all">Mùa</option>
+            <option value="spring">🌸 Xuân</option>
+            <option value="summer">☀️ Hạ</option>
+            <option value="fall">🍂 Thu</option>
+            <option value="winter">❄️ Đông</option>
+          </select>
+          <select id="yearFilter" class="input filter-select" aria-label="Lọc theo năm phát hành">
+            <option value="all">Năm</option>
+          </select>
+        </div>
       </div>
 
       <!-- Lưới thẻ anime -->

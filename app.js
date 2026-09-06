@@ -4147,6 +4147,8 @@ function setupSubPopupEvents() {
     const search = $('#animeSearch').value.trim().toLowerCase();
     const status = $('#statusFilter').value;
     syncGenreFilter();
+    syncYearFilter();
+    updateFilterBadge();
 
     let list = State.animes.slice();
 
@@ -4166,6 +4168,16 @@ function setupSubPopupEvents() {
     const myStatus = $('#myStatusFilter').value;
     if (myStatus !== 'all') {
       list = list.filter((a) => myStatusMeta(a.my_status).label === myStatus);
+    }
+    // Lọc theo mùa phát hành (Xuân / Hạ / Thu / Đông)
+    const season = $('#seasonFilter').value;
+    if (season !== 'all') {
+      list = list.filter((a) => seasonKey(a.season) === season);
+    }
+    // Lọc theo năm phát hành
+    const year = $('#yearFilter').value;
+    if (year !== 'all') {
+      list = list.filter((a) => String(a.year || '') === year);
     }
     // Lọc theo từ khóa (tên, studio, thể loại)
     if (search) {
@@ -4222,12 +4234,56 @@ function setupSubPopupEvents() {
     const gFil = $('#genreFilter');  if (gFil) gFil.value = 'all';
     const mSf = $('#myStatusFilter'); if (mSf) mSf.value = 'all';
     const stf = $('#statusFilter');  if (stf) stf.value = 'all';
+    const sFil = $('#seasonFilter'); if (sFil) sFil.value = 'all';
+    const yFil = $('#yearFilter');   if (yFil) yFil.value = 'all';
     const srt = $('#sortFilter');    if (srt) srt.value = 'recent';
     State.animeSortMode = 'recent';
     State.animeSortDir = 'desc';
     State.animeVisible = 10;
     updateSortDirBtn();
+    updateFilterBadge();
     renderAnimeGrid();
+  }
+
+  // Đếm số bộ lọc nâng cao đang bật (khác "all") để hiện badge trên nút 🔽
+  function updateFilterBadge() {
+    let count = 0;
+    ['genreFilter', 'myStatusFilter', 'statusFilter', 'seasonFilter', 'yearFilter'].forEach((id) => {
+      const el = $(id);
+      if (el && el.value !== 'all') count++;
+    });
+    const badge = $('#filterBadge');
+    if (badge) {
+      badge.textContent = count;
+      badge.classList.toggle('hidden', count === 0);
+    }
+  }
+
+  // Chuẩn hoá tên mùa từ dữ liệu về khoá chuẩn spring/summer/fall/winter
+  function seasonKey(v) {
+    v = String(v || '').trim().toLowerCase();
+    if (/^(spring|xuan|mùa xuân|m\.xuân)$/.test(v)) return 'spring';
+    if (/^(summer|ha|hạ|mùa hạ|m\.hạ)$/.test(v)) return 'summer';
+    if (/^(fall|autumn|thu|mùa thu|m\.thu)$/.test(v)) return 'fall';
+    if (/^(winter|dong|đông|mùa đông|m\.đông)$/.test(v)) return 'winter';
+    return v;
+  }
+
+  // Đổ danh sách năm vào select lọc Năm — tự liệt kê các năm đã lưu (năm mới nhất trước)
+  function syncYearFilter() {
+    const sel = $('#yearFilter');
+    if (!sel) return;
+    const years = Array.from(new Set(State.animes.map((a) => a.year).filter(Boolean)))
+      .sort((a, b) => b - a);
+    const sig = years.join('|');
+    if (sel.dataset.sig === sig) return;
+    sel.dataset.sig = sig;
+    const cur = sel.value;
+    sel.innerHTML =
+      '<option value="all">Năm</option>' +
+      years.map((y) => '<option value="' + y + '">' + y + '</option>').join('');
+    if (cur !== 'all' && years.includes(Number(cur))) sel.value = cur;
+    else sel.value = 'all';
   }
 
   // Helper: hiện/ẩn nút "Xem thêm" và cập nhật số còn lại
@@ -6642,6 +6698,18 @@ function setupSubPopupEvents() {
     if (gFil) gFil.addEventListener('change', renderAnimeGrid);
     const mSf = $('#myStatusFilter');
     if (mSf) mSf.addEventListener('change', renderAnimeGrid);
+    const sFil = $('#seasonFilter');
+    if (sFil) sFil.addEventListener('change', renderAnimeGrid);
+    const yFil = $('#yearFilter');
+    if (yFil) yFil.addEventListener('change', renderAnimeGrid);
+    // Nút bộ lọc nâng cao 🔽 — mở/đóng panel Mùa/Năm/Thể loại/Trạng thái
+    const ftb = $('#filterToggleBtn');
+    const advP = $('#filterAdvanced');
+    if (ftb && advP) ftb.addEventListener('click', () => {
+      const open = advP.classList.toggle('open');
+      ftb.classList.toggle('open', open);
+      updateFilterBadge();
+    });
     const animeLoadMore = $('#animeLoadMoreBtn');
     if (animeLoadMore) animeLoadMore.addEventListener('click', () => {
       State.animeVisible += 10;
