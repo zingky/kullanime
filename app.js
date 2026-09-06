@@ -58,6 +58,9 @@
     lastCommentAt: 0,
     lastChatAt: 0,
     lastGithubAt: 0,      // rate limit cho GitHub API calls (list refresh + .ass fetch)
+    // Realtime (Supabase Postgres Changes)
+    chatRT: null,         // channel realtime chat chung (anime_id = null)
+    animeRT: null,        // channel realtime bình luận anime đang mở modal
     // Captcha hiện tại
     captcha: { a: 0, b: 0, result: 0 },
     chatCaptcha: { a: 0, b: 0, result: 0 },
@@ -201,15 +204,19 @@
     if (!m) return;
     m.classList.remove('open');
     m.setAttribute('aria-hidden', 'true');
+    // Đóng modal anime → hủy channel realtime bình luận anime (đỡ tốn connection)
+    if (id === 'animeModal') teardownAnimeCommentsRealtime();
   }
 
   // Chặn cuộn nền khi mở modal
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') {
-      $$('.modal-overlay.open').forEach((m) => {
+      const openModals = $$('.modal-overlay.open');
+      openModals.forEach((m) => {
         m.classList.remove('open');
         m.setAttribute('aria-hidden', 'true');
       });
+      if (openModals.some((m) => m.id === 'animeModal')) teardownAnimeCommentsRealtime();
     }
   });
   $$('.modal-overlay').forEach((overlay) => {
@@ -217,6 +224,7 @@
       if (e.target === overlay) {
         overlay.classList.remove('open');
         overlay.setAttribute('aria-hidden', 'true');
+        if (overlay.id === 'animeModal') teardownAnimeCommentsRealtime();
       }
     });
   });
@@ -345,7 +353,8 @@
     // Tạo client Supabase từ CDN (window.supabase)
     const sb = window.supabase && window.supabase.createClient
       ? window.supabase.createClient(State.config.SUPABASE_URL, State.config.SUPABASE_ANON_KEY, {
-          auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true }
+          auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true },
+          realtime: { params: { eventsPerSecond: 10 } } // Postgres Changes: nhận sự kiện INSERT/DELETE comments
         })
       : null;
     if (!sb) {
@@ -4632,6 +4641,7 @@ function setupSubPopupEvents() {
     }
     loadComments(anime.id);
     newCaptcha();
+    setupAnimeCommentsRealtime(anime.id); // realtime: bình luận anime mới đẩy tức thì
   }
 
   // Helper: sắp xếp tag để hiển thị — bỏ tag spoiler, sort theo rank giảm dần,
@@ -5395,6 +5405,123 @@ function setupSubPopupEvents() {
     if (wrap) wrap.scrollTop = wrap.scrollHeight;
   }
 
+  /* ──────────────────────────────────────────────────────
+     REALTIME — Postgres Changes
+     Chat All (anime_id = null) & bình luận anime (anime_id = X)
+     Không cần refetch manual sau khi gửi — WebSocket đẩy event.
+     ────────────────────────────────────────────────────── */
+
+  // Đồng bộ lại cache chat sau khi State.chatAll thay đổi theo thời gian thực
+  function syncChatCache() {
+    try { persistPubCachePart('chat', State.chatAll, computeMaxUpdated(State.chatAll)); } catch (_e) {}
+  }
+
+  // Cập nhật badge trên nút bong bóng chat
+  function updateChatBadge() {
+    const comments = State.chatAll || [];
+    const badge = $('#chatFabBadge');
+    if (badge) {
+      badge.textContent = comments.length > 0 ? String(comments.length) : '';
+      badge.hidden = comments.length === 0;
+    }
+    const fab = $('#chatFab');
+    if (fab) {
+      fab.setAttribute('aria-label', comments.length > 0
+        ? 'Mở Chat All (' + comments.length + ' tin)'
+        : 'Mở Chat All');
+    }
+  }
+
+  // Đưa 1 tin mới (real-time) vào đầu State.chatAll nếu chưa có (tránh trùng lặp)
+  function onNewChat(row) {
+    if (!row || !row.id) return;
+    const exists = (State.chatAll || []).some((c) => c && String(c.id) === String(row.id));
+    if (exists) return;
+    State.chatAll = [row].concat(State.chatAll || []).slice(0, 100);
+    updateChatBadge();
+    renderGlobalChat();
+    syncChatCache();
+  }
+
+  // Xoá 1 tin (real-time, admin xoá) khỏi State.chatAll
+  function onDeleteChat(id) {
+    if (!id) return;
+    const before = (State.chatAll || []).length;
+    State.chatAll = (State.chatAll || []).filter((c) => c && String(c.id) !== String(id));
+    if (State.chatAll.length === before) return; // không có thay đổi
+    updateChatBadge();
+    renderGlobalChat();
+    syncChatCache();
+  }
+
+  // Mở channel realtime cho Chat All — gọi 1 lần khi khởi tạo web
+  function setupChatRealtime() {
+    if (!State.supabase || State.chatRT) return;
+    State.chatRT = State.supabase
+      .channel('chat-all')
+      .on('postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'comments', filter: 'anime_id=is.null' },
+        (payload) => onNewChat(payload.new)
+      )
+      .on('postgres_changes',
+        { event: 'DELETE', schema: 'public', table: 'comments', filter: 'anime_id=is.null' },
+        (payload) => onDeleteChat(payload.old && payload.old.id)
+      )
+      .subscribe();
+  }
+
+  // Bình luận anime: mở channel khi mở modal, đóng channel cũ nếu có
+  function setupAnimeCommentsRealtime(animeId) {
+    if (!State.supabase) return;
+    if (State.animeRT) {
+      State.supabase.removeChannel(State.animeRT);
+      State.animeRT = null;
+    }
+    if (!animeId) return;
+    const chanId = 'anime-comments-' + String(animeId);
+    State.animeRT = State.supabase
+      .channel(chanId)
+      .on('postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'comments', filter: 'anime_id=eq.' + animeId },
+        (payload) => onNewAnimeComment(payload.new)
+      )
+      .on('postgres_changes',
+        { event: 'DELETE', schema: 'public', table: 'comments', filter: 'anime_id=eq.' + animeId },
+        (payload) => onDeleteAnimeComment(payload.old && payload.old.id)
+      )
+      .subscribe();
+  }
+
+  // Thêm bình luận anime real-time vào State.commentAll rồi render lại (giữ phân trang)
+  function onNewAnimeComment(row) {
+    if (!row || !row.id) return;
+    const exists = (State.commentAll || []).some((c) => c && String(c.id) === String(row.id));
+    if (exists) return;
+    const list = State.commentAll || [];
+    // Chèn đúng thứ tự DB (is_pinned DESC, created_at DESC): sau các tin đã ghim, trước tin mới hơn cùng nhóm
+    const insertAt = list.findIndex((c) => !c.is_pinned);
+    list.splice(insertAt === -1 ? list.length : insertAt, 0, row);
+    State.commentAll = list;
+    renderCommentList();
+  }
+
+  // Xoá bình luận anime real-time
+  function onDeleteAnimeComment(id) {
+    if (!id) return;
+    const before = (State.commentAll || []).length;
+    State.commentAll = (State.commentAll || []).filter((c) => c && String(c.id) !== String(id));
+    if (State.commentAll.length === before) return;
+    renderCommentList();
+  }
+
+  // Đóng channel realtime bình luận anime khi đóng modal
+  function teardownAnimeCommentsRealtime() {
+    if (State.supabase && State.animeRT) {
+      State.supabase.removeChannel(State.animeRT);
+      State.animeRT = null;
+    }
+  }
+
   // Tự giãn ô nhập (chat/comment) theo nội dung.
   // - Ô nhập chat (#chatBox): tối đa 5 dòng rồi cuộn nội bộ (Discord-style)
   // - Ô nhập bình luận anime (#commentBox): tối đa 11 dòng rồi cuộn nội bộ
@@ -5488,15 +5615,37 @@ function setupSubPopupEvents() {
     );
   }
 
-  // Rate limiting: chặn gửi liên tục trong 45s (dùng chung cho cả bình luận & chat)
+  // Rate limiting: chặn gửi liên tục trong 30s (dùng chung cho cả bình luận & chat)
+  const COMMENT_RATE_MS = 30000; // 30 giây
+  let _commentRateTimer = null;
+
+  function clearCommentRateTimer() {
+    if (_commentRateTimer) { clearInterval(_commentRateTimer); _commentRateTimer = null; }
+  }
+
+  // Bắt đầu đếm ngược hiển thị trên rateHint, tự dừng khi hết thời gian
+  function startCommentCountdown(remainSec) {
+    clearCommentRateTimer();
+    const hint = $('#rateHint');
+    let left = remainSec;
+    const tick = () => {
+      hint.textContent = left > 0 ? ('⏳ Chờ ' + left + 's nữa để gửi tiếp.') : '';
+      if (left <= 0) clearCommentRateTimer();
+      left--;
+    };
+    tick();
+    _commentRateTimer = setInterval(tick, 1000);
+  }
+
   function enforceRateLimit() {
     const now = Date.now();
     const diff = now - State.lastCommentAt;
-    if (diff < 45000) {
-      const remain = Math.ceil((45000 - diff) / 1000);
-      $('#rateHint').textContent = '⏳ Chờ ' + remain + 's nữa để gửi tiếp.';
+    if (diff < COMMENT_RATE_MS) {
+      const remain = Math.ceil((COMMENT_RATE_MS - diff) / 1000);
+      startCommentCountdown(remain);
       return false;
     }
+    clearCommentRateTimer();
     $('#rateHint').textContent = '';
     return true;
   }
@@ -5560,15 +5709,36 @@ function setupSubPopupEvents() {
     loadComments(anime.id);
   }
 
+  const CHAT_RATE_MS = 30000; // 30 giây
+  let _chatRateTimer = null;
+
+  function clearChatRateTimer() {
+    if (_chatRateTimer) { clearInterval(_chatRateTimer); _chatRateTimer = null; }
+  }
+
+  function startChatCountdown(remainSec) {
+    clearChatRateTimer();
+    const hint = $('#chatRateHint');
+    let left = remainSec;
+    const tick = () => {
+      hint.textContent = left > 0 ? ('⏳ Chờ ' + left + 's nữa để gửi tiếp.') : '';
+      if (left <= 0) clearChatRateTimer();
+      left--;
+    };
+    tick();
+    _chatRateTimer = setInterval(tick, 1000);
+  }
+
   // Gửi tin nhắn chat chung (anime_id = null)
   function enforceChatRateLimit() {
     const now = Date.now();
     const diff = now - State.lastChatAt;
-    if (diff < 45000) {
-      const remain = Math.ceil((45000 - diff) / 1000);
-      $('#chatRateHint').textContent = '⏳ Chờ ' + remain + 's nữa để gửi tiếp.';
+    if (diff < CHAT_RATE_MS) {
+      const remain = Math.ceil((CHAT_RATE_MS - diff) / 1000);
+      startChatCountdown(remain);
       return false;
     }
+    clearChatRateTimer();
     $('#chatRateHint').textContent = '';
     return true;
   }
@@ -7963,6 +8133,8 @@ function setupSubPopupEvents() {
     // Khởi động chat chung (sticky bar) + captcha chat
     newChatCaptcha();
     refreshChat();
+    // Realtime: lắng nghe tin chat mới theo thời gian thực (Postgres Changes)
+    setupChatRealtime();
     // Dữ liệu công khai chỉ tải 1 lần khi mở web — không tự làm mới định kỳ
     // (tránh "chớp" lại giao diện khi trang mở lâu). Làm mới khi tải lại trang.
   }
