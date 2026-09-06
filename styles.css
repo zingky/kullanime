@@ -1033,6 +1033,18 @@ html[data-theme="light"] .modal { background: rgba(255, 255, 255, 0.72); }
 .admin-search-input { flex: 1 1 220px; min-width: 150px; }
 .admin-sort-select { flex: 0 1 auto; width: auto; min-width: 160px; cursor: pointer; }
 
+/* Danh sách anime & bình luận: hiển thị tối đa ~5 dòng, phần còn lại cuộn dọc */
+#adminAnimeList, #adminCommentList {
+  max-height: 380px; /* ~5 dòng admin-row */
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding-right: 6px;
+  scrollbar-gutter: stable;
+}
+#adminAnimeList::-webkit-scrollbar, #adminCommentList::-webkit-scrollbar { width: 8px; }
+#adminAnimeList::-webkit-scrollbar-track, #adminCommentList::-webkit-scrollbar-track { background: transparent; }
+#adminAnimeList::-webkit-scrollbar-thumb, #adminCommentList::-webkit-scrollbar-thumb { background: var(--border-strong, rgba(255,255,255,0.18)); border-radius: 8px; }
+
 /* Quản lý nguồn repo .ass (admin) */
 .admin-repo-manager { margin-top: 18px; padding-top: 14px; border-top: 1px dashed var(--border-strong); }
 .admin-repo-desc { margin: 6px 0 10px; font-size: 12.5px; color: var(--text-dim); }
