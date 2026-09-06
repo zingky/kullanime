@@ -18,6 +18,15 @@
 create extension if not exists "pgcrypto";  -- cung cấp gen_random_uuid()
 
 -- ============================================================
+-- 0.1) REALTIME — Postgres Changes cho bảng comments
+--      Bật realtime để Chat All & bình luận anime nhận sự kiện
+--      INSERT/DELETE/UPDATE theo thời gian thực (WebSocket).
+--      ⚠️ Bảng comments PHẢI có RLS mở đọc cho public (đã có ở section 9a)
+--         thì client mới nhận được payload.
+-- ============================================================
+alter publication supabase_realtime add table public.comments;
+
+-- ============================================================
 -- 1) BẢNG ANIMES
 -- ============================================================
 create table if not exists public.animes (
@@ -284,7 +293,7 @@ create policy "comments_admin_delete"
 -- ============================================================
 -- 9b) CHỐNG SPAM SERVER-SIDE (rate-limit bình luận)
 --     Không phụ thuộc client — kẻ gọi thẳng API cũng bị chặn.
---     Quy tắc: tối đa 1 bình luận / 45 giây / người.
+--     Quy tắc: tối đa 1 bình luận / 30 giây / người.
 --       + Đã đăng nhập: tính theo user_id (do server gán, không thể giả).
 --       + Khách: tính theo author_name (giảm thiểu hơn là chặn tuyệt đối).
 -- ============================================================
@@ -300,10 +309,10 @@ as $$
 declare
   _uid       uuid := auth.uid();   -- server-side identity, client không giả mạo được
   _last_ts   timestamptz;
-  _min_gap   interval := interval '45 seconds';
+  _min_gap   interval := interval '30 seconds';
 begin
   -- Chỉ áp dụng cho bình luận forum (anime_id có giá trị).
-  -- Chat (anime_id null) là realtime, không giới hạn 45s — chỉ có client-side throttle.
+  -- Chat (anime_id null) là realtime, không giới hạn server-side — chỉ có client-side throttle (30s).
   if new.anime_id is null then
     return new;
   end if;
@@ -319,7 +328,7 @@ begin
   end if;
 
   if _last_ts is not null and (now() - _last_ts) < _min_gap then
-    raise exception 'Bạn đang gửi bình luận quá nhanh, vui lòng chờ 45 giây.';
+    raise exception 'Bạn đang gửi bình luận quá nhanh, vui lòng chờ 30 giây.';
   end if;
 
   -- Gán lại user_id theo auth thay vì tin giá trị client gửi lên
