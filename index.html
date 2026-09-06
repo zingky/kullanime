@@ -333,7 +333,13 @@
   <!-- ═══════════════ MODAL: CHI TIẾT ANIME + BÌNH LUẬN ═══════════════ -->
   <div class="modal-overlay" id="animeModal" role="dialog" aria-modal="true" aria-hidden="true">
     <div class="modal modal-lg anime-modal" role="document">
-      <button class="modal-close" data-close="animeModal" aria-label="Đóng">✕</button>
+      <!-- Thanh header dính: nút ✕ + tên anime thu nhỏ bám theo khi cuộn -->
+      <div class="anime-modal-sticky" id="animeStickyHeader">
+        <div class="anime-sticky-bar">
+          <h3 class="anime-sticky-title" id="animeStickyTitle"></h3>
+        </div>
+        <button type="button" class="modal-close anime-sticky-close" data-close="animeModal" aria-label="Đóng">✕</button>
+      </div>
       <div class="anime-detail" id="animeDetail">
         <!-- Nội dung được render bằng JS -->
       </div>
@@ -352,7 +358,7 @@
             <input type="file" id="uploadImgInput" accept="image/*" class="hidden" />
           </div>
           <label class="visually-hidden" for="commentBox">Nội dung bình luận</label>
-          <textarea id="commentBox" class="composer-input" rows="3" maxlength="3000"
+          <textarea id="commentBox" class="composer-input" rows="1" maxlength="3000"
                     placeholder="Viết bình luận (tối đa 3000 ký tự)... ✓ Paste link/ảnh tự xử lý"></textarea>
           <div class="composer-footer">
             <span class="auth-name-line hidden" id="commentAuthName">
