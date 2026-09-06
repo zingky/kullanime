@@ -6059,7 +6059,7 @@ function setupSubPopupEvents() {
     results.innerHTML = '<p class="empty-desc">Đang tra cứu trên AniList...</p>';
     show('jikanResults');
     try {
-      const gql = 'query ($search: String) { Page(page: 1, perPage: 6) { media(search: $search, type: ANIME, sort: SEARCH_MATCH, isAdult: false) { id title { romaji english native synonyms } coverImage { extraLarge large } description status averageScore seasonYear season source hashtag startDate { year month day } endDate { year month day } studios(isMain: true) { nodes { id name isAnimationStudio } } episodes genres } } }';
+      const gql = 'query ($search: String) { Page(page: 1, perPage: 6) { media(search: $search, type: ANIME, sort: SEARCH_MATCH, isAdult: false) { id title { romaji english native } synonyms coverImage { extraLarge large } description status averageScore seasonYear season source hashtag startDate { year month day } endDate { year month day } studios(isMain: true) { nodes { id name isAnimationStudio } } episodes genres } } }';
       let data = null;
       let lastErr = null;
       // Thử lại tối đa 3 lần nếu gặp lỗi tạm thời (429/503/504)
@@ -6103,7 +6103,7 @@ function setupSubPopupEvents() {
           const st = (lastErr && lastErr.message) ? lastErr.message.replace('HTTP ', '') : 'lỗi';
           const srcNote = srcUsed === 'Jikan' ? 'hiển thị dữ liệu từ Jikan / MyAnimeList' : 'hiển thị dữ liệu từ Kitsu (Jikan/MAL cũng đang lỗi)';
           results.innerHTML =
-            '<p class="empty-desc jikan-note">⚠️ AniList đang tạm ngừng (HTTP ' + esc(st) + ') — ' + srcNote + '. Hashtag, Studio & Seiyuu chỉ AniList cung cấp nên có thể trống.</p>' +
+            '<p class="empty-desc jikan-note">⚠️ AniList đang tạm ngừng (HTTP ' + esc(st) + ') — ' + srcNote + '. Hashtag & Studio chỉ AniList cung cấp nên có thể trống; Seiyuu lấy từ Jikan nếu có.</p>' +
             renderAnilistItems(fallbackItems);
           return;
         }
@@ -6153,6 +6153,40 @@ function setupSubPopupEvents() {
     return voices;
   }
 
+  // Fetch dàn diễn viên lồng tiếng từ Jikan/MAL theo MAL id (fallback khi AniList tạm ngừng)
+  async function jikanFetchCast(malId) {
+    const url = 'https://api.jikan.moe/v4/anime/' + Number(malId) + '/characters';
+    const res = await fetch(url, { headers: { 'Accept': 'application/json' }, signal: AbortSignal.timeout(8000) });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const body = await res.json();
+    const voices = [];
+    for (const row of (body && body.data) || []) {
+      const vas = (row && row.voice_actors) || [];
+      const va = vas.find((v) => /^japanese$/i.test(String(v.language || ''))) || vas[0];
+      if (!va || !va.person) continue;
+      const char = (row && row.character) || {};
+      const img = (o) => (o && (o.image_url || o.large_image_url)) || '';
+      voices.push({
+        name: (va.person.name) || '',
+        character: (char.name) || '',
+        image: (va.person.images && (img(va.person.images.jpg) || img(va.person.images.webp))) || '',
+        charImage: (char.images && (img(char.images.jpg) || img(char.images.webp))) || ''
+      });
+    }
+    return voices;
+  }
+
+  // Tìm MAL id theo tên rồi lấy cast — dùng cho backfill khi AniList tạm ngừng
+  async function jikanFindAndCast(title) {
+    const searchUrl = 'https://api.jikan.moe/v4/anime?q=' + encodeURIComponent(title) + '&limit=1&sfw=true';
+    const res = await fetch(searchUrl, { headers: { 'Accept': 'application/json' }, signal: AbortSignal.timeout(6000) });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const body = await res.json();
+    const j = body && body.data && body.data[0];
+    if (!j) return [];
+    return jikanFetchCast(j.mal_id);
+  }
+
   // Tìm id AniList theo tên anime (dùng cho backfill ảnh nhân vật)
   async function anilistFindIdByTitle(title) {
     const gql = 'query ($search: String) { Page(page: 1, perPage: 1) { media(search: $search, type: ANIME, isAdult: false) { id title { romaji english } } } }';
@@ -6176,9 +6210,16 @@ function setupSubPopupEvents() {
       if (!seiyuu.some((s) => !s.charImage && s.character)) { skipped++; continue; }
       toast('Lấy ảnh nhân vật: ' + (i + 1) + '/' + list.length + ' — ' + (a.title || ''), 'info');
       try {
-        const id = await anilistFindIdByTitle(a.title);
-        if (!id) { await sleep(350); continue; }
-        const cast = await anilistFetchCast(id);
+        let id = null;
+        let cast = [];
+        try { id = await anilistFindIdByTitle(a.title); } catch (_e) { /* AniList lỗi → thử Jikan */ }
+        if (id) {
+          cast = await anilistFetchCast(id);
+        } else {
+          // AniList tạm ngừng → thử Jikan/MAL (có seiyuu + ảnh nhân vật)
+          try { cast = await jikanFindAndCast(a.title); } catch (_e) { /* bỏ qua */ }
+        }
+        if (!cast.length) { await sleep(350); continue; }
         const keyed = new Map();
         cast.forEach((c) => { if (c.character) keyed.set(c.character.trim().toLowerCase(), c); });
         let changed = false;
@@ -6225,7 +6266,7 @@ function setupSubPopupEvents() {
         const patch = {
           title_romaji: (media.title && media.title.romaji) || a.title_romaji || '',
           title_native: (media.title && media.title.native) || a.title_native || '',
-          title_synonyms: (media.title && Array.isArray(media.title.synonyms) ? media.title.synonyms : []).filter((s) => s !== a.title),
+          title_synonyms: (Array.isArray(media.synonyms) ? media.synonyms : ((media.title && Array.isArray(media.title.synonyms)) ? media.title.synonyms : [])).filter((s) => s !== a.title),
           start_date: anilistDateStr(media.startDate) || a.start_date || '',
           end_date: anilistDateStr(media.endDate) || a.end_date || '',
           season: mapAnilistSeason(media.season) || a.season || '',
@@ -6252,7 +6293,7 @@ function setupSubPopupEvents() {
 
   // Tìm Media AniList theo tên (kèm toàn bộ thông tin bổ sung) — dùng cho backfill dữ liệu
   async function anilistFindMediaByTitle(title) {
-    const gql = 'query ($search: String) { Page(page: 1, perPage: 1) { media(search: $search, type: ANIME, isAdult: false) { id title { romaji english native synonyms } startDate { year month day } endDate { year month day } season source hashtag studios(isMain: true) { nodes { id name isAnimationStudio } } } } }';
+    const gql = 'query ($search: String) { Page(page: 1, perPage: 1) { media(search: $search, type: ANIME, isAdult: false) { id title { romaji english native } synonyms startDate { year month day } endDate { year month day } season source hashtag studios(isMain: true) { nodes { id name isAnimationStudio } } } } }';
     const data = await anilistGraphQL(gql, { search: title });
     const m = data && data.data && data.data.Page && data.data.Page.media;
     if (m && m[0]) return m[0];
@@ -6342,7 +6383,8 @@ function setupSubPopupEvents() {
     $('#af_title').value = (it.title && (it.title.english || it.title.romaji)) || '';
     $('#af_title_romaji').value = (it.title && it.title.romaji) || '';
     $('#af_title_native').value = (it.title && it.title.native) || '';
-    $('#af_title_synonyms').value = (it.title && Array.isArray(it.title.synonyms) ? it.title.synonyms : []).join(', ');
+    const synArr = Array.isArray(it.synonyms) ? it.synonyms : ((it.title && Array.isArray(it.title.synonyms)) ? it.title.synonyms : []);
+    $('#af_title_synonyms').value = synArr.join(', ');
     $('#af_start_date').value = anilistDateStr(it.startDate);
     $('#af_end_date').value = anilistDateStr(it.endDate);
     $('#af_season').value = mapAnilistSeason(it.season);
@@ -6360,8 +6402,16 @@ function setupSubPopupEvents() {
 
     updatePosterPreview();
 
-    // Fetch seiyuu + ảnh nhân vật — chỉ với dữ liệu thật từ AniList (Jikan id là MAL id, Kitsu là kitsu id)
-    if (it._src) return;
+    // Fetch seiyuu + ảnh nhân vật: AniList nếu đang chạy; item Jikan thì qua Jikan/MAL (Kitsu không có cast đầy đủ)
+    if (it._src === 'jikan') {
+      toast('Đang tải dàn Seiyuu (Jikan/MAL)...', 'info', 1200);
+      try {
+        const voices = await jikanFetchCast(it.id);
+        if (voices.length) renderSeiyuuEditors(voices);
+      } catch (_e) { /* bỏ qua lỗi seiyuu */ }
+      return;
+    }
+    if (it._src === 'kitsu') return;
     toast('Đang tải dàn Seiyuu + ảnh nhân vật...', 'info', 1200);
     try {
       const voices = await anilistFetchCast(it.id);
