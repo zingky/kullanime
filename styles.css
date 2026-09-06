@@ -1180,7 +1180,7 @@ html[data-theme="light"] .modal { background: rgba(255, 255, 255, 0.72); }
 .chat-panel {
   position: fixed; left: 20px; bottom: 92px; z-index: 84;
   width: min(390px, calc(100vw - 24px));
-  max-height: min(68vh, 600px);
+  height: min(68vh, 600px);
   display: flex; flex-direction: column;
   background: rgba(13, 17, 30, 0.9);
   backdrop-filter: blur(20px) saturate(160%);
@@ -1214,11 +1214,15 @@ html[data-theme="light"] .modal { background: rgba(255, 255, 255, 0.72); }
 .chat-panel-body .chat-layout .composer { margin-bottom: 0; }
 .chat-panel-body .chat-messages .comment-list { padding-right: 4px; }
 
-/* Khung chat: mặc định chỉ hiện ô nhập 1 dòng gọn; khi bấm vào ô nhập mới hiện thanh công cụ (đậm/nghiêng/...) */
+/* Khung chat: mặc định chỉ hiện ô nhập 1 dòng gọn (không hiện footer/captcha);
+   khi bấm vào ô nhập (focus) mới hiện đủ thanh công cụ + footer (tên/captcha/gửi)
+   và ô nhập giãn ra 5 dòng; gõ hơn 5 dòng thì cuộn nội bộ (đúng kiểu Discord). */
 .chat-layout .composer-toolbar { display: none; }
+.chat-layout .composer-footer { display: none; }
 .chat-layout .composer:focus-within .composer-toolbar { display: flex; }
-.chat-layout .composer-input { min-height: 40px; resize: none; max-height: 231px; } /* 11 dòng (14px x 1.5) */
-.chat-layout .composer:focus-within .composer-input { min-height: 78px; resize: vertical; }
+.chat-layout .composer:focus-within .composer-footer { display: flex; }
+.chat-layout .composer-input { min-height: 22px; resize: none; max-height: 105px; } /* 1 dòng khởi điểm; tối đa 5 dòng (14px x 1.5) */
+.chat-layout .composer:focus-within .composer-input { min-height: 105px; } /* 5 dòng khi mở soạn thảo */
 
 /* Mobile: bong bóng + panel gọn theo mép */
 @media (max-width: 480px) {
