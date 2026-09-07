@@ -313,6 +313,11 @@
             <input type="file" id="chatUploadImgInput" accept="image/*" class="hidden" />
           </div>
           <label class="visually-hidden" for="chatBox">Nội dung Chat All</label>
+          <!-- Quote preview: hiển thị nội dung trích dẫn chỉ đọc (không thể chỉnh sửa) -->
+          <div class="quote-preview hidden" id="chatQuotePreview">
+            <div class="quote-preview-content" id="chatQuotePreviewContent"></div>
+            <button type="button" class="quote-preview-cancel" id="chatQuoteCancel" title="Bỏ trích dẫn">✕</button>
+          </div>
           <textarea id="chatBox" class="composer-input" rows="1" maxlength="3000"
                     placeholder="Nhập tin nhắn"></textarea>
           <div class="composer-footer">
@@ -360,6 +365,16 @@
             <button type="button" class="tb-btn" data-fmt="quote" title="Trích dẫn">❝</button>
             <button type="button" class="tb-btn" data-fmt="code" title="Code">&lt;/&gt;</button>
             <input type="file" id="uploadImgInput" accept="image/*" class="hidden" />
+          </div>
+          <!-- Reply threading: dòng nhắc "đang trả lời @tác giả" + nút hủy -->
+          <div class="reply-indicator hidden" id="replyIndicator">
+            <span class="reply-indicator-text">↳ Đang trả lời <strong class="reply-indicator-author" id="replyIndicatorAuthor"></strong></span>
+            <button type="button" class="reply-indicator-cancel" id="replyIndicatorCancel" title="Hủy trả lời">✕ Hủy</button>
+          </div>
+          <!-- Quote preview: hiển thị nội dung trích dẫn chỉ đọc (không thể chỉnh sửa) -->
+          <div class="quote-preview hidden" id="commentQuotePreview">
+            <div class="quote-preview-content" id="commentQuotePreviewContent"></div>
+            <button type="button" class="quote-preview-cancel" id="commentQuoteCancel" title="Bỏ trích dẫn">✕</button>
           </div>
           <label class="visually-hidden" for="commentBox">Nội dung bình luận</label>
           <textarea id="commentBox" class="composer-input" rows="1" maxlength="3000"

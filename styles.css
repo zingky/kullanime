@@ -1089,6 +1089,43 @@ html[data-theme="light"] .modal { background: rgba(255, 255, 255, 0.72); }
 .captcha-input { width: 76px; }
 .captcha-refresh { flex-shrink: 0; width: 38px; height: 38px; display: inline-flex; align-items: center; justify-content: center; border: var(--glass-border); border-radius: var(--radius-sm); background: var(--bg-elev); color: var(--text-dim); font-size: 15px; cursor: pointer; transition: border-color .2s, color .2s, transform .2s; backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); }
 .captcha-refresh:hover { border-color: var(--accent); color: var(--accent); transform: rotate(180deg); }
+.quote-preview {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  padding: 8px 10px;
+  margin-bottom: 6px;
+  background: rgba(255,255,255,0.03);
+  border-left: 3px solid var(--accent, #6c5ce7);
+  border-radius: 0 var(--radius-sm, 6px) var(--radius-sm, 6px) 0;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--text-dim, #999);
+  max-height: 80px;
+  overflow-y: auto;
+}
+.quote-preview .quote-preview-content {
+  flex: 1 1 auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+  overflow-wrap: break-word;
+}
+.quote-preview .quote-preview-cancel {
+  flex: 0 0 auto;
+  cursor: pointer;
+  background: none;
+  border: none;
+  color: var(--text-dim, #999);
+  font-size: 14px;
+  padding: 0 2px;
+  line-height: 1;
+  opacity: 0.6;
+  transition: opacity 0.15s, color 0.15s;
+}
+.quote-preview .quote-preview-cancel:hover {
+  opacity: 1;
+  color: var(--danger, #ff4757);
+}
 .rate-limit-hint { flex-basis: 100%; font-size: 12px; color: var(--warning); }
 /* Dòng trạng thái khi đã đăng nhập (composer bình luận & chat) */
 .auth-name-line {
@@ -1125,6 +1162,31 @@ html[data-theme="light"] .modal { background: rgba(255, 255, 255, 0.72); }
 .comment-body pre { background: var(--bg-elev); padding: 12px; border-radius: 8px; overflow-x: auto; border: 1px solid var(--border); }
 .comment-body pre code { background: none; padding: 0; }
 .comment-body a { color: var(--accent); text-decoration: underline; word-break: break-all; }
+
+/* ============ REPLY THREADING (bình luận trả lời lồng 1 cấp) ============ */
+/* Dòng nhắc "đang trả lời @tác giả" hiện ngay trong composer */
+.reply-indicator { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 2px 0 10px; padding: 7px 12px; border-radius: 8px; border: 1px dashed var(--accent); background: color-mix(in srgb, var(--accent) 8%, var(--bg-soft)); font-size: 13px; color: var(--text-dim); }
+.reply-indicator-text { display: inline-flex; align-items: center; gap: 6px; min-width: 0; }
+.reply-indicator-author { color: var(--accent); }
+.reply-indicator-cancel { border: none; background: none; color: var(--text-faint); cursor: pointer; font-size: 12px; padding: 2px 8px; border-radius: 6px; white-space: nowrap; transition: color 0.12s ease; }
+.reply-indicator-cancel:hover { color: var(--danger); background: rgba(239,68,68,0.1); }
+/* Reply con lồng dưới bình luận cha */
+.comment-replies { margin-left: 34px; margin-top: 10px; display: flex; flex-direction: column; gap: 10px; border-left: 2px solid var(--border); padding-left: 12px; }
+.comment-replies .comment-item { border-color: var(--border); background: color-mix(in srgb, var(--bg-soft) 55%, var(--bg-card)); }
+.comment-replies .comment-item:hover { border-color: color-mix(in srgb, var(--accent) 30%, var(--border)); }
+.comment-replies .comment-item.pinned { border-color: rgba(245,158,11,0.5); background: color-mix(in srgb, rgba(245,158,11,0.07), var(--bg-soft)); }
+/* Nhãn "↳ Trả lời @tên cha" trên reply con */
+.comment-reply-to { font-size: 12px; color: var(--text-dim); margin-bottom: 4px; display: inline-flex; align-items: center; gap: 4px; }
+.reply-to-jump {
+  background: none; border: none; padding: 0; margin: 0;
+  color: var(--accent); cursor: pointer; font-size: 12px;
+  font-weight: 600; text-decoration: none; transition: opacity 0.12s;
+}
+.reply-to-jump:hover { opacity: 0.75; text-decoration: underline; }
+.reply-to-ghost { color: var(--text-faint); font-style: italic; }
+/* Bình luận reply con: thu nhỏ tiêu đề một chút */
+.comment-replies .comment-item.is-reply .comment-head { font-size: 13px; }
+
 
 /* ============ BÌNH LUẬN / TIN NHẮN DÀI: thu gọn + xem thêm ============ */
 .long-text[data-expanded="false"] .long-text-body { max-height: 9.5em; overflow: hidden; }
@@ -1342,26 +1404,74 @@ html[data-theme="light"] .modal { background: rgba(255, 255, 255, 0.72); }
   transition: all 0.15s ease; flex-shrink: 0;
 }
 .chat-panel-close:hover { color: var(--danger); border-color: rgba(239, 68, 68, 0.45); }
-.chat-panel-body { padding: 12px 14px 16px; overflow: hidden; display: flex; flex-direction: column; gap: 10px; }
+.chat-panel-body { padding: 10px 10px 12px; overflow: hidden; display: flex; flex-direction: column; gap: 8px; }
 .chat-panel-body .chat-messages { overflow-y: auto; min-height: 0; flex: 1 1 auto; }
-.chat-panel-body .chat-layout { max-width: none; flex-shrink: 0; }
+.chat-panel-body .chat-layout { width: 100%; max-width: 100%; flex-shrink: 0; }
 .chat-panel-body .chat-layout .composer { margin-bottom: 0; }
 .chat-panel-body .chat-messages .comment-list { padding-right: 4px; }
 
-/* Khung chat: mặc định chỉ hiện ô nhập 1 dòng gọn (không hiện footer/captcha);
-   khi bấm vào ô nhập (focus) mới hiện đủ thanh công cụ + footer (tên/captcha/gửi)
-   và ô nhập giãn ra 5 dòng; gõ hơn 5 dòng thì cuộn nội bộ (đúng kiểu Discord). */
-.chat-layout .composer-toolbar { display: none; }
-.chat-layout .composer-footer { display: none; }
-.chat-layout .composer:focus-within .composer-toolbar { display: flex; }
-.chat-layout .composer:focus-within .composer-footer { display: flex; }
-.chat-layout .composer-input { min-height: 22px; resize: none; max-height: 105px; } /* 1 dòng khởi điểm; tối đa 5 dòng (14px x 1.5) */
-.chat-layout .composer:focus-within .composer-input { min-height: 105px; } /* 5 dòng khi mở soạn thảo */
+/* Khung chat: thanh gõ tin gọn, phẳng, tràn hết bề rộng panel.
+   Mặc định ô nhập chỉ cao 1 dòng khít chữ — chiều cao do autoResizeComposer
+   giãn theo nội dung khi gõ (không nhảy vọt 5 dòng ngay khi focus). */
+.chat-panel-body .chat-layout .composer {
+  display: block;
+  width: 100%; box-sizing: border-box;
+  margin: 0;
+  padding: 6px 8px;
+  background: rgba(255, 255, 255, 0.04);
+  border: var(--glass-border);
+  border-radius: 10px;
+  box-shadow: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+.chat-panel-body .chat-layout .composer-toolbar { display: none; }
+.chat-panel-body .chat-layout .composer-footer { display: none; }
+.chat-panel-body .chat-layout .composer:focus-within .composer-toolbar { display: flex; }
+.chat-panel-body .chat-layout .composer:focus-within .composer-footer { display: flex; }
+/* Thanh công cụ + footer gọn: nút nhỏ, không phình to */
+.chat-panel-body .chat-layout .composer-toolbar {
+  margin: 0 0 5px; padding: 0 0 5px; gap: 2px;
+  border-bottom: 1px solid var(--border);
+}
+.chat-panel-body .chat-layout .tb-btn { min-width: 26px; height: 26px; padding: 0 6px; font-size: 13px; border-radius: 6px; }
+/* Ô nhập: full-width tràn sát 2 bên mép, 1 dòng khít chữ,
+   giãn theo nội dung khi gõ, tối đa 4 dòng rồi cuộn trong */
+.chat-panel-body .chat-layout .composer-input {
+  display: block;
+  width: 100%; box-sizing: border-box;
+  min-height: 22px; max-height: 88px; resize: none;
+  padding: 0 2px; font-size: 14px; line-height: 20px;
+  overflow: hidden;
+}
+.chat-panel-body .chat-layout .composer:focus-within .composer-input { min-height: 22px; } /* không nhảy 5 dòng khi focus */
+/* Footer: tên + captcha + gửi xếp 1-2 hàng gọn, item thấp, không che nhau */
+.chat-panel-body .chat-layout .composer-footer {
+  flex-wrap: wrap; gap: 6px; row-gap: 6px; align-items: center;
+}
+.chat-panel-body .chat-layout .comment-author-input {
+  flex: 1 1 120px; min-width: 90px;
+  padding: 6px 10px; font-size: 13px; height: auto;
+}
+.chat-panel-body .chat-layout .captcha-wrap { gap: 5px; }
+.chat-panel-body .chat-layout .captcha-question { padding: 5px 9px; font-size: 13px; }
+.chat-panel-body .chat-layout .captcha-input { width: 58px; padding: 6px 8px; font-size: 13px; }
+.chat-panel-body .chat-layout .captcha-refresh { width: 30px; height: 30px; font-size: 13px; }
+.chat-panel-body .chat-layout .composer-footer .btn { padding: 6px 12px; font-size: 13px; height: auto; }
 
 /* Mobile: bong bóng + panel gọn theo mép */
 @media (max-width: 480px) {
   .chat-fab { left: 14px; bottom: 14px; width: 56px; height: 56px; }
   .chat-panel { left: 12px; bottom: 80px; width: calc(100vw - 24px); }
+  /* Chat All trên màn hình rất nhỏ: tiện ích gõ tin siêu gọn */
+  .chat-panel-body { padding: 8px 8px 10px; gap: 6px; }
+  .chat-panel-body .chat-layout .composer { padding: 5px 6px; border-radius: 8px; }
+  .chat-panel-body .chat-layout .composer-footer { gap: 5px; row-gap: 5px; }
+  .chat-panel-body .chat-layout .comment-author-input { padding: 5px 8px; font-size: 12px; }
+  .chat-panel-body .chat-layout .captcha-question { padding: 4px 7px; font-size: 12px; }
+  .chat-panel-body .chat-layout .captcha-input { width: 48px; padding: 5px 6px; font-size: 12px; }
+  .chat-panel-body .chat-layout .captcha-refresh { width: 28px; height: 28px; font-size: 12px; }
+  .chat-panel-body .chat-layout .composer-footer .btn { padding: 5px 10px; font-size: 12px; }
 }
 
 
@@ -1559,6 +1669,10 @@ html[data-theme="light"] .modal { background: rgba(255, 255, 255, 0.72); }
   .composer-footer { flex-direction: column; align-items: stretch; }
   .composer-footer .btn { width: 100%; }
   .captcha-wrap { justify-content: space-between; }
+  /* Chat All trên mobile: giữ footer bình luận dạng cột nhưng footer chat vẫn xếp
+     hàng gọn (1-2 dòng) để không chiếm hết panel, không che captcha/gửi */
+  .chat-panel-body .chat-layout .composer-footer { flex-direction: row; align-items: center; }
+  .chat-panel-body .chat-layout .composer-footer .btn { width: auto; }
 }
 @media (min-width: 641px) {
   .nav-tab .tab-label { display: inline; }
