@@ -1246,6 +1246,27 @@ html[data-theme="light"] .modal { background: rgba(255, 255, 255, 0.72); }
 .admin-search-input { flex: 1 1 220px; min-width: 150px; }
 .admin-sort-select { flex: 0 1 auto; width: auto; min-width: 160px; cursor: pointer; }
 
+/* ── Bulk select bar ── */
+.admin-bulk-bar { display: none; align-items: center; gap: 12px; padding: 8px 10px; margin-bottom: 8px; background: color-mix(in srgb, var(--bg-elev) 70%, var(--bg-card)); border: 1px solid var(--border); border-radius: var(--radius-sm); font-size: 13px; backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); }
+.admin-bulk-bar.visible { display: flex; }
+.admin-select-all { display: flex; align-items: center; gap: 6px; cursor: pointer; user-select: none; white-space: nowrap; }
+.admin-selected-count { color: var(--text-dim); font-size: 12px; white-space: nowrap; }
+.admin-selected-count:empty { display: none; }
+.btn-sm { padding: 5px 12px; font-size: 12px; border-radius: 7px; }
+
+/* ── Custom checkbox ── */
+.admin-cb { appearance: none; -webkit-appearance: none; width: 18px; height: 18px; border: 2px solid var(--border-strong, rgba(255,255,255,0.2)); border-radius: 5px; background: var(--bg-soft); cursor: pointer; flex-shrink: 0; position: relative; transition: all 0.15s ease; vertical-align: middle; }
+.admin-cb:hover { border-color: var(--accent); }
+.admin-cb:checked { background: var(--accent); border-color: var(--accent); }
+.admin-cb:checked::after { content: ''; position: absolute; left: 4px; top: 1px; width: 6px; height: 10px; border: solid #fff; border-width: 0 2px 2px 0; transform: rotate(45deg); }
+.admin-cb-toggle { appearance: none; -webkit-appearance: none; width: 16px; height: 16px; border: 2px solid var(--border-strong, rgba(255,255,255,0.2)); border-radius: 4px; background: var(--bg-soft); cursor: pointer; position: relative; transition: all 0.15s ease; vertical-align: middle; }
+.admin-cb-toggle:hover { border-color: var(--accent); }
+.admin-cb-toggle:checked { background: var(--accent); border-color: var(--accent); }
+.admin-cb-toggle:checked::after { content: ''; position: absolute; left: 3px; top: 0px; width: 5px; height: 9px; border: solid #fff; border-width: 0 2px 2px 0; transform: rotate(45deg); }
+
+/* ── Selected row highlight ── */
+.admin-row.selected { border-color: var(--accent) !important; background: color-mix(in srgb, var(--accent) 12%, var(--bg-card)) !important; }
+
 /* Danh sách anime & bình luận: hiển thị tối đa ~5 dòng, phần còn lại cuộn dọc */
 #adminAnimeList, #adminCommentList {
   max-height: 380px; /* ~5 dòng admin-row */

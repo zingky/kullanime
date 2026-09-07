@@ -464,6 +464,14 @@
             <option value="title">🔤 Theo tên (A-Z)</option>
           </select>
         </div>
+        <div class="admin-bulk-bar" id="animeBulkBar">
+          <label class="admin-select-all">
+            <input type="checkbox" id="animeSelectAll" class="admin-cb-toggle" />
+            <span>Chọn tất cả</span>
+          </label>
+          <span class="admin-selected-count" id="animeSelectedCount"></span>
+          <button class="btn btn-danger btn-sm" id="animeBulkDelBtn">🗑 Xóa đã chọn</button>
+        </div>
         <div class="admin-list" id="adminAnimeList"></div>
       </div>
 
@@ -498,6 +506,14 @@
             <option value="oldest">🗓 Cũ nhất</option>
             <option value="title">🔤 Theo tên người gửi</option>
           </select>
+        </div>
+        <div class="admin-bulk-bar" id="commentBulkBar">
+          <label class="admin-select-all">
+            <input type="checkbox" id="commentSelectAll" class="admin-cb-toggle" />
+            <span>Chọn tất cả</span>
+          </label>
+          <span class="admin-selected-count" id="commentSelectedCount"></span>
+          <button class="btn btn-danger btn-sm" id="commentBulkDelBtn">🗑 Xóa đã chọn</button>
         </div>
         <div class="admin-list" id="adminCommentList"></div>
       </div>
