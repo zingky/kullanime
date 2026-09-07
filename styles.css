@@ -4,6 +4,15 @@
    component phức tạp + hiệu ứng không có sẵn.
    ============================================================ */
 
+/* ── Nhúng font VNF-Comic Sans cho phụ đề (hoạt động trên mọi thiết bị) ── */
+@font-face {
+  font-family: 'VNF-Comic Sans';
+  src: url('./fonts/VNF-Comic Sans.ttf') format('truetype');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
 :root {
   /* ── Glassmorphism design tokens ── */
   --bg: #0a0e1a;
