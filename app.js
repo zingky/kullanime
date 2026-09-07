@@ -209,7 +209,10 @@
     m.classList.remove('open');
     m.setAttribute('aria-hidden', 'true');
     // Đóng modal anime → hủy channel realtime bình luận anime (đỡ tốn connection)
-    if (id === 'animeModal') teardownAnimeCommentsRealtime();
+    if (id === 'animeModal') {
+      teardownAnimeCommentsRealtime();
+      cancelReply(); // đưa composer về vị trí gốc nếu đang inline trong comment
+    }
   }
 
   // Chặn cuộn nền khi mở modal
@@ -220,7 +223,10 @@
         m.classList.remove('open');
         m.setAttribute('aria-hidden', 'true');
       });
-      if (openModals.some((m) => m.id === 'animeModal')) teardownAnimeCommentsRealtime();
+      if (openModals.some((m) => m.id === 'animeModal')) {
+        teardownAnimeCommentsRealtime();
+        cancelReply(); // composer inline → đưa về vị trí gốc
+      }
     }
   });
   $$('.modal-overlay').forEach((overlay) => {
@@ -228,7 +234,10 @@
       if (e.target === overlay) {
         overlay.classList.remove('open');
         overlay.setAttribute('aria-hidden', 'true');
-        if (overlay.id === 'animeModal') teardownAnimeCommentsRealtime();
+        if (overlay.id === 'animeModal') {
+          teardownAnimeCommentsRealtime();
+          cancelReply(); // composer inline → đưa về vị trí gốc
+        }
       }
     });
   });
@@ -5224,6 +5233,9 @@ function setupSubPopupEvents() {
 
   function renderCommentList() {
     const list = $('#commentList');
+    /* Nếu composer đang inline trong 1 comment (trả lời), đưa về vị trí gốc
+       TRƯỚC KHI innerHTML reset — nếu không, composer sẽ bị xoá cùng DOM cũ. */
+    restoreComposerHome();
     const empty = $('#commentEmpty');
     const comments = State.commentAll || [];
     if (comments.length === 0) {
@@ -5231,6 +5243,7 @@ function setupSubPopupEvents() {
       list.classList.add('hidden');
       empty.classList.remove('hidden');
       renderCommentPagination();
+      if (State.replyTo) cancelReply(); // không còn bình luận nào → thoát trạng thái reply
       return;
     }
     empty.classList.add('hidden');
@@ -5262,6 +5275,18 @@ function setupSubPopupEvents() {
     }).join('');
     list.innerHTML = html;
     renderCommentPagination();
+    /* Nếu vẫn đang trả lời (real-time / đổi trang cập nhật lại danh sách),
+       đặt composer trở lại vào comment đang reply. */
+    if (State.replyTo) {
+      const target = list.querySelector('.comment-item[data-id="' + String(State.replyTo.id) + '"]');
+      const composer = $('#composer');
+      if (target && composer) {
+        target.appendChild(composer);
+        target.classList.add('reply-active');
+      } else {
+        cancelReply(); // comment đang reply đã bị xoá/hết trang → thoát trạng thái reply
+      }
+    }
   }
 
   // Thanh phân trang bình luận: ‹ 1 2 3 … › — 5 bình luận/trang
@@ -5658,12 +5683,34 @@ function setupSubPopupEvents() {
   }
 
   /* ── Reply threading: bật/tắt trạng thái "đang trả lời bình luận X" ── */
+  /* Di chuyển composer về vị trí gốc (trước #commentList trong .comment-section) */
+  function restoreComposerHome() {
+    const composer = $('#composer');
+    const list = $('#commentList');
+    /* Xoá highlight trên tất cả comment */
+    document.querySelectorAll('.comment-item.reply-active').forEach((el) => el.classList.remove('reply-active'));
+    if (!composer || !list) return;
+    const section = list.closest('.comment-section');
+    if (section && list.parentNode === section) {
+      section.insertBefore(composer, list);
+    }
+  }
+
   function setReplyTo(id, author) {
     State.replyTo = { id: String(id), author: author || 'Ẩn danh' };
     const ind = $('#replyIndicator');
     const auth = $('#replyIndicatorAuthor');
     if (ind) ind.classList.remove('hidden');
     if (auth) auth.textContent = State.replyTo.author;
+    /* ── Inline: di chuyển composer vào ngay bên trong comment đang trả lời ── */
+    restoreComposerHome(); /* về vị trí gốc trước (phòng đang reply comment khác) */
+    const commentEl = document.querySelector('.comment-item[data-id="' + String(id) + '"]');
+    const composer = $('#composer');
+    if (commentEl && composer) {
+      commentEl.appendChild(composer);
+      /* Đánh dấu comment đang được reply để CSS highlight */
+      commentEl.classList.add('reply-active');
+    }
     const box = $('#commentBox');
     if (box) box.focus();
   }
@@ -5672,6 +5719,7 @@ function setupSubPopupEvents() {
     State.replyTo = null;
     const ind = $('#replyIndicator');
     if (ind) ind.classList.add('hidden');
+    restoreComposerHome(); // đưa composer về vị trí gốc + xoá highlight
   }
 
   // Bật/tắt "Xem thêm / Thu gọn" cho bình luận & tin nhắn dài
@@ -7977,13 +8025,14 @@ function setupSubPopupEvents() {
         toggleSynopsisTranslation(trBtn.dataset.anime);
         return;
       }
-      // Nút "💬 Trả lời" (reply threading): bật trạng thái trả lời + cuộn lên khung soạn
+      // Nút "💬 Trả lời" (reply threading): bật trạng thái trả lời + cuộn tới comment đang reply
       const rbtn = e.target.closest('[data-reply-to]');
       if (rbtn) {
         e.preventDefault();
         setReplyTo(rbtn.dataset.replyTo, rbtn.dataset.replyAuthor);
+        /* Cuộn tới composer inline (nằm cuối comment đang reply) để chắc chắn thấy ô nhập */
         const composer = $('#composer');
-        if (composer && composer.scrollIntoView) composer.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        if (composer && composer.scrollIntoView) composer.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
         return;
       }
       // Nhãn "↳ Trả lời @tên" trong reply con: nhảy tới bình luận cha

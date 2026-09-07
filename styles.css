@@ -1187,6 +1187,23 @@ html[data-theme="light"] .modal { background: rgba(255, 255, 255, 0.72); }
 /* Bình luận reply con: thu nhỏ tiêu đề một chút */
 .comment-replies .comment-item.is-reply .comment-head { font-size: 13px; }
 
+/* ── Inline reply: composer nằm bên trong comment đang trả lời ── */
+/* Highlight viền comment đang được reply */
+.comment-item.reply-active {
+  border-color: var(--accent) !important;
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 35%, transparent),
+              0 2px 16px color-mix(in srgb, var(--accent) 12%, transparent);
+}
+/* Composer bên trong comment: bo tròn dưới, thêm margin trên, */
+/* bỏ margin-bottom để khít đáy comment-item */
+.comment-item > .composer {
+  margin-top: 10px;
+  margin-bottom: 0;
+  border-top: 1px dashed var(--border);
+  padding-top: 8px;
+  border-radius: 0;
+}
+
 
 /* ============ BÌNH LUẬN / TIN NHẮN DÀI: thu gọn + xem thêm ============ */
 .long-text[data-expanded="false"] .long-text-body { max-height: 9.5em; overflow: hidden; }
