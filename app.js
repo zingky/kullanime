@@ -58,6 +58,9 @@
     lastCommentAt: 0,
     lastChatAt: 0,
     lastGithubAt: 0,      // rate limit cho GitHub API calls (list refresh + .ass fetch)
+    // Quote preview (trích dẫn chỉ đọc — User không sửa được nội dung quote)
+    commentQuote: null,   // { author, text } nội dung trích dẫn được chèn vào ô bình luận
+    chatQuote: null,      // { author, text } nội dung trích dẫn được chèn vào ô chat
     // Realtime (Supabase Postgres Changes)
     chatRT: null,         // channel realtime chat chung (anime_id = null)
     animeRT: null,        // channel realtime bình luận anime đang mở modal
@@ -75,6 +78,7 @@
     commentAll: [],        // toàn bộ bình luận của anime đang mở
     commentPage: 1,        // trang bình luận đang hiển thị (5 bình luận/trang)
     commentPerPage: 5,     // số bình luận mỗi trang
+    replyTo: null,         // reply threading: { id, author } của bình luận cha (null = bình luận gốc)
     chatAll: [],           // toàn bộ tin chat chung
     chatVisible: 3,        // số tin chat hiển thị (thu gọn = 3)
     chatExpanded: false    // trạng thái mở rộng sticky chat
@@ -4639,6 +4643,8 @@ function setupSubPopupEvents() {
       const cBox = $('#commentBox');
       if (cBox) { cBox.style.height = ''; cBox.style.overflowY = 'hidden'; }
     }
+    cancelReply(); // mở anime khác → xoá trạng thái "đang trả lời" còn sót lại
+    clearCommentQuote(); // mở anime khác → bỏ luôn trích dẫn chỉ đọc còn sót lại
     loadComments(anime.id);
     newCaptcha();
     setupAnimeCommentsRealtime(anime.id); // realtime: bình luận anime mới đẩy tức thì
@@ -5229,12 +5235,32 @@ function setupSubPopupEvents() {
     }
     empty.classList.add('hidden');
     list.classList.remove('hidden');
-    const totalPages = Math.ceil(comments.length / State.commentPerPage);
+    // Reply threading: bình luận gốc = parent_id null; reply con nhóm dưới cha.
+    // Edge case: nếu không còn bình luận gốc nào (cha nằm ngoài limit 100) → coi
+    // mọi comment là gốc để hiển thị, tránh trang trống.
+    const rootComments = comments.filter((c) => !c.parent_id);
+    const roots = rootComments.length > 0 ? rootComments : comments;
+    const totalPages = Math.max(1, Math.ceil(roots.length / State.commentPerPage));
     const page = Math.min(Math.max(1, State.commentPage), totalPages);
     State.commentPage = page;
     const start = (page - 1) * State.commentPerPage;
-    const visible = comments.slice(start, start + State.commentPerPage);
-    list.innerHTML = visible.map((c) => commentHTML(c)).join('');
+    const visibleRoots = roots.slice(start, start + State.commentPerPage);
+    // Bản đồ id → comment để render nhãn "↳ Trả lời @tên cha" và nhảy tới cha
+    const cmap = {};
+    comments.forEach((c) => { cmap[String(c.id)] = c; });
+    const html = visibleRoots.map((root) => {
+      // Các reply của cha này, theo thứ tự thời gian (cũ → mới, như một cuộc hội thoại)
+      const replies = comments
+        .filter((c) => c.parent_id && String(c.parent_id) === String(root.id))
+        .sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+      return (
+        commentHTML(root, cmap) +
+        (replies.length
+          ? '<div class="comment-replies">' + replies.map((r) => commentHTML(r, cmap)).join('') + '</div>'
+          : '')
+      );
+    }).join('');
+    list.innerHTML = html;
     renderCommentPagination();
   }
 
@@ -5243,8 +5269,10 @@ function setupSubPopupEvents() {
     const wrap = $('#commentPagination');
     if (!wrap) return;
     const comments = State.commentAll || [];
-    const totalPages = Math.max(1, Math.ceil(comments.length / State.commentPerPage));
-    if (comments.length === 0 || totalPages <= 1) {
+    // Phân trang chỉ tính bình luận gốc; reply con nằm lồng bên dưới cha của chúng.
+    const rootCount = comments.filter((c) => !c.parent_id).length;
+    const totalPages = Math.max(1, Math.ceil(rootCount / State.commentPerPage));
+    if (rootCount === 0 || totalPages <= 1) {
       wrap.classList.add('hidden');
       wrap.innerHTML = '';
       return;
@@ -5275,15 +5303,34 @@ function setupSubPopupEvents() {
     wrap.innerHTML = btns.join('');
   }
 
-  function commentHTML(c) {
+  function commentHTML(c, cmap) {
     const isPinned = !!c.is_pinned;
+    const isReply = !!c.parent_id;
     const author = c.author_name || 'Ẩn danh';
+    // Reply threading — nhãn "↳ @tên cha" cho reply con (bấm để nhảy tới bình luận cha)
+    const parentC = isReply && cmap ? cmap[String(c.parent_id)] : null;
+    const replyBadge = isReply
+      ? '<div class="comment-reply-to">↳ Trả lời ' +
+          (parentC
+            ? '<button type="button" class="reply-to-jump" data-reply-go="' + esc(parentC.id) + '" title="Nhảy tới bình luận gốc">@' + esc(parentC.author_name || 'Ẩn danh') + '</button>'
+            : '<span class="reply-to-ghost">@' + esc(author) + '</span>') +
+        '</div>'
+      : '';
     let actions =
       '<div class="comment-actions">' +
-        '<button class="comment-action-btn" data-quote-src="' + esc(c.content) + '" data-quote-author="' + esc(author) + '" title="Trả lời bằng trích dẫn">❝ Trả lời</button>';
+      // Reply threading (1 cấp): chỉ reply được lên bình luận GỐC.
+      // Reply con không hiện nút "Trả lời" — server trigger cũng từ chối lồng > 1 cấp.
+      (!isReply
+        ? '<button class="comment-action-btn" data-reply-to="' + esc(c.id) + '" data-reply-author="' + esc(author) + '" title="Trả lời trực tiếp bình luận này">💬 Trả lời</button>'
+        : '') +
+        '<button class="comment-action-btn" data-quote-src="' + esc(c.content) + '" data-quote-author="' + esc(author) + '" title="Chèn trích dẫn vào ô soạn">❝</button>';
     if (State.isAdmin) {
+      // Reply con không cho ghim (chỉ bình luận gốc mới ghim được)
+      if (!isReply) {
+        actions +=
+          '<button class="comment-action-btn" data-act="pin" data-id="' + esc(c.id) + '" title="' + (isPinned ? 'Bỏ ghim' : 'Ghim') + '">' + (isPinned ? '📌 Ghim' : '📍 Ghim') + '</button>';
+      }
       actions +=
-          '<button class="comment-action-btn" data-act="pin" data-id="' + esc(c.id) + '" title="' + (isPinned ? 'Bỏ ghim' : 'Ghim') + '">' + (isPinned ? '📌 Ghim' : '📍 Ghim') + '</button>' +
           '<button class="comment-action-btn danger" data-act="del" data-id="' + esc(c.id) + '" title="Xóa">🗑</button>';
     }
     actions += '</div>';
@@ -5294,7 +5341,8 @@ function setupSubPopupEvents() {
       ? '<div class="long-text" data-expanded="false">' + bodyInner + '<button type="button" class="long-text-toggle">Xem thêm ▾</button></div>'
       : bodyInner;
     return (
-      '<div class="comment-item' + (isPinned ? ' pinned' : '') + '" data-id="' + esc(c.id) + '">' +
+      '<div class="comment-item' + (isPinned ? ' pinned' : '') + (isReply ? ' is-reply' : '') + '" data-id="' + esc(c.id) + '">' +
+        replyBadge +
         '<div class="comment-head">' +
           '<span class="comment-author">' + esc(author) + '</span>' +
           (isPinned ? '<span class="pin-badge">📌 Đã ghim</span>' : '') +
@@ -5498,18 +5546,32 @@ function setupSubPopupEvents() {
     const exists = (State.commentAll || []).some((c) => c && String(c.id) === String(row.id));
     if (exists) return;
     const list = State.commentAll || [];
-    // Chèn đúng thứ tự DB (is_pinned DESC, created_at DESC): sau các tin đã ghim, trước tin mới hơn cùng nhóm
-    const insertAt = list.findIndex((c) => !c.is_pinned);
-    list.splice(insertAt === -1 ? list.length : insertAt, 0, row);
+    if (row.parent_id) {
+      // Reply con: chèn ngay SAU cha, đứng sau các reply cũ của cha (giữ thứ tự hội thoại)
+      const pIdx = list.findIndex((c) => String(c.id) === String(row.parent_id));
+      if (pIdx !== -1) {
+        let idx = pIdx + 1;
+        while (idx < list.length && String(list[idx].parent_id) === String(row.parent_id)) idx++;
+        list.splice(idx, 0, row);
+      } else {
+        // Cha chưa nằm trong danh sách đã load (do giới hạn 100) → đưa lên như bình luận gốc
+        const insertAt = list.findIndex((c) => !c.is_pinned);
+        list.splice(insertAt === -1 ? list.length : insertAt, 0, row);
+      }
+    } else {
+      // Bình luận gốc: chèn đúng thứ tự DB (is_pinned DESC, created_at DESC): sau các tin đã ghim, trước tin mới hơn cùng nhóm
+      const insertAt = list.findIndex((c) => !c.is_pinned);
+      list.splice(insertAt === -1 ? list.length : insertAt, 0, row);
+    }
     State.commentAll = list;
     renderCommentList();
   }
 
-  // Xoá bình luận anime real-time
+  // Xoá bình luận anime real-time (kèm các reply con — do ON DELETE CASCADE phía DB)
   function onDeleteAnimeComment(id) {
     if (!id) return;
     const before = (State.commentAll || []).length;
-    State.commentAll = (State.commentAll || []).filter((c) => c && String(c.id) !== String(id));
+    State.commentAll = (State.commentAll || []).filter((c) => c && String(c.id) !== String(id) && String(c.parent_id || '') !== String(id));
     if (State.commentAll.length === before) return;
     renderCommentList();
   }
@@ -5523,13 +5585,13 @@ function setupSubPopupEvents() {
   }
 
   // Tự giãn ô nhập (chat/comment) theo nội dung.
-  // - Ô nhập chat (#chatBox): tối đa 5 dòng rồi cuộn nội bộ (Discord-style)
+  // - Ô nhập chat (#chatBox): tối đa 4 dòng gọn rồi cuộn nội bộ
   // - Ô nhập bình luận anime (#commentBox): tối đa 11 dòng rồi cuộn nội bộ
   function autoResizeComposer(box) {
     if (!box || !box.getClientRects || !box.getClientRects().length) return; // đang ẩn (display:none) → bỏ qua
     const cs = getComputedStyle(box);
     const lineH = parseFloat(cs.lineHeight) || 21;          // px mỗi dòng
-    const maxLines = box.id === 'chatBox' ? 5 : 11;          // chat: 5 dòng; bình luận: 11 dòng
+    const maxLines = box.id === 'chatBox' ? 4 : 11;          // chat: 4 dòng gọn; bình luận: 11 dòng
     const maxH = Math.round(lineH * maxLines);               // giới hạn số dòng
     box.style.height = 'auto';
     box.style.height = Math.min(box.scrollHeight, maxH) + 'px';
@@ -5541,24 +5603,75 @@ function setupSubPopupEvents() {
     return String(src || '').replace(/\[quote\][\s\S]*?\[\/quote\]/gi, '').trim();
   }
 
-  // Nút "❝ Trả lời" trong Chat All: chèn trích dẫn vào đầu ô nhập chat
+  // Hiển thị preview trích dẫn chỉ đọc phía trên ô nhập.
+  // Quote KHÔNG được nhét vào textarea → người dùng (kể cả admin) không thể sửa nội dung quote.
+  function renderQuotePreview(prevId, contentId, quote) {
+    const wrap = $(prevId);
+    const body = $(contentId);
+    if (!wrap || !body) return;
+    if (!quote || !quote.text) {
+      wrap.classList.add('hidden');
+      body.textContent = '';
+      return;
+    }
+    const authorLine = quote.author ? quote.author + ':\n' : '';
+    body.textContent = authorLine + quote.text;
+    wrap.classList.remove('hidden');
+  }
+
+  function clearCommentQuote() {
+    State.commentQuote = null;
+    renderQuotePreview('#commentQuotePreview', '#commentQuotePreviewContent', null);
+  }
+
+  function clearChatQuote() {
+    State.chatQuote = null;
+    renderQuotePreview('#chatQuotePreview', '#chatQuotePreviewContent', null);
+  }
+
+  // Nút "❝ Trả lời" trong Chat All: hiển thị trích dẫn chỉ đọc phía trên ô nhập chat
   function quoteIntoChat(author, src) {
     const box = $('#chatBox');
     if (!box) return;
-    const quote = '[quote]' + (author ? author + ':\n' : '') + stripQuotes(src) + '[/quote]\n\n';
-    box.value = quote + box.value;
+    State.chatQuote = { author: author || '', text: stripQuotes(src) };
+    renderQuotePreview('#chatQuotePreview', '#chatQuotePreviewContent', State.chatQuote);
     box.focus();
     autoResizeComposer(box);
   }
 
-  // Nút "❝ Trả lời" trong bình luận anime: chèn trích dẫn vào đầu ô nhập bình luận
+  // Nút "❝ Trả lời" trong bình luận anime: hiển thị trích dẫn chỉ đọc phía trên ô nhập bình luận
   function quoteIntoComment(author, src) {
     const box = $('#commentBox');
     if (!box) return;
-    const quote = '[quote]' + (author ? author + ':\n' : '') + stripQuotes(src) + '[/quote]\n\n';
-    box.value = quote + box.value;
+    State.commentQuote = { author: author || '', text: stripQuotes(src) };
+    renderQuotePreview('#commentQuotePreview', '#commentQuotePreviewContent', State.commentQuote);
     box.focus();
     autoResizeComposer(box);
+  }
+
+  // Ghép nội dung trích dẫn (đang hiển thị dạng chỉ đọc) vào nội dung gửi đi
+  // → Quote luôn được gắn vào đầu, kể cả khi người dùng không gõ thêm gì.
+  function buildQuotedContent(quote, content) {
+    if (!quote || !quote.text) return content;
+    const quoteBlock = '[quote]' + (quote.author ? quote.author + ':\n' : '') + quote.text + '[/quote]\n\n';
+    return quoteBlock + (content || '');
+  }
+
+  /* ── Reply threading: bật/tắt trạng thái "đang trả lời bình luận X" ── */
+  function setReplyTo(id, author) {
+    State.replyTo = { id: String(id), author: author || 'Ẩn danh' };
+    const ind = $('#replyIndicator');
+    const auth = $('#replyIndicatorAuthor');
+    if (ind) ind.classList.remove('hidden');
+    if (auth) auth.textContent = State.replyTo.author;
+    const box = $('#commentBox');
+    if (box) box.focus();
+  }
+
+  function cancelReply() {
+    State.replyTo = null;
+    const ind = $('#replyIndicator');
+    if (ind) ind.classList.add('hidden');
   }
 
   // Bật/tắt "Xem thêm / Thu gọn" cho bình luận & tin nhắn dài
@@ -5679,7 +5792,8 @@ function setupSubPopupEvents() {
       toast('Không xác định được tên tài khoản. Vui lòng đăng nhập lại.', 'warning'); return;
     }
     if (!author) { toast('Vui lòng nhập tên hiển thị.', 'warning'); return; }
-    if (!content) { toast('Vui lòng nhập nội dung bình luận.', 'warning'); return; }
+    // Cho phép gửi nếu có trích dẫn chỉ đọc (tương đương hành vi cũ: quote nằm trong textarea)
+    if (!content && !(State.commentQuote && State.commentQuote.text)) { toast('Vui lòng nhập nội dung bình luận.', 'warning'); return; }
     if (!loggedIn && author) saveGuestName(author); // khách: nhớ tên để lần sau nhận diện lại tin của mình
     if (!enforceRateLimit()) return;
     if (!loggedIn) {
@@ -5692,16 +5806,22 @@ function setupSubPopupEvents() {
     }
     const btn = $('#submitCommentBtn');
     btn.disabled = true;
-    const safeContent = filterBadWords(content).slice(0, 3000);
+    // Quote chỉ đọc: gắn [quote]...[/quote] từ preview (user không thể sửa nội dung quote)
+    const quoted = buildQuotedContent(State.commentQuote, content);
+    const safeContent = filterBadWords(quoted).slice(0, 3000);
+    // Reply threading: nếu đang ở trạng thái "trả lời bình luận X" thì gắn parent_id
+    const parentId = State.replyTo ? State.replyTo.id : null;
     const { error } = await State.supabase
       .from('comments')
-      .insert({ anime_id: anime.id, author_name: author.slice(0, 60), content: safeContent, is_pinned: false });
+      .insert({ anime_id: anime.id, parent_id: parentId, author_name: author.slice(0, 60), content: safeContent, is_pinned: false });
     btn.disabled = false;
     if (error) {
       toast('Không gửi được bình luận: ' + error.message, 'error', 5000);
       return;
     }
     State.lastCommentAt = Date.now();
+    cancelReply(); // thoát trạng thái trả lời đang hiển thị trên composer
+    clearCommentQuote(); // bỏ trích dẫn chỉ đọc sau khi gửi
     $('#commentBox').value = '';
     autoResizeComposer($('#commentBox'));
     newCaptcha();
@@ -5754,7 +5874,8 @@ function setupSubPopupEvents() {
       toast('Không xác định được tên tài khoản. Vui lòng đăng nhập lại.', 'warning'); return;
     }
     if (!author) { toast('Vui lòng nhập tên hiển thị.', 'warning'); return; }
-    if (!content) { toast('Vui lòng nhập nội dung chat.', 'warning'); return; }
+    // Cho phép gửi nếu có trích dẫn chỉ đọc (tương đương hành vi cũ: quote nằm trong textarea)
+    if (!content && !(State.chatQuote && State.chatQuote.text)) { toast('Vui lòng nhập nội dung chat.', 'warning'); return; }
     if (!loggedIn && author) saveGuestName(author); // khách: nhớ tên để lần sau nhận diện lại tin của mình
     if (!enforceChatRateLimit()) return;
     if (!loggedIn) {
@@ -5767,7 +5888,9 @@ function setupSubPopupEvents() {
     }
     const btn = $('#chatSendBtn');
     btn.disabled = true;
-    const safeContent = filterBadWords(content).slice(0, 3000);
+    // Quote chỉ đọc: gắn [quote]...[/quote] từ preview (user không thể sửa nội dung quote)
+    const quoted = buildQuotedContent(State.chatQuote, content);
+    const safeContent = filterBadWords(quoted).slice(0, 3000);
     const { error } = await State.supabase
       .from('comments')
       .insert({ anime_id: null, author_name: author.slice(0, 60), content: safeContent, is_pinned: false });
@@ -5777,6 +5900,7 @@ function setupSubPopupEvents() {
       return;
     }
     State.lastChatAt = Date.now();
+    clearChatQuote(); // bỏ trích dẫn chỉ đọc sau khi gửi
     $('#chatBox').value = '';
     autoResizeComposer($('#chatBox'));
     newChatCaptcha();
@@ -7246,7 +7370,11 @@ function setupSubPopupEvents() {
 
     // Bình luận: gửi & captcha & toolbar (bold/italic/.../) + paste tự xử lý link/ảnh
     $('#submitCommentBtn').addEventListener('click', submitComment);
+    const _canc = $('#replyIndicatorCancel');
+    if (_canc) _canc.addEventListener('click', cancelReply);
     $('#captchaRefresh').addEventListener('click', newCaptcha);
+    const _commentQuoteCancel = $('#commentQuoteCancel');
+    if (_commentQuoteCancel) _commentQuoteCancel.addEventListener('click', clearCommentQuote);
     $$('#composer .tb-btn[data-fmt]').forEach((btn) => {
       btn.addEventListener('click', () => applyFormat(btn.dataset.fmt));
     });
@@ -7284,6 +7412,8 @@ function setupSubPopupEvents() {
     // Chat chung (sticky dock): gửi & captcha & toolbar & paste & click nhãn anime & mở rộng
     $('#chatSendBtn').addEventListener('click', submitChat);
     $('#chatCaptchaRefresh').addEventListener('click', newChatCaptcha);
+    const _chatQuoteCancel = $('#chatQuoteCancel');
+    if (_chatQuoteCancel) _chatQuoteCancel.addEventListener('click', clearChatQuote);
     $$('#chatComposer [data-fmt]').forEach((btn) => {
       btn.addEventListener('click', () => {
         const box = $('#chatBox');
@@ -7845,6 +7975,23 @@ function setupSubPopupEvents() {
       const trBtn = e.target.closest('#synopsisTranslateBtn');
       if (trBtn && trBtn.dataset.anime) {
         toggleSynopsisTranslation(trBtn.dataset.anime);
+        return;
+      }
+      // Nút "💬 Trả lời" (reply threading): bật trạng thái trả lời + cuộn lên khung soạn
+      const rbtn = e.target.closest('[data-reply-to]');
+      if (rbtn) {
+        e.preventDefault();
+        setReplyTo(rbtn.dataset.replyTo, rbtn.dataset.replyAuthor);
+        const composer = $('#composer');
+        if (composer && composer.scrollIntoView) composer.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        return;
+      }
+      // Nhãn "↳ Trả lời @tên" trong reply con: nhảy tới bình luận cha
+      const gj = e.target.closest('[data-reply-go]');
+      if (gj) {
+        e.preventDefault();
+        const parentEl = document.querySelector('.comment-item[data-id="' + gj.dataset.replyGo + '"]');
+        if (parentEl && parentEl.scrollIntoView) parentEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
         return;
       }
       // Nút trả lời bằng trích dẫn (ai cũng dùng được, kể cả chưa đăng nhập)

@@ -79,6 +79,9 @@ comment on table public.songs is 'Danh sách nhạc OST kèm liên kết phụ �
 create table public.comments (
   id           uuid primary key default gen_random_uuid(),
   anime_id     uuid references public.animes(id) on delete cascade,
+  -- reply threading: parent_id trỏ tới bình luận cha (null = bình luận gốc)
+  -- ON DELETE CASCADE: xoá cha thì các reply con cũng biến mất
+  parent_id    uuid references public.comments(id) on delete cascade,
   content      text not null default '',
   author_name  text not null default '',
   is_pinned    boolean not null default false,
@@ -87,6 +90,8 @@ create table public.comments (
   created_at   timestamptz not null default now()
 );
 comment on table public.comments is 'Bình luận dạng forum, có thể ghim';
+
+create index if not exists idx_comments_parent_id on public.comments (parent_id);
 
 -- ===== 3) TRIGGER updated_at =====
 create or replace function public.set_updated_at()
@@ -246,6 +251,23 @@ begin
   if length(new.content) > 5000 then
     raise exception 'Bình luận quá dài (tối đa 5000 ký tự).';
   end if;
+
+  -- Reply threading: parent_id (nếu có) phải là bình luận gốc CÙNG anime
+  -- và chỉ lồng 1 cấp (cha không được là reply) — đảm bảo dữ liệu của client.
+  if new.parent_id is not null then
+    if new.anime_id is null then
+      raise exception 'Trả lời chỉ áp dụng cho bình luận trong phim.';
+    end if;
+    perform 1
+      from public.comments p
+      where p.id = new.parent_id
+        and p.anime_id = new.anime_id
+        and p.parent_id is null;
+    if not found then
+      raise exception 'Không thể trả lời: bình luận gốc không tồn tại hoặc đã lồng quá 1 cấp.';
+    end if;
+  end if;
+
   return new;
 end;
 $$;
