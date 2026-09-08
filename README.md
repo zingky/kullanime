@@ -1,4 +1,4 @@
-# KullAnime 🎌
+# KullAnime 🌸
 
 > **Demo live:** https://zingky.github.io/kullanime/
 
