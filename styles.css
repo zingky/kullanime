@@ -1255,12 +1255,12 @@ html[data-theme="light"] .modal { background: rgba(255, 255, 255, 0.72); }
 .admin-search-input { flex: 1 1 220px; min-width: 150px; }
 .admin-sort-select { flex: 0 1 auto; width: auto; min-width: 160px; cursor: pointer; }
 
-/* ── Bulk select bar ── */
-.admin-bulk-bar { display: none; align-items: center; gap: 12px; padding: 8px 10px; margin-bottom: 8px; background: color-mix(in srgb, var(--bg-elev) 70%, var(--bg-card)); border: 1px solid var(--border); border-radius: var(--radius-sm); font-size: 13px; backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); }
-.admin-bulk-bar.visible { display: flex; }
+/* ── Bulk select bar (luôn hiển thị; nút xóa disabled khi chưa chọn) ── */
+.admin-bulk-bar { display: flex; align-items: center; gap: 12px; padding: 8px 10px; margin-bottom: 8px; background: color-mix(in srgb, var(--bg-elev) 70%, var(--bg-card)); border: 1px solid var(--border); border-radius: var(--radius-sm); font-size: 13px; backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); }
 .admin-select-all { display: flex; align-items: center; gap: 6px; cursor: pointer; user-select: none; white-space: nowrap; }
+.admin-select-all:has(.admin-cb-toggle:disabled) { cursor: not-allowed; opacity: 0.55; }
 .admin-selected-count { color: var(--text-dim); font-size: 12px; white-space: nowrap; }
-.admin-selected-count:empty { display: none; }
+.admin-bulk-bar .btn-danger:disabled { opacity: 0.4; cursor: not-allowed; filter: grayscale(80%); }
 .btn-sm { padding: 5px 12px; font-size: 12px; border-radius: 7px; }
 
 /* ── Custom checkbox ── */

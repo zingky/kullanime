@@ -6691,7 +6691,7 @@ function setupSubPopupEvents() {
     if (State.currentAnime) loadComments(State.currentAnime.id);
   }
 
-  // Đồng bộ thanh bulk-select: hiện/ẩn + đếm số mục đã chọn
+  // Đồng bộ thanh bulk-select: đếm số mục đã chọn + trạng thái nút xóa / select-all
   function syncAdminBulkBar(kind) {
     const key = kind === 'anime' ? 'adminSelectedAnime' : 'adminSelectedComments';
     const bar = $(kind === 'anime' ? 'animeBulkBar' : 'commentBulkBar');
@@ -6701,9 +6701,12 @@ function setupSubPopupEvents() {
     const n = State[key].size;
     const checkboxes = document.querySelectorAll((kind === 'anime' ? '#adminAnimeList' : '#adminCommentList') + ' .admin-cb');
     const total = checkboxes.length;
-    bar.classList.toggle('visible', n > 0);
-    if (countEl) countEl.textContent = n > 0 ? ('Đã chọn ' + n + (total ? '/' + total : '') + ' mục') : '';
+    const delBtn = $(kind === 'anime' ? 'animeBulkDelBtn' : 'commentBulkDelBtn');
+    // Luôn hiển thị count + trạng thái nút xóa
+    if (countEl) countEl.textContent = (total ? 'Tổng ' + total + ' · ' : '') + 'Chọn ' + n + ' mục';
+    if (delBtn) delBtn.disabled = n === 0;
     if (selAll) {
+      selAll.disabled = total === 0;
       selAll.checked = n > 0 && n === total;
       selAll.indeterminate = n > 0 && n < total;
     }
