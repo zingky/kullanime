@@ -7473,7 +7473,12 @@ function setupSubPopupEvents() {
     try {
       const done = [];
       for (const key of sections) {
-        const rows = backup[key];
+        let rows = backup[key];
+        // Bảng comments có trigger validate_comment_content: cha phải tồn tại trước khi chèn reply
+        // → sắp xếp BÌNH LUẬN GỐC trước, reply sau (nếu không trigger chặn "bình luận gốc không tồn tại")
+        if (key === 'comments') {
+          rows = rows.filter((r) => !r.parent_id).concat(rows.filter((r) => r.parent_id));
+        }
         let n = 0;
         // Chia lô 100 bản ghi/lần gọi (giới hạn kích thước request của Supabase)
         for (let i = 0; i < rows.length; i += 100) {
