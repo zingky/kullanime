@@ -7435,6 +7435,70 @@ function setupSubPopupEvents() {
   }
 
   /* ──────────────────────────────────────────────────────
+     18b. BACKUP — IMPORT/RESTORE (khôi phục từ file JSON đã export)
+     ────────────────────────────────────────────────────── */
+  async function importBackup(file) {
+    if (!State.isAdmin) return;
+    if (!file) return;
+    let backup;
+    try {
+      backup = JSON.parse(await file.text());
+    } catch (err) {
+      toast('File không đọc được (JSON lỗi): ' + err.message, 'error');
+      return;
+    }
+    if (!backup || backup.app !== 'KullAnime') {
+      toast('File không phải backup của KullAnime.', 'error');
+      return;
+    }
+    const label = { comments: 'bình luận', animes: 'anime', songs: 'bài hát' };
+    const sections = ['comments', 'animes', 'songs']
+      .filter((k) => Array.isArray(backup[k]) && backup[k].length > 0);
+    if (sections.length === 0) {
+      toast('Backup không có dữ liệu nào để khôi phục.', 'warning');
+      return;
+    }
+    const summary = sections.map((k) => label[k] + ': ' + backup[k].length).join(' · ');
+    if (!confirm(
+      'Khôi phục từ backup xuất lúc ' + (backup.exported_at || 'không rõ') + '?\n\n' +
+      'Dữ liệu trong file: ' + summary + '\n\n' +
+      'Chỉ chèn các bản ghi CÒN THIẾU vào Supabase — bản ghi đã tồn tại được giữ nguyên ' +
+      '(không trùng lặp, không ghi đè, an toàn khi chạy lại).\nXác nhận?'
+    )) return;
+    const btn = $('#importBackupBtn');
+    btn.disabled = true;
+    btn.textContent = 'Đang khôi phục...';
+    try {
+      const done = [];
+      for (const key of sections) {
+        const rows = backup[key];
+        let n = 0;
+        // Chia lô 100 bản ghi/lần gọi (giới hạn kích thước request của Supabase)
+        for (let i = 0; i < rows.length; i += 100) {
+          const chunk = rows.slice(i, i + 100);
+          const { error } = await State.supabase.from(key)
+            .upsert(chunk, { onConflict: 'id', ignoreDuplicates: true });
+          if (error) throw new Error('[' + key + '] ' + error.message);
+          n += chunk.length;
+        }
+        done.push(label[key] + ': ' + n);
+      }
+      toast('Đã khôi phục ✅ (' + done.join(' · ') + ')', 'success', 5000);
+      // Làm mới danh sách admin + dữ liệu công khai (bình luận/chat cache)
+      State._adminCommentsCache = null;
+      await renderAdminCommentList();
+      renderAdminAnimeList();
+      if (State.currentAnime) loadComments(State.currentAnime.id);
+      loadGlobalChat(true);
+    } catch (err) {
+      toast('Khôi phục thất bại: ' + err.message, 'error', 6000);
+    } finally {
+      btn.disabled = false;
+      btn.textContent = '📤 Import Backup (Khôi phục)';
+    }
+  }
+
+  /* ──────────────────────────────────────────────────────
      19. EVENT BINDINGS (delegated handlers)
      ────────────────────────────────────────────────────── */
   function bindEvents() {
@@ -8333,6 +8397,17 @@ function setupSubPopupEvents() {
 
     // Export backup
     $('#exportBackupBtn').addEventListener('click', exportBackup);
+    // Import backup (khôi phục từ file JSON đã export)
+    const importBtn = $('#importBackupBtn');
+    const importFile = $('#importBackupFile');
+    if (importBtn && importFile) {
+      importBtn.addEventListener('click', () => importFile.click());
+      importFile.addEventListener('change', () => {
+        const f = importFile.files && importFile.files[0];
+        if (f) importBackup(f);
+        importFile.value = ''; // cho phép chọn lại cùng 1 file ở lần sau
+      });
+    }
 
     // Lấy ảnh nhân vật cho toàn bộ anime cũ (admin)
     $('#backfillCharsBtn').addEventListener('click', () => backfillCharacterImages());
