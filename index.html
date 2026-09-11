@@ -32,7 +32,7 @@
   <!-- File cấu hình (đọc .env.local / fallback) -->
   <script src="./config.js"></script>
 
-  <link rel="stylesheet" href="./styles.css?v=48" />
+  <link rel="stylesheet" href="./styles.css?v=49" />
 </head>
 <body>
   <!-- Nền aurora động (liquid glass background) -->
@@ -136,11 +136,9 @@
         </div>
       </div>
 
-      <!-- Lưới thẻ anime -->
+      <!-- Lưới thẻ anime + thanh phân trang ‹ 1 2 3 … › (thay cho nút "Xem thêm") -->
       <div class="anime-grid" id="animeGrid"></div>
-      <div class="load-more-wrap" id="animeLoadMoreWrap">
-        <button type="button" class="btn btn-primary load-more-btn" id="animeLoadMoreBtn" data-label="Xem thêm anime ▼">Xem thêm anime ▼</button>
-      </div>
+      <div class="anime-pagination hidden" id="animePagination"></div>
       <div class="empty-state hidden" id="animeEmpty">
         <p class="empty-emoji">🍃</p>
         <p class="empty-title">Chưa có anime nào</p>
@@ -714,7 +712,7 @@
   <div class="mini-pop hidden" id="epPop"></div>
   <div class="mini-pop hidden" id="heartPop"></div>
 
-  <script src="./app.js?v=48"></script>
+  <script src="./app.js?v=49"></script>
 </body>
 </html>
 

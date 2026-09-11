@@ -69,8 +69,10 @@
     chatCaptcha: { a: 0, b: 0, result: 0 },
     // AniList (search auto-fill abort)
     jikanAbort: null,
-    // Phân trang hiển thị trên 1 trang
-    animeVisible: 10,      // số anime render mỗi lượt
+    // Phân trang tab Anime (thay cho nút "Xem thêm")
+    animePage: 1,          // trang anime đang hiển thị
+    animeRowsPerPage: 2,   // mỗi trang đủ 2 hàng → perPage = cột × hàng (không lởm chởm)
+    animePerPage: 10,      // fallback: giá trị đo được lần cuối khi lưới hiển thị
     // Sắp xếp tab Anime: chế độ + chiều (desc/asc) để bấm lại nút sắp xếp đảo chiều
     animeSortMode: 'recent',   // recent (Gần đây) | release (Phát hành) | rating (Đánh giá) | title (Tên A-Z)
     animeSortDir: 'desc',      // desc = ▼ (giảm dần), asc = ▲ (tăng dần)
@@ -4395,14 +4397,78 @@ function setupSubPopupEvents() {
     if (list.length === 0) {
       grid.innerHTML = '';
       empty.classList.remove('hidden');
-      updateLoadMore('#animeLoadMoreWrap', 0);
+      renderAnimePagination(0);
       return;
     }
     empty.classList.add('hidden');
-    // Phân trang: chỉ hiển thị animeVisible phần tử đầu
-    const visible = list.slice(0, State.animeVisible);
+    // Phân trang: số anime/trang = số cột lưới × số hàng → mỗi trang luôn đủ hàng,
+    // không bao giờ lởm chởm (vd 7 trên + 3 dưới) ở bất kỳ độ rộng màn hình nào
+    const perPage = getAnimePerPage();
+    const totalPages = Math.max(1, Math.ceil(list.length / perPage));
+    // Kẹp trang vào khoảng hợp lệ (xoá/lọc làm giảm dữ liệu thì không đứng ở trang rỗng)
+    const page = Math.min(Math.max(1, State.animePage), totalPages);
+    State.animePage = page;
+    const start = (page - 1) * perPage;
+    const visible = list.slice(start, start + perPage);
     grid.innerHTML = visible.map((a) => animeCardHTML(a)).join('');
-    updateLoadMore('#animeLoadMoreWrap', list.length - State.animeVisible);
+    renderAnimePagination(totalPages);
+  }
+
+  // Số anime mỗi trang = số cột hiện tại của lưới × số hàng/trang.
+  // Đọc trực tiếp số cột đã resolve của repeat(auto-fill, ...) qua computed style
+  // → chia đều đúng ở MỌI độ rộng màn hình (kể cả vùng 1000–1200px mà hard-code
+  // breakpoint CSS + JS dễ lệch nhau làm tràn hàng).
+  function getAnimePerPage() {
+    const grid = $('#animeGrid');
+    let cols = 0;
+    if (grid) {
+      const tpls = String(getComputedStyle(grid).gridTemplateColumns || '').trim();
+      if (tpls && tpls !== 'none' && tpls.indexOf('px') !== -1) cols = tpls.split(/\s+/).length;
+    }
+    // Ghi nhớ lần đo gần nhất (lưới bị ẩn khi ở tab khác → không đo được, dùng fallback)
+    if (cols > 0) State.animePerPage = cols * (State.animeRowsPerPage || 2);
+    return State.animePerPage || 10;
+  }
+
+  // Thanh phân trang anime ‹ 1 2 3 … › — cùng kiểu với thanh phân trang bình luận
+  function renderAnimePagination(totalPages) {
+    const wrap = $('#animePagination');
+    if (!wrap) return;
+    if (!totalPages || totalPages <= 1) {
+      wrap.innerHTML = '';
+      wrap.classList.add('hidden');
+      return;
+    }
+    const page = State.animePage;
+    // Dãy số trang thông minh: luôn có 1, trang cuối, và trang hiện tại ±1
+    const pages = new Set([1, totalPages, page - 1, page, page + 1]);
+    const sorted = [...pages].filter((p) => p >= 1 && p <= totalPages).sort((a, b) => a - b);
+    const btns = [];
+    // Nút trang trước
+    btns.push(
+      '<button type="button" class="anime-page-btn' + (page <= 1 ? ' disabled' : '') + '" data-apage="' + (page - 1) + '" title="Trang trước" ' + (page <= 1 ? 'disabled' : '') + '>‹</button>'
+    );
+    // Dãy số trang (chèn '…' khi có khoảng trống)
+    let prev = 0;
+    sorted.forEach((p) => {
+      if (prev && p - prev > 1) btns.push('<span class="anime-page-ellipsis">…</span>');
+      btns.push(
+        '<button type="button" class="anime-page-btn' + (p === page ? ' current' : '') + '" data-apage="' + p + '">' + p + '</button>'
+      );
+      prev = p;
+    });
+    // Nút trang sau
+    btns.push(
+      '<button type="button" class="anime-page-btn' + (page >= totalPages ? ' disabled' : '') + '" data-apage="' + (page + 1) + '" title="Trang sau" ' + (page >= totalPages ? 'disabled' : '') + '>›</button>'
+    );
+    wrap.innerHTML = btns.join('');
+    wrap.classList.remove('hidden');
+  }
+
+  // Đổi bộ lọc/tìm kiếm/sắp xếp → quay về trang 1 rồi render lại lưới
+  function resetAnimePageAndRender() {
+    State.animePage = 1;
+    renderAnimeGrid();
   }
 
   // Cập nhật mũi tên chiều sắp xếp trên nút đảo chiều (▼ giảm dần / ▲ tăng dần)
@@ -4423,7 +4489,7 @@ function setupSubPopupEvents() {
     const srt = $('#sortFilter');    if (srt) srt.value = 'recent';
     State.animeSortMode = 'recent';
     State.animeSortDir = 'desc';
-    State.animeVisible = 10;
+    State.animePage = 1;
     updateSortDirBtn();
     updateFilterBadge();
     renderAnimeGrid();
@@ -7356,7 +7422,7 @@ function setupSubPopupEvents() {
         if (srt) srt.value = 'recent';
         State.animeSortMode = 'recent';
         State.animeSortDir = 'desc';
-        State.animeVisible = 10;
+        State.animePage = 1;
         updateSortDirBtn();
         renderAnimeGrid();
         window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -7364,38 +7430,39 @@ function setupSubPopupEvents() {
     }
 
     // Lọc & sắp xếp anime đã render sẵn qua renderAnimeGrid()
+    // Đổi bộ lọc/tìm kiếm/sắp xếp → luôn quay về trang 1 (resetAnimePageAndRender)
     const as = $('#animeSearch');
-    if (as) as.addEventListener('input', renderAnimeGrid);
+    if (as) as.addEventListener('input', resetAnimePageAndRender);
     const stf = $('#statusFilter');
-    if (stf) stf.addEventListener('change', renderAnimeGrid);
+    if (stf) stf.addEventListener('change', resetAnimePageAndRender);
     const srt = $('#sortFilter');
     if (srt) srt.addEventListener('change', () => {
       // Chọn chế độ sắp xếp khác → đặt lại chiều mặc định (tên A-Z tăng dần, còn lại giảm dần)
       State.animeSortMode = srt.value;
       State.animeSortDir = srt.value === 'title' ? 'asc' : 'desc';
       updateSortDirBtn();
-      renderAnimeGrid();
+      resetAnimePageAndRender();
     });
     // Nút đảo chiều sắp xếp (▼/▲): bấm lại → đảo ngược thứ tự hiện tại
     const sdb = $('#sortDirBtn');
     if (sdb) sdb.addEventListener('click', () => {
       State.animeSortDir = State.animeSortDir === 'desc' ? 'asc' : 'desc';
       updateSortDirBtn();
-      renderAnimeGrid();
+      resetAnimePageAndRender();
     });
     // Nút ✕ xoá toàn bộ bộ lọc (kế bên ô tìm kiếm)
     const cfb = $('#clearFiltersBtn');
     if (cfb) cfb.addEventListener('click', resetAnimeFilters);
     const gFil = $('#genreFilter');
-    if (gFil) gFil.addEventListener('change', renderAnimeGrid);
+    if (gFil) gFil.addEventListener('change', resetAnimePageAndRender);
     const tFil = $('#tagFilter');
-    if (tFil) tFil.addEventListener('change', renderAnimeGrid);
+    if (tFil) tFil.addEventListener('change', resetAnimePageAndRender);
     const mSf = $('#myStatusFilter');
-    if (mSf) mSf.addEventListener('change', renderAnimeGrid);
+    if (mSf) mSf.addEventListener('change', resetAnimePageAndRender);
     const sFil = $('#seasonFilter');
-    if (sFil) sFil.addEventListener('change', renderAnimeGrid);
+    if (sFil) sFil.addEventListener('change', resetAnimePageAndRender);
     const yFil = $('#yearFilter');
-    if (yFil) yFil.addEventListener('change', renderAnimeGrid);
+    if (yFil) yFil.addEventListener('change', resetAnimePageAndRender);
     // Nút bộ lọc nâng cao 🔽 — mở/đóng panel Mùa/Năm/Thể loại/Trạng thái
     const ftb = $('#filterToggleBtn');
     const advP = $('#filterAdvanced');
@@ -7404,10 +7471,26 @@ function setupSubPopupEvents() {
       ftb.classList.toggle('open', open);
       updateFilterBadge();
     });
-    const animeLoadMore = $('#animeLoadMoreBtn');
-    if (animeLoadMore) animeLoadMore.addEventListener('click', () => {
-      State.animeVisible += 10;
+    // Thanh phân trang anime ‹ 1 2 3 … › (thay cho nút "Xem thêm") — delegate trên wrap
+    const apWrap = $('#animePagination');
+    if (apWrap) apWrap.addEventListener('click', (e) => {
+      const btn = e.target.closest('[data-apage]');
+      if (!btn || btn.disabled) return;
+      const p = parseInt(btn.dataset.apage, 10) || 1;
+      if (p === State.animePage) return;
+      State.animePage = p;
       renderAnimeGrid();
+      // Đổi trang → cuộn về đầu lưới để người dùng thấy nội dung trang mới
+      const gridEl = $('#animeGrid');
+      if (gridEl && gridEl.scrollIntoView) gridEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+    // Thay đổi kích thước cửa sổ → số cột lưới đổi theo → tính lại số anime/trang (debounce).
+    // Chỉ render khi tab Anime đang mở (lưới ẩn thì không đo được số cột; switchTab sẽ render lại khi quay về).
+    let animeResizeTimer = null;
+    window.addEventListener('resize', () => {
+      if (!document.querySelector('.tab-panel.active[data-panel="anime"]')) return;
+      clearTimeout(animeResizeTimer);
+      animeResizeTimer = setTimeout(renderAnimeGrid, 200);
     });
     const songLoadMore = $('#songLoadMoreBtn');
     if (songLoadMore) songLoadMore.addEventListener('click', () => {
@@ -8441,6 +8524,8 @@ function setupSubPopupEvents() {
     const nav = $('.main-nav');
     const activeBtn = nav && nav.querySelector('.nav-tab[data-tab="' + tabName + '"]');
     moveTabIndicator(nav, activeBtn);
+    // Quay lại tab Anime: đo lại số cột lưới (layout có thể đã đổi khi đang ở tab khác)
+    if (tabName === 'anime' && (State.animes || []).length > 0) renderAnimeGrid();
     // Lưu tab đang mở vào localStorage
     try { localStorage.setItem('kullanime_lastTab', tabName); } catch (_e) {}
   }

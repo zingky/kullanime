@@ -2159,20 +2159,21 @@ select.input option { background: #141a2d; color: var(--text); }
 /* ── Chip hashtag ── */
 .chip-hashtag { color: var(--text-dim); border-color: var(--border); background: rgba(255,255,255,0.03); }
 
-/* ── Thanh phân trang bình luận ‹ 1 2 3 … › ── */
-.comment-pagination {
+/* ── Thanh phân trang ‹ 1 2 3 … › (bình luận + lưới tab Anime) ── */
+.comment-pagination, .anime-pagination {
   display: flex; align-items: center; justify-content: center; gap: 6px;
   padding: 14px 0 4px; flex-wrap: wrap;
 }
-.comment-pagination.hidden { display: none; }
-.comment-page-btn {
+.comment-pagination.hidden, .anime-pagination.hidden { display: none; }
+.comment-page-btn, .anime-page-btn {
   cursor: pointer; min-width: 34px; height: 34px; padding: 0 10px;
   display: inline-flex; align-items: center; justify-content: center;
   border: var(--glass-border); background: rgba(255,255,255,0.06);
   color: var(--text); border-radius: 8px; font-size: 14px; font-weight: 700;
   transition: all .15s ease;
 }
-.comment-page-btn:hover:not(.disabled):not(.current) { border-color: var(--accent); background: rgba(99,102,241,0.18); }
-.comment-page-btn.current { background: var(--accent); border-color: var(--accent); color: #fff; }
-.comment-page-btn.disabled { opacity: 0.4; cursor: not-allowed; }
-.comment-page-ellipsis { color: var(--text-dim); padding: 0 2px; }
+.comment-page-btn:hover:not(.disabled):not(.current),
+.anime-page-btn:hover:not(.disabled):not(.current) { border-color: var(--accent); background: rgba(99,102,241,0.18); }
+.comment-page-btn.current, .anime-page-btn.current { background: var(--accent); border-color: var(--accent); color: #fff; }
+.comment-page-btn.disabled, .anime-page-btn.disabled { opacity: 0.4; cursor: not-allowed; }
+.comment-page-ellipsis, .anime-page-ellipsis { color: var(--text-dim); padding: 0 2px; }
