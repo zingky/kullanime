@@ -31,14 +31,14 @@ begin
   with ins as (
     insert into comments (id, anime_id, parent_id, author_name, content, is_pinned, created_at, user_id)
     select
-      r->>'id',
-      nullif(r->>'anime_id', ''),
-      nullif(r->>'parent_id', ''),
+      (r->>'id')::uuid,
+      nullif(r->>'anime_id', '')::uuid,
+      nullif(r->>'parent_id', '')::uuid,
       r->>'author_name',
       r->>'content',
       coalesce((r->>'is_pinned')::boolean, false),
       coalesce(nullif(r->>'created_at', '')::timestamptz, now()),
-      nullif(r->>'user_id', '')
+      nullif(r->>'user_id', '')::uuid
     from jsonb_array_elements(p_rows) as r
     where r->>'parent_id' is null
     on conflict (id) do nothing
@@ -50,14 +50,14 @@ begin
   with ins as (
     insert into comments (id, anime_id, parent_id, author_name, content, is_pinned, created_at, user_id)
     select
-      r->>'id',
-      nullif(r->>'anime_id', ''),
-      nullif(r->>'parent_id', ''),
+      (r->>'id')::uuid,
+      nullif(r->>'anime_id', '')::uuid,
+      nullif(r->>'parent_id', '')::uuid,
       r->>'author_name',
       r->>'content',
       coalesce((r->>'is_pinned')::boolean, false),
       coalesce(nullif(r->>'created_at', '')::timestamptz, now()),
-      nullif(r->>'user_id', '')
+      nullif(r->>'user_id', '')::uuid
     from jsonb_array_elements(p_rows) as r
     where r->>'parent_id' is not null
     on conflict (id) do nothing
