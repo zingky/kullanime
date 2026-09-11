@@ -14,11 +14,11 @@
 }
 
 :root {
-  /* ── Glassmorphism design tokens ── */
+  /* ── Glassmorphism design tokens — nền rất trong để aurora xuyên qua (liquid glass) ── */
   --bg: #0a0e1a;
-  --bg-soft: rgba(255, 255, 255, 0.04);
-  --bg-card: rgba(255, 255, 255, 0.055);
-  --bg-elev: rgba(255, 255, 255, 0.085);
+  --bg-soft: rgba(255, 255, 255, 0.025);
+  --bg-card: rgba(255, 255, 255, 0.035);
+  --bg-elev: rgba(255, 255, 255, 0.06);
   --border: rgba(255, 255, 255, 0.11);
   --border-strong: rgba(255, 255, 255, 0.2);
   --text: #eef2ff;
@@ -85,9 +85,11 @@ p, h1, h2, h3, h4, h5, h6, li, a, span, div, td, th {
   overflow-wrap: break-word;
 }
 
-/* ═══════════ AURORA / LIQUID GLASS BACKGROUND ═══════════ */
+/* ═══════════ AURORA / LIQUID GLASS BACKGROUND ═══════════
+   Nền động toàn trang (fixed, z-index -2) — xuyên qua các mặt kính trong suốt
+   (card anime, panel nhạc) để tạo cảm giác liquid glass. */
 .bg-aurora { position: fixed; inset: 0; z-index: -2; overflow: hidden; background: var(--bg); }
-.aurora-blob { position: absolute; border-radius: 50%; filter: blur(70px); opacity: 0.5; will-change: transform; animation: auroraFloat 26s ease-in-out infinite alternate; }
+.aurora-blob { position: absolute; border-radius: 50%; filter: blur(70px); opacity: 0.55; will-change: transform; animation: auroraFloat 26s ease-in-out infinite alternate; }
 .blob-1 { width: 46vw; height: 46vw; background: radial-gradient(circle at 30% 30%, #a855f7, transparent 65%); top: -12%; left: -8%; }
 .blob-2 { width: 40vw; height: 40vw; background: radial-gradient(circle at 60% 40%, #2563eb, transparent 65%); top: 8%; right: -10%; animation-delay: -6s; }
 .blob-3 { width: 44vw; height: 44vw; background: radial-gradient(circle at 50% 50%, #22d3ee, transparent 65%); bottom: -14%; left: 18%; animation-delay: -12s; }
@@ -98,6 +100,16 @@ p, h1, h2, h3, h4, h5, h6, li, a, span, div, td, th {
   100% { transform: translate(-3vw, 4vw) scale(0.94); }
 }
 .aurora-grain { position: absolute; inset: 0; opacity: 0.5; background-image: radial-gradient(rgba(255,255,255,0.04) 1px, transparent 1px); background-size: 4px 4px; }
+/* Tôn trọng người dùng bật "Giảm chuyển động" trong hệ điều hành → tắt aurora */
+@media (prefers-reduced-motion: reduce) {
+  .aurora-blob { animation: none; }
+}
+/* Mobile: aurora nhẹ hơn (2 blob sau ẩn, blur nhỏ) — tiết kiệm pin, ít lag khi cuộn,
+   mắt thường khó phân biệt trên màn hình nhỏ */
+@media (max-width: 640px) {
+  .blob-3, .blob-4 { display: none; }
+  .aurora-blob { filter: blur(46px); opacity: 0.45; }
+}
 
 /* Glass surface helper */
 .glass {
