@@ -31,3 +31,4 @@ exxtension youtube aegisub/
 # Script tam trong qua trinh sua file (KHONG commit)
 _*.py
 _subblock.txt
+kullanime-backup*.json
