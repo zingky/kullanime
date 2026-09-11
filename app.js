@@ -7439,6 +7439,24 @@ function setupSubPopupEvents() {
   /* ──────────────────────────────────────────────────────
      18b. BACKUP — IMPORT/RESTORE (khôi phục từ file JSON đã export)
      ────────────────────────────────────────────────────── */
+  // Gọi hàm restore_comments (SECURITY DEFINER — bypass RLS, giữ nguyên user_id gốc).
+  // Trả về số dòng đã chèn; trả về null nếu hàm CHƯA được tạo trong Supabase
+  // (→ caller fallback lên đường upsert trực tiếp).
+  async function tryRestoreCommentsRpc(rows) {
+    const NOT_FOUND = /could not find the function|pgrst202|schema cache|does not exist|not found/i;
+    try {
+      const { data, error } = await State.supabase.rpc('restore_comments', { p_rows: rows });
+      if (error) {
+        if (NOT_FOUND.test(error.message || '')) return null;
+        throw new Error(error.message);
+      }
+      return (data && data.inserted != null) ? Number(data.inserted) : rows.length;
+    } catch (err) {
+      if (NOT_FOUND.test((err && err.message) || '')) return null;
+      throw err;
+    }
+  }
+
   async function importBackup(file) {
     if (!State.isAdmin) return;
     if (!file) return;
@@ -7478,6 +7496,15 @@ function setupSubPopupEvents() {
         // → sắp xếp BÌNH LUẬN GỐC trước, reply sau (nếu không trigger chặn "bình luận gốc không tồn tại")
         if (key === 'comments') {
           rows = rows.filter((r) => !r.parent_id).concat(rows.filter((r) => r.parent_id));
+          // ƯU TIÊN: gọi hàm restore_comments (SECURITY DEFINER — bypass RLS, giữ nguyên
+          // user_id gốc). Hàm phải được tạo trước trong Supabase SQL Editor
+          // (file restore_comments_fn.sql — chạy 1 lần).
+          const rpcInserted = await tryRestoreCommentsRpc(rows);
+          if (rpcInserted != null) {
+            done.push(label[key] + ': ' + rpcInserted + '/' + rows.length);
+            continue;
+          }
+          // Hàm chưa tồn tại → rơi xuống đường upsert trực tiếp bên dưới
         }
         let n = 0;
         // Chia lô 100 bản ghi/lần gọi (giới hạn kích thước request của Supabase)
@@ -7485,21 +7512,25 @@ function setupSubPopupEvents() {
           const chunk = rows.slice(i, i + 100);
           let { error } = await State.supabase.from(key)
             .upsert(chunk, { onConflict: 'id', ignoreDuplicates: true });
-          // RLS chặn chèn user_id của người khác → thử lại: gán user_id cho admin hiện tại
-          // (author_name giữ nguyên → tên hiển thị không đổi; đường chắc chắn: chạy file
-          // restore .sql trong Supabase SQL Editor — bypass RLS, giữ nguyên user_id gốc)
+          // RLS chặn chèn user_id của người khác → thử 2 phương án theo thứ tự:
+          //  1) user_id = admin hiện tại   2) bỏ hẳn user_id (null)
+          //  (author_name giữ nguyên → tên hiển thị không đổi)
           if (error && /row-level security|permission denied|violates/i.test(error.message || '')) {
             let uid = null;
             try {
               const gu = await State.supabase.auth.getUser();
               uid = (gu && gu.data && gu.data.user) ? gu.data.user.id : null;
             } catch (_e) {}
-            const retry = chunk.map((r) => Object.assign({}, r, { user_id: uid }));
             const r2 = await State.supabase.from(key)
-              .upsert(retry, { onConflict: 'id', ignoreDuplicates: true });
+              .upsert(chunk.map((r) => Object.assign({}, r, { user_id: uid })), { onConflict: 'id', ignoreDuplicates: true });
             error = r2.error;
+            if (error && /row-level security|permission denied|violates/i.test(error.message || '')) {
+              const r3 = await State.supabase.from(key)
+                .upsert(chunk.map((r) => { const c = Object.assign({}, r); delete c.user_id; return c; }), { onConflict: 'id', ignoreDuplicates: true });
+              error = r3.error;
+            }
           }
-          if (error) throw new Error('[' + key + '] ' + error.message);
+          if (error) throw new Error('[' + key + '] ' + error.message + ' — Gợi ý: chạy file restore_comments_fn.sql trong Supabase SQL Editor (1 lần) rồi thử lại.');
           n += chunk.length;
         }
         done.push(label[key] + ': ' + n);
