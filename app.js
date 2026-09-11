@@ -7478,8 +7478,22 @@ function setupSubPopupEvents() {
         // Chia lô 100 bản ghi/lần gọi (giới hạn kích thước request của Supabase)
         for (let i = 0; i < rows.length; i += 100) {
           const chunk = rows.slice(i, i + 100);
-          const { error } = await State.supabase.from(key)
+          let { error } = await State.supabase.from(key)
             .upsert(chunk, { onConflict: 'id', ignoreDuplicates: true });
+          // RLS chặn chèn user_id của người khác → thử lại: gán user_id cho admin hiện tại
+          // (author_name giữ nguyên → tên hiển thị không đổi; đường chắc chắn: chạy file
+          // restore .sql trong Supabase SQL Editor — bypass RLS, giữ nguyên user_id gốc)
+          if (error && /row-level security|permission denied|violates/i.test(error.message || '')) {
+            let uid = null;
+            try {
+              const gu = await State.supabase.auth.getUser();
+              uid = (gu && gu.data && gu.data.user) ? gu.data.user.id : null;
+            } catch (_e) {}
+            const retry = chunk.map((r) => Object.assign({}, r, { user_id: uid }));
+            const r2 = await State.supabase.from(key)
+              .upsert(retry, { onConflict: 'id', ignoreDuplicates: true });
+            error = r2.error;
+          }
           if (error) throw new Error('[' + key + '] ' + error.message);
           n += chunk.length;
         }
