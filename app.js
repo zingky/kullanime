@@ -4480,7 +4480,7 @@ function setupSubPopupEvents() {
     const grid = $('#animeGrid');
     const rect = grid.getBoundingClientRect();
     const docTop = rect.top + (window.scrollY || window.pageYOffset || 0);
-    const PAGINATION_RESERVE = 54; // chừa chỗ thanh phân trang ‹ 1 2 3 … ›
+    const PAGINATION_RESERVE = 36; // chừa chỗ thanh phân trang gọn (nút 26px + padding 6/2)
     const available = window.innerHeight - docTop - PAGINATION_RESERVE - 8;
     const rows = available <= rowH ? 1 : Math.min(4, Math.max(1, Math.floor(available / rowH)));
     State.animeRowsUsed = rows;
@@ -4524,7 +4524,7 @@ function setupSubPopupEvents() {
     State.animeRowH = h + gap;
     const rect = grid.getBoundingClientRect();
     const docTop = rect.top + (window.scrollY || window.pageYOffset || 0);
-    const available = window.innerHeight - docTop - 54 - 8;
+    const available = window.innerHeight - docTop - 36 - 8;
     const rowsFit = available <= State.animeRowH ? 1 : Math.min(4, Math.max(1, Math.floor(available / State.animeRowH)));
     if (rowsFit !== State.animeRowsUsed) {
       _animeRowsSyncing = true;
@@ -7686,17 +7686,25 @@ function setupSubPopupEvents() {
     if (sFil) sFil.addEventListener('change', resetAnimePageAndRender);
     const yFil = $('#yearFilter');
     if (yFil) yFil.addEventListener('change', resetAnimePageAndRender);
-    // Nút bộ lọc nâng cao 🔽 — mở/đóng panel Mùa/Năm/Thể loại/Trạng thái
+    // Nút bộ lọc nâng cao 🔽 — mở/đóng POPUP bộ lọc nổi đè lên lưới (không đẩy layout
+    // → lưới KHÔNG render lại khi mở/đóng → không chớp chớp)
     const ftb = $('#filterToggleBtn');
     const advP = $('#filterAdvanced');
-    if (ftb && advP) ftb.addEventListener('click', () => {
-      const open = advP.classList.toggle('open');
-      ftb.classList.toggle('open', open);
-      updateFilterBadge();
-      // Panel lọc mở/đóng làm lưới dịch xuống → tính lại số hàng vừa màn hình (desktop)
-      // quiet = true: KHÔNG phát lại animation card → không chớp chớp
-      setTimeout(() => renderAnimeGrid(true), 240);
-    });
+    if (ftb && advP) {
+      ftb.addEventListener('click', () => {
+        const open = advP.classList.toggle('open');
+        ftb.classList.toggle('open', open);
+        updateFilterBadge();
+      });
+      // Bấm ra ngoài popup (và ngoài nút 🔽) → tự đóng
+      document.addEventListener('click', (e) => {
+        if (!advP.classList.contains('open')) return;
+        if (advP.contains(e.target) || ftb.contains(e.target)) return;
+        advP.classList.remove('open');
+        ftb.classList.remove('open');
+        updateFilterBadge();
+      });
+    }
     // Thanh phân trang anime ‹ 1 2 3 … › (thay cho nút "Xem thêm") — delegate trên wrap
     const apWrap = $('#animePagination');
     if (apWrap) apWrap.addEventListener('click', (e) => {
