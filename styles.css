@@ -782,6 +782,9 @@ html[data-theme="light"] .modal { background: rgba(255, 255, 255, 0.72); }
 .anime-modal { padding: 16px 16px; }
 @media (min-width: 641px) {
   .anime-modal { max-width: min(96vw, 1040px); }
+  /* Web: modal chi tiết anime hiển thị sát đỉnh màn hình (thay vì cách ~85px) → thấy nhiều nội dung hơn */
+  #animeModal { padding-top: 8px; }
+  #animeModal .anime-modal { margin-top: 1vh; }
 }
 @media (min-width: 1200px) {
   /* Cột poster CỐ ĐỊNH 260px (flex: 0 0 + max-width cứng) — không bao giờ phình theo
