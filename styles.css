@@ -180,7 +180,9 @@ p, h1, h2, h3, h4, h5, h6, li, a, span, div, td, th {
 .section-subtitle { margin: 6px 0 0; color: var(--text-dim); font-size: 14px; }
 
 /* ============ FILTER BAR ============ */
-.filter-bar { display: flex; flex-wrap: wrap; gap: 10px; margin: 16px 0 22px; padding: 12px; border-radius: var(--radius); background: var(--bg-soft); backdrop-filter: blur(14px) saturate(150%); -webkit-backdrop-filter: blur(14px) saturate(150%); border: var(--glass-border); box-shadow: var(--shadow-soft); }
+.filter-bar { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0 14px; padding: 8px 10px; border-radius: var(--radius); background: var(--bg-soft); backdrop-filter: blur(14px) saturate(150%); -webkit-backdrop-filter: blur(14px) saturate(150%); border: var(--glass-border); box-shadow: var(--shadow-soft); }
+/* Input trong thanh lọc mỏng hơn mặc định → thanh search gọn, tiết kiệm không gian dọc */
+.filter-bar .input { padding: 7px 12px; font-size: 13.5px; }
 .input { width: 100%; padding: 11px 14px; background: rgba(255, 255, 255, 0.07); border: var(--glass-border); border-radius: var(--radius-sm); color: var(--text); font-size: 14px; outline: none; transition: border 0.15s ease, box-shadow 0.15s ease; backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); }
 .input::placeholder { color: var(--text-faint); }
 .input:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(168, 85, 247, 0.2); }
@@ -193,6 +195,11 @@ p, h1, h2, h3, h4, h5, h6, li, a, span, div, td, th {
   transition: flex-basis 0.18s ease;
 }
 .filter-search-wrap .filter-input { flex: 1 1 auto; min-width: 0; width: 100%; padding-right: 42px; }
+/* Desktop: giới hạn bề ngang ô tìm kiếm (select không giãn nên search đang nuốt hết
+   chỗ trống, kéo dài quá trên màn rộng) — phần dư để trống bên phải thanh lọc */
+@media (min-width: 641px) {
+  .filter-search-wrap { max-width: 480px; }
+}
 /* ——— Mobile (< 640px): 4 phần tử (tìm kiếm / Sắp xếp / đảo chiều / lọc) luôn cùng 1 dòng.
        Ô tìm kiếm co nhỏ để nhường chỗ; bấm vào ô tìm kiếm → kéo dài hết thanh lọc,
        tạm ẩn Sắp xếp + nút đảo chiều + nút 🔽, nhấn ra ngoài → quay lại gọn ——— */
@@ -1757,7 +1764,7 @@ html[data-theme="light"] .modal { background: rgba(255, 255, 255, 0.72); }
   .modal-overlay { padding: 12px 8px 40px; }
   .anime-detail { padding: 2px; }
   .detail-section { padding: 13px 14px; }
-  .filter-bar { padding: 10px; }
+  .filter-bar { padding: 8px; }
   .btn { padding: 8px 10px; font-size: 13px; }
 }
 
