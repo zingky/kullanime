@@ -71,8 +71,10 @@
     jikanAbort: null,
     // Phân trang tab Anime (thay cho nút "Xem thêm")
     animePage: 1,          // trang anime đang hiển thị
-    animeRowsPerPage: 2,   // mỗi trang đủ 2 hàng → perPage = cột × hàng (không lởm chởm)
-    animePerPage: 10,      // fallback: giá trị đo được lần cuối khi lưới hiển thị
+    animeRowsPerPage: 2,   // mobile/màn dọc: cố định 2 hàng; desktop ngang: tự đếm theo chiều cao màn hình
+    animePerPage: 10,      // fallback: giá trị tính được lần cuối (cột × hàng)
+    animeRowH: 0,          // chiều cao 1 hàng card (px) đo được lần gần nhất
+    animeRowsUsed: 0,      // số hàng đang dùng ở lần render gần nhất (đối chiếu sau khi đo)
     // Sắp xếp tab Anime: chế độ + chiều (desc/asc) để bấm lại nút sắp xếp đảo chiều
     animeSortMode: 'recent',   // recent (Gần đây) | release (Phát hành) | rating (Đánh giá) | title (Tên A-Z)
     animeSortDir: 'desc',      // desc = ▼ (giảm dần), asc = ▲ (tăng dần)
@@ -4412,22 +4414,97 @@ function setupSubPopupEvents() {
     const visible = list.slice(start, start + perPage);
     grid.innerHTML = visible.map((a) => animeCardHTML(a)).join('');
     renderAnimePagination(totalPages);
+    // Desktop ngang: đối chiếu chiều cao card thật → chỉnh số hàng vừa màn hình nếu cần
+    syncAnimeRows();
   }
 
-  // Số anime mỗi trang = số cột hiện tại của lưới × số hàng/trang.
-  // Đọc trực tiếp số cột đã resolve của repeat(auto-fill, ...) qua computed style
-  // → chia đều đúng ở MỌI độ rộng màn hình (kể cả vùng 1000–1200px mà hard-code
+  // Desktop màn ngang? (≥900px + landscape) — điều kiện áp "vừa chiều cao màn hình"
+  function isDesktopLandscape() {
+    return !!(window.matchMedia && window.matchMedia('(min-width: 900px) and (orientation: landscape)').matches);
+  }
+
+  // Số cột hiện tại của lưới — đọc trực tiếp số track đã resolve của repeat(auto-fill, ...)
+  // qua computed style → đúng ở MỌI độ rộng màn hình (kể cả vùng 1000–1200px mà hard-code
   // breakpoint CSS + JS dễ lệch nhau làm tràn hàng).
-  function getAnimePerPage() {
+  function getAnimeCols() {
     const grid = $('#animeGrid');
     let cols = 0;
     if (grid) {
       const tpls = String(getComputedStyle(grid).gridTemplateColumns || '').trim();
       if (tpls && tpls !== 'none' && tpls.indexOf('px') !== -1) cols = tpls.split(/\s+/).length;
     }
-    // Ghi nhớ lần đo gần nhất (lưới bị ẩn khi ở tab khác → không đo được, dùng fallback)
-    if (cols > 0) State.animePerPage = cols * (State.animeRowsPerPage || 2);
+    return cols;
+  }
+
+  // Chiều cao 1 hàng card (px): đo card trong DOM nếu có, không thì dùng lần đo trước,
+  // chưa từng đo được thì ước lượng từ bề rộng card × tỷ lệ poster (3:4.2) + phần meta.
+  function getAnimeRowH() {
+    const grid = $('#animeGrid');
+    if (!grid) return 0;
+    const gap = parseFloat(getComputedStyle(grid).rowGap) || 14;
+    const card = grid.querySelector('.anime-card');
+    if (card) {
+      const h = card.getBoundingClientRect().height;
+      if (h > 0) { State.animeRowH = h + gap; return State.animeRowH; }
+    }
+    if (State.animeRowH > 0) return State.animeRowH;
+    const cols = getAnimeCols();
+    const gridW = grid.clientWidth || 0;
+    if (cols > 0 && gridW > 0) {
+      const colGap = parseFloat(getComputedStyle(grid).columnGap) || gap;
+      const cardW = (gridW - (cols - 1) * colGap) / cols;
+      return cardW * (4.2 / 3) + 90 + gap; // poster 3:4.2 + ~90px (padding + tiêu đề 2 dòng + meta)
+    }
+    return 0;
+  }
+
+  // Số hàng/trang: desktop màn ngang → đếm số hàng vừa chiều cao khả dụng của viewport
+  // (header + filter bar nằm trên lưới, tính qua vị trí top của lưới theo document);
+  // mobile/màn dọc → cố định 2 hàng như cũ.
+  function getAnimeRowsPerPage() {
+    const fallback = State.animeRowsPerPage || 2;
+    if (!isDesktopLandscape()) { State.animeRowsUsed = fallback; return fallback; }
+    const rowH = getAnimeRowH();
+    if (rowH <= 0) { State.animeRowsUsed = fallback; return fallback; }
+    const grid = $('#animeGrid');
+    const rect = grid.getBoundingClientRect();
+    const docTop = rect.top + (window.scrollY || window.pageYOffset || 0);
+    const PAGINATION_RESERVE = 54; // chừa chỗ thanh phân trang ‹ 1 2 3 … ›
+    const available = window.innerHeight - docTop - PAGINATION_RESERVE - 8;
+    const rows = available <= rowH ? 1 : Math.min(4, Math.max(1, Math.floor(available / rowH)));
+    State.animeRowsUsed = rows;
+    return rows;
+  }
+
+  // Số anime mỗi trang = số cột × số hàng → mỗi trang luôn đủ hàng, không lởm chởm.
+  // Ghi nhớ lần đo gần nhất (lưới bị ẩn khi ở tab khác → không đo được, dùng fallback).
+  function getAnimePerPage() {
+    const cols = getAnimeCols();
+    if (cols > 0) State.animePerPage = cols * getAnimeRowsPerPage();
     return State.animePerPage || 10;
+  }
+
+  // Sau khi render: đối chiếu chiều cao card thật với số hàng đang dùng — nếu khác
+  // (thường ở lần đầu vẽ khi chưa có card để đo) → render lại đúng 1 lần, chống vòng lặp.
+  let _animeRowsSyncing = false;
+  function syncAnimeRows() {
+    if (_animeRowsSyncing) return;
+    if (!isDesktopLandscape()) return;
+    const grid = $('#animeGrid');
+    const card = grid && grid.querySelector('.anime-card');
+    if (!card) return;
+    const gap = parseFloat(getComputedStyle(grid).rowGap) || 14;
+    const h = card.getBoundingClientRect().height;
+    if (!(h > 0)) return;
+    State.animeRowH = h + gap;
+    const rect = grid.getBoundingClientRect();
+    const docTop = rect.top + (window.scrollY || window.pageYOffset || 0);
+    const available = window.innerHeight - docTop - 54 - 8;
+    const rowsFit = available <= State.animeRowH ? 1 : Math.min(4, Math.max(1, Math.floor(available / State.animeRowH)));
+    if (rowsFit !== State.animeRowsUsed) {
+      _animeRowsSyncing = true;
+      try { renderAnimeGrid(); } finally { _animeRowsSyncing = false; }
+    }
   }
 
   // Thanh phân trang anime ‹ 1 2 3 … › — cùng kiểu với thanh phân trang bình luận
@@ -7470,6 +7547,8 @@ function setupSubPopupEvents() {
       const open = advP.classList.toggle('open');
       ftb.classList.toggle('open', open);
       updateFilterBadge();
+      // Panel lọc mở/đóng làm lưới dịch xuống → tính lại số hàng vừa màn hình (desktop)
+      setTimeout(renderAnimeGrid, 240);
     });
     // Thanh phân trang anime ‹ 1 2 3 … › (thay cho nút "Xem thêm") — delegate trên wrap
     const apWrap = $('#animePagination');
@@ -7878,7 +7957,21 @@ function setupSubPopupEvents() {
         const src = inCache ? '<span class="ac-label">💾cache</span>' : '<span class="ac-label">📂repo</span>';
         return '<div class="ac-item" data-ac-name="' + esc(name) + '" title="' + esc(name) + '">' + label + src + '</div>';
       }).join('');
-      cacheDropdown.classList.remove('hidden');
+      cacheDropdown.classList.remove('hidden', 'open-up');
+      // Lật dropdown lên trên nếu phía dưới không đủ chỗ (cột phụ đề có cuộn riêng trên
+      // desktop → dropdown mở xuống sát đáy cột dễ bị cắt mất)
+      requestAnimationFrame(() => {
+        if (cacheDropdown.classList.contains('hidden')) return;
+        const wrap = cacheDropdown.parentElement;
+        const scroller = cacheDropdown.closest('.playlist-column');
+        if (!wrap || !scroller) return;
+        const wr = wrap.getBoundingClientRect();
+        const sr = scroller.getBoundingClientRect();
+        const need = cacheDropdown.offsetHeight;
+        if (sr.bottom - wr.bottom < need && wr.top - sr.top > need) {
+          cacheDropdown.classList.add('open-up');
+        }
+      });
     }
     function selectAcItem(name) {
       if (cacheSearchInput) cacheSearchInput.value = name;
