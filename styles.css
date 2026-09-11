@@ -1402,17 +1402,18 @@ html[data-theme="light"] .modal { background: rgba(255, 255, 255, 0.72); }
 .load-more-wrap { text-align: center; padding: 20px 0 8px; }
 .load-more-btn { min-width: 180px; }
 
-/* ============ FOOTER ============ */
+/* ============ FOOTER (gọn, bám sát text) ============ */
 .app-footer {
   border-top: var(--glass-border);
   background: transparent;
-  padding: 10px 0 20px;
+  padding: 6px 0 12px;
   margin-top: 8px;
 }
 .footer-inner { text-align: center; }
-.footer-brand { margin: 0 0 4px; font-size: 15px; font-weight: 600; }
+.footer-brand { margin: 0 0 1px; font-size: 13.5px; font-weight: 600; line-height: 1.4; }
 .footer-brand em { font-style: normal; background: var(--grad); -webkit-background-clip: text; background-clip: text; color: transparent; }
-.footer-meta { margin: 0; font-size: 12.5px; color: var(--text-faint); line-height: 1.9; }
+.footer-meta { margin: 0; font-size: 12px; color: var(--text-faint); line-height: 1.45; }
+.footer-meta + .footer-meta { margin-top: 1px; }
 .app-footer a { color: var(--accent); text-decoration: none; }
 .app-footer a:hover { text-decoration: underline; }
 
