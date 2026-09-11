@@ -86,30 +86,75 @@ p, h1, h2, h3, h4, h5, h6, li, a, span, div, td, th {
   overflow-wrap: break-word;
 }
 
-/* ═══════════ AURORA / LIQUID GLASS BACKGROUND ═══════════
-   Nền động toàn trang (fixed, z-index -2) — xuyên qua các mặt kính trong suốt
-   (card anime, panel nhạc) để tạo cảm giác liquid glass. */
+/* ═══════════ NIGHT SKY + SAKURA BACKGROUND ═══════════
+   Nền tối + 2 blob rất mờ giữ chiều sâu, sao tĩnh (JS sinh box-shadow),
+   12 sao nhấp nháy, 1 sao băng thưa, 6 cánh hoa anh đào rơi.
+   Tất cả animation chỉ dùng transform/opacity (GPU, rẻ nhất). */
 .bg-aurora { position: fixed; inset: 0; z-index: -2; overflow: hidden; background: var(--bg); }
-.aurora-blob { position: absolute; border-radius: 50%; filter: blur(60px); opacity: 0.85; will-change: transform; animation: auroraFloat 26s ease-in-out infinite alternate; }
-.blob-1 { width: 46vw; height: 46vw; background: radial-gradient(circle at 30% 30%, #a855f7 0%, rgba(168,85,247,0.55) 45%, transparent 70%); top: -12%; left: -8%; }
-.blob-2 { width: 40vw; height: 40vw; background: radial-gradient(circle at 60% 40%, #2563eb 0%, rgba(37,99,235,0.55) 45%, transparent 70%); top: 8%; right: -10%; animation-delay: -6s; }
-.blob-3 { width: 44vw; height: 44vw; background: radial-gradient(circle at 50% 50%, #22d3ee 0%, rgba(34,211,238,0.5) 45%, transparent 70%); bottom: -14%; left: 18%; animation-delay: -12s; }
-.blob-4 { width: 34vw; height: 34vw; background: radial-gradient(circle at 50% 50%, #ec4899 0%, rgba(236,72,153,0.5) 45%, transparent 70%); bottom: 4%; right: 6%; animation-delay: -18s; opacity: 0.7; }
+.aurora-blob { position: absolute; border-radius: 50%; filter: blur(70px); opacity: 0.35; will-change: transform; animation: auroraFloat 26s ease-in-out infinite alternate; }
+.blob-1 { width: 46vw; height: 46vw; background: radial-gradient(circle at 30% 30%, #a855f7 0%, rgba(168,85,247,0.4) 45%, transparent 70%); top: -12%; left: -8%; }
+.blob-2 { width: 40vw; height: 40vw; background: radial-gradient(circle at 60% 40%, #2563eb 0%, rgba(37,99,235,0.4) 45%, transparent 70%); bottom: -14%; right: -10%; animation-delay: -13s; }
 @keyframes auroraFloat {
   0%   { transform: translate(0, 0) scale(1); }
   50%  { transform: translate(4vw, -3vw) scale(1.12); }
   100% { transform: translate(-3vw, 4vw) scale(0.94); }
 }
-.aurora-grain { position: absolute; inset: 0; opacity: 0.5; background-image: radial-gradient(rgba(255,255,255,0.04) 1px, transparent 1px); background-size: 4px 4px; }
-/* Tôn trọng người dùng bật "Giảm chuyển động" trong hệ điều hành → tắt aurora */
-@media (prefers-reduced-motion: reduce) {
-  .aurora-blob { animation: none; }
+/* Sao tĩnh: 1 div duy nhất, JS bơm box-shadow (~90 chấm) — không animation, 0 tốn GPU */
+.star-field { position: absolute; top: 0; left: 0; width: 2px; height: 2px; border-radius: 50%; background: transparent; opacity: 0.8; }
+/* 12 sao nhấp nháy (opacity) — vị trí/kích cỡ/chu kỳ rải ngẫu nhiên bằng tay */
+.twinkle { position: absolute; border-radius: 50%; background: #fff; box-shadow: 0 0 6px 1px rgba(255,255,255,0.7); animation: starTwinkle 3s ease-in-out infinite; }
+.t1 { top: 8%; left: 12%; width: 3px; height: 3px; animation-duration: 2.6s; }
+.t2 { top: 18%; left: 78%; width: 2px; height: 2px; animation-duration: 3.4s; animation-delay: -1.2s; }
+.t3 { top: 32%; left: 45%; width: 3px; height: 3px; animation-duration: 2.2s; animation-delay: -0.6s; }
+.t4 { top: 12%; left: 55%; width: 2px; height: 2px; animation-duration: 4.1s; animation-delay: -2s; }
+.t5 { top: 55%; left: 8%; width: 2px; height: 2px; animation-duration: 3s; animation-delay: -1.6s; }
+.t6 { top: 68%; left: 88%; width: 3px; height: 3px; animation-duration: 2.8s; animation-delay: -0.3s; }
+.t7 { top: 42%; left: 68%; width: 2px; height: 2px; animation-duration: 3.8s; animation-delay: -2.4s; }
+.t8 { top: 78%; left: 32%; width: 2px; height: 2px; animation-duration: 2.4s; animation-delay: -1s; }
+.t9 { top: 25%; left: 28%; width: 2px; height: 2px; animation-duration: 3.2s; animation-delay: -2.8s; }
+.t10 { top: 62%; left: 58%; width: 3px; height: 3px; animation-duration: 3.6s; animation-delay: -0.9s; }
+.t11 { top: 88%; left: 72%; width: 2px; height: 2px; animation-duration: 2.9s; animation-delay: -1.9s; }
+.t12 { top: 48%; left: 22%; width: 2px; height: 2px; animation-duration: 4.3s; animation-delay: -0.2s; }
+@keyframes starTwinkle { 0%, 100% { opacity: 0.15; } 50% { opacity: 1; } }
+/* Sao băng: vệt sáng bay chéo 1s mỗi 10s (9s ẩn, 1s bay) */
+.meteor { position: absolute; top: -5%; left: 70%; width: 140px; height: 2px; border-radius: 2px; background: linear-gradient(90deg, #fff, transparent); transform: rotate(-35deg); opacity: 0; animation: meteorFall 10s linear infinite; }
+@keyframes meteorFall {
+  0%, 91% { transform: rotate(-35deg) translateX(0); opacity: 0; }
+  92% { opacity: 1; }
+  98%, 100% { transform: rotate(-35deg) translateX(-46vw); opacity: 0; }
 }
-/* Mobile: aurora nhẹ hơn (2 blob sau ẩn, blur nhỏ) — tiết kiệm pin, ít lag khi cuộn,
-   mắt thường khó phân biệt trên màn hình nhỏ */
+/* Cánh hoa anh đào rơi: shape cánh (border-radius 100% 0), rơi + đu đưa + xoay.
+   Nhỏ (10-14px), opacity ~0.5 → thấy qua khe, không phân tâm khi đọc chữ. */
+.petal { position: absolute; top: -4%; border-radius: 100% 4px 100% 4px; background: linear-gradient(135deg, #fbcfe8, #f472b6); opacity: 0; animation: petalFall linear infinite; }
+.p1 { left: 8%; width: 12px; height: 12px; animation-duration: 16s; animation-delay: 0s; }
+.p2 { left: 28%; width: 10px; height: 10px; animation-duration: 19s; animation-delay: -6s; }
+.p3 { left: 48%; width: 14px; height: 14px; animation-duration: 15s; animation-delay: -3s; }
+.p4 { left: 66%; width: 11px; height: 11px; animation-duration: 18s; animation-delay: -11s; }
+.p5 { left: 82%; width: 13px; height: 13px; animation-duration: 17s; animation-delay: -8s; }
+.p6 { left: 94%; width: 10px; height: 10px; animation-duration: 20s; animation-delay: -14s; }
+@keyframes petalFall {
+  0% { transform: translate3d(0, -4vh, 0) rotate(0deg); opacity: 0; }
+  8% { opacity: 0.55; }
+  50% { transform: translate3d(3vw, 52vh, 0) rotate(200deg); opacity: 0.5; }
+  92% { opacity: 0.45; }
+  100% { transform: translate3d(-2vw, 108vh, 0) rotate(380deg); opacity: 0; }
+}
+/* Tắt hiệu ứng (công tắc dưới footer) → giữ nền tối phẳng + 2 blob rất mờ */
+body.bg-fx-off .star-field, body.bg-fx-off .twinkle, body.bg-fx-off .meteor, body.bg-fx-off .petal { display: none; }
+body.bg-fx-off .aurora-blob { animation: none; opacity: 0.18; }
+/* Tab ẩn → dừng hết animation nền (tiết kiệm pin) */
+body.bg-paused .bg-aurora * { animation-play-state: paused !important; }
+/* Tôn trọng người dùng bật "Giảm chuyển động" trong hệ điều hành → tắt hết */
+@media (prefers-reduced-motion: reduce) {
+  .aurora-blob, .twinkle, .meteor, .petal { animation: none !important; }
+  .meteor, .petal { display: none; }
+}
+/* Mobile: chỉ giữ sao (thưa hơn) + 1 blob — ẩn hoa + sao băng để nhẹ GPU, đỡ hao pin */
 @media (max-width: 640px) {
-  .blob-3, .blob-4 { display: none; }
-  .aurora-blob { filter: blur(40px); opacity: 0.7; }
+  .blob-2 { display: none; }
+  .aurora-blob { filter: blur(46px); opacity: 0.3; }
+  .meteor, .petal { display: none; }
+  .t5, .t6, .t7, .t8, .t10, .t11 { display: none; }
 }
 
 /* Glass surface helper */
@@ -1434,6 +1479,15 @@ html[data-theme="light"] .modal { background: rgba(255, 255, 255, 0.72); }
 .footer-meta + .footer-meta { margin-top: 1px; }
 .app-footer a { color: var(--accent); text-decoration: none; }
 .app-footer a:hover { text-decoration: underline; }
+/* Công tắc hiệu ứng nền — dưới footer, căn phải, nút ghost nhỏ không làm trang cao thêm */
+.bg-toggle-wrap { display: flex; justify-content: flex-end; padding-bottom: 10px; }
+.bg-fx-toggle {
+  background: transparent; border: var(--glass-border); border-radius: 999px;
+  color: var(--text-faint); font-size: 12px; font-weight: 600; cursor: pointer;
+  padding: 4px 12px; opacity: 0.7; transition: opacity 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+.bg-fx-toggle:hover { opacity: 1; border-color: var(--accent); color: var(--text); }
+body.bg-fx-off .bg-fx-toggle { opacity: 0.5; }
 
 /* ============ CHAT CHUNG — NÚT BONG BÓNG + PANEL NỔI ============ */
 /* Nút bong bóng chat (FAB) góc dưới-phải */
