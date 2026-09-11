@@ -73,7 +73,7 @@
     animePage: 1,          // trang anime đang hiển thị
     animeRowsPerPage: 2,   // desktop ngang: số hàng fallback khi chưa đo được chiều cao card
     animePerPage: 10,      // fallback: giá trị tính được lần cuối (cột × hàng)
-    animeMobilePerPage: 10, // mobile/màn dọc: cố định 10 anime/trang (cho phép cuộn, không ép vừa màn hình)
+    animeMobilePerPage: 10, // mobile/màn dọc: ~10 anime/trang, làm tròn theo cột (10/9/12) — cho phép cuộn
     animeLastPerPage: 0,   // perPage dùng ở lần render gần nhất (đối chiếu khi resize — chống chớp chớp)
     animeRowH: 0,          // chiều cao 1 hàng card (px) đo được lần gần nhất
     animeRowsUsed: 0,      // số hàng đang dùng ở lần render gần nhất (đối chiếu sau khi đo)
@@ -4489,12 +4489,18 @@ function setupSubPopupEvents() {
 
   // Số anime mỗi trang:
   //  - Desktop màn ngang: cột × hàng (hàng tự đếm theo chiều cao màn hình → vừa 1 màn)
-  //  - Mobile/màn dọc: cố định 10 anime/trang (cho phép cuộn, không ép vừa màn hình)
+  //  - Mobile/màn dọc: ~10 anime/trang, LÀM TRÒN theo số cột để mỗi trang luôn đủ hàng đều
+  //    (2 cột → 10 · 3 cột → 9 · 4 cột → 12 · 5 cột → 10) — cho phép cuộn, không ép vừa màn hình
   // Ghi nhớ lần đo gần nhất (lưới bị ẩn khi ở tab khác → không đo được, dùng fallback).
   function getAnimePerPage() {
     if (!isDesktopLandscape()) {
       State.animeRowsUsed = 0;
-      State.animePerPage = State.animeMobilePerPage || 10;
+      const cols = getAnimeCols();
+      if (cols > 0) {
+        State.animePerPage = Math.max(cols, Math.round(10 / cols) * cols);
+      } else {
+        State.animePerPage = State.animeMobilePerPage || 10;
+      }
       return State.animePerPage;
     }
     const cols = getAnimeCols();
