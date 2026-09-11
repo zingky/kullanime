@@ -115,16 +115,16 @@ p, h1, h2, h3, h4, h5, h6, li, a, span, div, td, th {
 .tab-panel { display: none; }
 .tab-panel.active { display: block; animation: fadeIn 0.2s ease; }
 
-/* ============ HEADER ============ */
+/* ============ HEADER (thu gọn, bám sát nội dung) ============ */
 .app-header {
   position: sticky; top: 0; z-index: 50;
-  padding: 10px 0;
+  padding: 4px 0 2px;
   background: transparent;
 }
 .header-inner {
-  display: flex; align-items: center; justify-content: space-between; gap: 10px; height: 58px;
+  display: flex; align-items: center; justify-content: space-between; gap: 10px; height: 46px;
   padding: 0 clamp(10px, 2vw, 16px);
-  border-radius: 18px;
+  border-radius: 14px;
   background: rgba(255, 255, 255, 0.06);
   backdrop-filter: blur(20px) saturate(160%);
   -webkit-backdrop-filter: blur(20px) saturate(160%);
@@ -132,23 +132,25 @@ p, h1, h2, h3, h4, h5, h6, li, a, span, div, td, th {
   box-shadow: var(--shadow-soft);
   min-width: 0;
 }
-.brand { display: inline-flex; align-items: center; gap: 8px; background: none; border: none; cursor: pointer; padding: 4px; color: var(--text); min-width: 0; }
-.brand-name { font-weight: 800; font-size: 18px; letter-spacing: -0.02em; white-space: nowrap; }
+.brand { display: inline-flex; align-items: center; gap: 6px; background: none; border: none; cursor: pointer; padding: 2px; color: var(--text); min-width: 0; }
+.brand-name { font-weight: 800; font-size: 16px; letter-spacing: -0.02em; white-space: nowrap; }
 .brand-name em { font-style: normal; background: var(--grad); -webkit-background-clip: text; background-clip: text; color: transparent; }
-.brand-logo { font-size: 24px; line-height: 1; filter: drop-shadow(0 0 8px rgba(168,85,247,0.6)); flex-shrink: 0; }
+.brand-logo { font-size: 20px; line-height: 1; filter: drop-shadow(0 0 8px rgba(168,85,247,0.6)); flex-shrink: 0; }
 
-.main-nav { position: relative; display: flex; gap: 4px; background: rgba(255, 255, 255, 0.06); padding: 4px; border-radius: 14px; border: var(--glass-border); overflow: visible; }
+.main-nav { position: relative; display: flex; gap: 4px; background: rgba(255, 255, 255, 0.06); padding: 3px; border-radius: 12px; border: var(--glass-border); overflow: visible; }
 .nav-ind {
-  position: absolute; top: 4px; left: 4px; height: calc(100% - 8px); z-index: 0;
-  background: var(--grad); border-radius: 11px; box-shadow: 0 6px 18px rgba(168, 85, 247, 0.45);
+  position: absolute; top: 3px; left: 3px; height: calc(100% - 6px); z-index: 0;
+  background: var(--grad); border-radius: 9px; box-shadow: 0 6px 18px rgba(168, 85, 247, 0.45);
   transition: transform .3s cubic-bezier(.22,.68,.35,1.08), width .3s cubic-bezier(.22,.68,.35,1.08);
   will-change: transform, width; pointer-events: none;
 }
-.nav-tab { position: relative; z-index: 1; display: inline-flex; align-items: center; gap: 6px; padding: 8px 14px; border: none; background: transparent; color: var(--text-dim); border-radius: 11px; cursor: pointer; font-weight: 600; font-size: 14px; transition: color 0.18s ease; white-space: nowrap; }
+.nav-tab { position: relative; z-index: 1; display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border: none; background: transparent; color: var(--text-dim); border-radius: 9px; cursor: pointer; font-weight: 600; font-size: 13.5px; transition: color 0.18s ease; white-space: nowrap; }
 .nav-tab:hover { color: var(--text); }
 .nav-tab.active { color: #fff; }
-.nav-tab .tab-icon { font-size: 16px; }
-.header-actions { display: flex; align-items: center; gap: 8px; }
+.nav-tab .tab-icon { font-size: 15px; }
+.header-actions { display: flex; align-items: center; gap: 6px; }
+/* Nút header gọn theo header thấp (desktop) — mobile giữ nguyên theo breakpoint riêng */
+.app-header .btn { padding: 7px 12px; font-size: 13px; }
 
 /* ============ BUTTONS ============ */
 .btn { display: inline-flex; align-items: center; justify-content: center; gap: 7px; padding: 9px 15px; border: var(--glass-border); border-radius: var(--radius-sm); background: var(--bg-elev); color: var(--text); font-weight: 600; font-size: 14px; cursor: pointer; transition: all 0.16s ease; line-height: 1; backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); }
@@ -167,9 +169,9 @@ p, h1, h2, h3, h4, h5, h6, li, a, span, div, td, th {
 .btn-login { background: var(--bg-elev); border: var(--glass-border); }
 .btn-admin { background: linear-gradient(135deg, #f59e0b, #ef4444); border-color: transparent; color: #fff; }
 /* Nút Tải lại 🔄 — chỉ icon, vuông gọn, cạnh nút Đăng nhập */
-.btn-refresh { background: var(--bg-elev); border: var(--glass-border); padding: 9px 12px; min-width: 40px; }
+.btn-refresh { background: var(--bg-elev); border: var(--glass-border); padding: 7px 10px; min-width: 36px; }
 .btn-refresh:hover { border-color: var(--accent, #8b3df0); color: #fff; }
-.btn-refresh span { font-size: 16px; line-height: 1; }
+.btn-refresh span { font-size: 14px; line-height: 1; }
 @media (max-width: 600px) {
   .btn-refresh { padding: 8px 10px; min-width: 36px; }
 }
@@ -1727,13 +1729,14 @@ html[data-theme="light"] .modal { background: rgba(255, 255, 255, 0.72); }
 
 /* ============ RESPONSIVE TUNING ============ */
 @media (max-width: 640px) {
-  .header-inner { height: 56px; }
+  .app-header { padding: 4px 0 2px; }
+  .header-inner { height: 46px; }
   .brand-name { font-size: 16px; }
   .nav-tab { padding: 8px 10px; font-size: 13px; }
   .nav-tab .tab-label { display: none; }
   .nav-tab .tab-icon { font-size: 18px; }
   .btn .btn-label { display: none; }
-  .btn { padding: 9px 11px; }
+  .app-header .btn { padding: 7px 10px; }
   /* Thanh lọc trên mobile: thu nút đảo chiều + nút 🔽 để 1 dòng vừa khít */
   .sort-dir-btn, .filter-toggle-btn { min-width: 36px; padding: 10px 9px; }
   .modal { padding: 18px 14px; margin-top: 2vh; }
@@ -1763,14 +1766,14 @@ html[data-theme="light"] .modal { background: rgba(255, 255, 255, 0.72); }
 
 /* Màn rất hẹp (< 480px): thu nhỏ mọi khoảng cách, tránh tràn do padding */
 @media (max-width: 480px) {
-  .header-inner { height: 54px; gap: 6px; padding: 0 10px; }
+  .header-inner { height: 44px; gap: 6px; padding: 0 10px; }
   .brand-logo { font-size: 21px; }
   .section-heading { padding: 16px 0 6px; }
   .modal { padding: 16px 12px; }
   .modal-overlay { padding: 12px 8px 40px; }
   .anime-detail { padding: 2px; }
   .detail-section { padding: 13px 14px; }
-  .filter-bar { padding: 8px; }
+  .filter-bar { padding: 4px 6px; }
   .btn { padding: 8px 10px; font-size: 13px; }
 }
 
