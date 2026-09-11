@@ -32,16 +32,17 @@
   <!-- File cấu hình (đọc .env.local / fallback) -->
   <script src="./config.js"></script>
 
-  <link rel="stylesheet" href="./styles.css?v=70" />
+  <link rel="stylesheet" href="./styles.css?v=71" />
 </head>
 <body>
-  <!-- Nền aurora động (liquid glass background) -->
-  <div class="bg-aurora" aria-hidden="true">
+  <!-- Nền đêm sao + cánh hoa anh đào (night sky + sakura) — JS sinh sao tĩnh, CSS animation transform/opacity -->
+  <div class="bg-aurora" id="bgAurora" aria-hidden="true">
     <div class="aurora-blob blob-1"></div>
     <div class="aurora-blob blob-2"></div>
-    <div class="aurora-blob blob-3"></div>
-    <div class="aurora-blob blob-4"></div>
-    <div class="aurora-grain"></div>
+    <div class="star-field" id="starField"></div>
+    <span class="twinkle t1"></span><span class="twinkle t2"></span><span class="twinkle t3"></span><span class="twinkle t4"></span><span class="twinkle t5"></span><span class="twinkle t6"></span><span class="twinkle t7"></span><span class="twinkle t8"></span><span class="twinkle t9"></span><span class="twinkle t10"></span><span class="twinkle t11"></span><span class="twinkle t12"></span>
+    <div class="meteor m1"></div>
+    <span class="petal p1"></span><span class="petal p2"></span><span class="petal p3"></span><span class="petal p4"></span><span class="petal p5"></span><span class="petal p6"></span>
   </div>
 
   <!-- ======================= HEADER / NAV ======================= -->
@@ -271,6 +272,10 @@
       <p class="footer-meta">made with ♥️ kull@duck.com</p>
     </div>
   </footer>
+  <!-- Công tắc hiệu ứng nền (đêm sao + hoa rơi) — dưới footer, căn phải -->
+  <div class="bg-toggle-wrap container">
+    <button type="button" class="bg-fx-toggle" id="bgFxToggle" aria-pressed="true" title="Bật/tắt hiệu ứng nền (sao + hoa anh đào)">✨ Hiệu ứng nền: Bật</button>
+  </div>
 
   <!-- ======================= CHAT CHUNG (bong bóng nổi góc phải) ======================= -->
   <button type="button" class="chat-fab" id="chatFab" aria-expanded="false" aria-label="Mở Chat All" title="Chat All">
@@ -714,7 +719,7 @@
   <div class="mini-pop hidden" id="epPop"></div>
   <div class="mini-pop hidden" id="heartPop"></div>
 
-  <script src="./app.js?v=62"></script>
+  <script src="./app.js?v=63"></script>
 </body>
 </html>
 

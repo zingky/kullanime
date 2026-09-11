@@ -3281,6 +3281,59 @@
     try { localStorage.setItem(PLAYER_PREFS_KEY, JSON.stringify({ autoNext: State.autoNext, shuffle: State.shuffle, repeat: State.repeat })); } catch (_e) { /* ignore */ }
   }
 
+  // ===================== HIỆU ỨNG NỀN (đêm sao + hoa anh đào) =====================
+  // Sao tĩnh: bơm ~90 chấm box-shadow vào #starField (1 div duy nhất, không animation).
+  // Công tắc #bgFxToggle: lưu localStorage 'kullanime_bgfx' (mặc định bật).
+  // Tab ẩn: pause hết animation nền (tiết kiệm pin) qua class body.bg-paused.
+  const BGFX_KEY = 'kullanime_bgfx';
+  function buildStarField() {
+    const el = $('#starField');
+    if (!el || el.dataset.built) return;
+    el.dataset.built = '1';
+    const n = window.innerWidth <= 640 ? 45 : 90;
+    let seed = 20260912;
+    const rnd = () => { seed = (seed * 1103515245 + 12345) & 0x7fffffff; return seed / 0x7fffffff; };
+    const shadows = [];
+    for (let i = 0; i < n; i++) {
+      const x = Math.floor(rnd() * 100);
+      const y = Math.floor(rnd() * 100);
+      shadows.push(x + 'vw ' + y + 'vh 0 0 rgba(255,255,255,' + (0.35 + rnd() * 0.55).toFixed(2) + ')');
+    }
+    el.style.boxShadow = shadows.join(',');
+  }
+  function applyBgFx(on) {
+    document.body.classList.toggle('bg-fx-off', !on);
+    const btn = $('#bgFxToggle');
+    if (btn) {
+      btn.textContent = on ? '✨ Hiệu ứng nền: Bật' : '✨ Hiệu ứng nền: Tắt';
+      btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+    }
+  }
+  function loadBgFx() {
+    let on = true;
+    try {
+      const raw = localStorage.getItem(BGFX_KEY);
+      if (raw === 'off') on = false;
+    } catch (_e) { /* ignore */ }
+    buildStarField();
+    applyBgFx(on);
+    const btn = $('#bgFxToggle');
+    if (btn && !btn.dataset.bound) {
+      btn.dataset.bound = '1';
+      btn.addEventListener('click', () => {
+        const cur = !document.body.classList.contains('bg-fx-off');
+        try { localStorage.setItem(BGFX_KEY, cur ? 'off' : 'on'); } catch (_e) { /* ignore */ }
+        applyBgFx(!cur);
+      });
+    }
+    if (!document.body.dataset.bgPauseBound) {
+      document.body.dataset.bgPauseBound = '1';
+      document.addEventListener('visibilitychange', () => {
+        document.body.classList.toggle('bg-paused', !!document.hidden);
+      });
+    }
+  }
+
   // ===================== PANEL SUB SETTINGS (giống chat) =====================
   // Panel cố định (#subPanel) trong index.html, mở kiểu chat: header + nút ✕ đóng,
   // đóng bằng Esc / bấm ngoài / nút ✕. Nội dung 2 khối dọc cuộn liên tục:
@@ -8814,6 +8867,7 @@ function setupSubPopupEvents() {
     await initSupabase();
     ensureSubSettings(); // nạp cài đặt phụ đề toàn cục từ localStorage
     loadPlayerPrefs();   // nạp tùy chọn tự động / ngẫu nhiên từ localStorage
+    loadBgFx();          // dựng sao tĩnh + áp công tắc hiệu ứng nền (đêm sao + hoa rơi)
     bindEvents();
     updatePlayerControlsUI();
     // Load cache danh sách .ass ngay lập tức (không cần chờ load anime/songs)
