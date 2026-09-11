@@ -7507,6 +7507,11 @@ function setupSubPopupEvents() {
           // Hàm chưa tồn tại → rơi xuống đường upsert trực tiếp bên dưới
         }
         let n = 0;
+        // Cột title_tsv trên animes là GENERATED column (tự sinh từ title) → KHÔNG được
+        // chèn trực tiếp: "cannot insert a non-DEFAULT value into column title_tsv"
+        if (key === 'animes') {
+          rows = rows.map((r) => { const c = Object.assign({}, r); delete c.title_tsv; return c; });
+        }
         // Chia lô 100 bản ghi/lần gọi (giới hạn kích thước request của Supabase)
         for (let i = 0; i < rows.length; i += 100) {
           const chunk = rows.slice(i, i + 100);
