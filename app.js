@@ -6643,11 +6643,12 @@ function setupSubPopupEvents() {
     renderAdminAnimeList();
   }
 
-  // Xóa hàng loạt anime đã tick chọn (không cần xác nhận)
+  // Xóa hàng loạt anime đã tick chọn — hộp xác nhận (xoá vĩnh viễn, không thể hoàn tác)
   async function bulkDeleteAnime() {
     if (!State.isAdmin) return;
     const ids = Array.from(State.adminSelectedAnime);
     if (ids.length === 0) { toast('Chưa chọn anime nào.', 'warning'); return; }
+    if (!confirm('Bạn sắp XÓA VĨNH VIỄN ' + ids.length + ' anime — không thể hoàn tác!\n\nXác nhận xóa?')) return;
     const { error } = await State.supabase.from('animes').delete().in('id', ids);
     if (error) { toast('Xóa thất bại: ' + error.message, 'error'); return; }
     ids.forEach((id) => State.adminSelectedAnime.delete(String(id)));
@@ -6656,11 +6657,12 @@ function setupSubPopupEvents() {
     renderAdminAnimeList();
   }
 
-  // Xóa hàng loạt bình luận đã tick chọn (không cần xác nhận)
+  // Xóa hàng loạt bình luận đã tick chọn — hộp xác nhận (xoá vĩnh viễn, không thể hoàn tác)
   async function bulkDeleteComments() {
     if (!State.isAdmin) return;
     const ids = Array.from(State.adminSelectedComments);
     if (ids.length === 0) { toast('Chưa chọn bình luận nào.', 'warning'); return; }
+    if (!confirm('Bạn sắp XÓA VĨNH VIỄN ' + ids.length + ' bình luận — không thể hoàn tác!\n\nXác nhận xóa?')) return;
     const { error } = await State.supabase.from('comments').delete().in('id', ids);
     if (error) { toast('Xóa thất bại: ' + error.message, 'error'); return; }
     ids.forEach((id) => State.adminSelectedComments.delete(String(id)));
