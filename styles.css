@@ -195,10 +195,11 @@ p, h1, h2, h3, h4, h5, h6, li, a, span, div, td, th {
   transition: flex-basis 0.18s ease;
 }
 .filter-search-wrap .filter-input { flex: 1 1 auto; min-width: 0; width: 100%; padding-right: 42px; }
-/* Desktop: giới hạn bề ngang ô tìm kiếm (select không giãn nên search đang nuốt hết
-   chỗ trống, kéo dài quá trên màn rộng) — phần dư để trống bên phải thanh lọc */
+/* Desktop: ô tìm kiếm tối đa 480px; đẩy cụm Sắp xếp + nút ra sát mép phải
+   → thanh lọc giãn đều 2 bên trái/phải thay vì dồn hết về trái */
 @media (min-width: 641px) {
-  .filter-search-wrap { max-width: 480px; }
+  .filter-search-wrap { flex: 1 1 auto; max-width: 480px; }
+  .filter-bar #sortFilter { margin-left: auto; }
 }
 /* ——— Mobile (< 640px): 4 phần tử (tìm kiếm / Sắp xếp / đảo chiều / lọc) luôn cùng 1 dòng.
        Ô tìm kiếm co nhỏ để nhường chỗ; bấm vào ô tìm kiếm → kéo dài hết thanh lọc,
@@ -1405,8 +1406,8 @@ html[data-theme="light"] .modal { background: rgba(255, 255, 255, 0.72); }
 .app-footer {
   border-top: var(--glass-border);
   background: transparent;
-  padding: 20px 0 32px;
-  margin-top: 30px;
+  padding: 10px 0 20px;
+  margin-top: 8px;
 }
 .footer-inner { text-align: center; }
 .footer-brand { margin: 0 0 4px; font-size: 15px; font-weight: 600; }
@@ -2186,7 +2187,7 @@ select.input option { background: #141a2d; color: var(--text); }
 /* ── Thanh phân trang ‹ 1 2 3 … › (bình luận + lưới tab Anime) — gọn, bám sát text ── */
 .comment-pagination, .anime-pagination {
   display: flex; align-items: center; justify-content: center; gap: 4px;
-  padding: 6px 0 2px; flex-wrap: wrap;
+  padding: 6px 0 0; margin-bottom: 0; flex-wrap: wrap;
 }
 .comment-pagination.hidden, .anime-pagination.hidden { display: none; }
 .comment-page-btn, .anime-page-btn {
