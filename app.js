@@ -6626,7 +6626,8 @@ function setupSubPopupEvents() {
     $('#af_source').value = a.source || '';
     $('#af_hashtag').value = a.hashtag || '';
     $('#af_producers').value = (Array.isArray(a.producers) ? a.producers : []).join(', ');
-    State.afLinks = Array.isArray(a.links) ? a.links : []; // giữ liên kết cũ khi sửa — chỉ auto-fill mới ghi đè
+    State.afLinks = Array.isArray(a.links) ? a.links : []; // giữ liên kết cũ khi sửa — auto-fill chỉ ghi đè nhóm ext
+    renderLinkEditors(State.afLinks);
     renderSeiyuuEditors(Array.isArray(a.seiyuu) ? a.seiyuu : []);
     updatePosterPreview();
     openModal('animeFormModal');
@@ -6643,6 +6644,7 @@ function setupSubPopupEvents() {
     $('#af_watched_ep').value = 0;
     $('#af_status').value = 'Đang chiếu';
     State.afLinks = []; // form mới — chưa có liên kết (auto-fill AniList sẽ điền)
+    renderLinkEditors([]);
     renderSeiyuuEditors([]);
     hi('jikanResults');
     $('#af_posterPreview').innerHTML = '';
@@ -6687,6 +6689,57 @@ function setupSubPopupEvents() {
     return out;
   }
 
+  /* ── Link editors trong form admin: 2 nhóm "Liên kết" (ext) và "Link khác" (other) ── */
+  function linkKindOf(l) { return (l && l.kind === 'other') ? 'other' : 'ext'; } // dữ liệu cũ không có kind → mặc định ext
+
+  function makeLinkEditorRow(l) {
+    l = l || {};
+    const row = document.createElement('div');
+    row.className = 'seiyuu-editor-row';
+    row.innerHTML =
+      '<input type="text" class="input" data-link="site" value="' + esc(l.site || '') + '" placeholder="Tên hiển thị" />' +
+      '<input type="text" class="input" data-link="url" value="' + esc(l.url || '') + '" placeholder="URL (https://...)" />' +
+      '<button type="button" class="seiyuu-remove" title="Xóa" aria-label="Xóa link">✕</button>';
+    row.querySelector('.seiyuu-remove').addEventListener('click', () => row.remove());
+    return row;
+  }
+
+  function renderLinkEditors(links) {
+    const extWrap = $('#afExtLinksList');
+    const otherWrap = $('#afOtherLinksList');
+    if (!extWrap || !otherWrap) return;
+    extWrap.innerHTML = '';
+    otherWrap.innerHTML = '';
+    (Array.isArray(links) ? links : []).forEach((l) => {
+      (linkKindOf(l) === 'other' ? otherWrap : extWrap).appendChild(makeLinkEditorRow(l));
+    });
+  }
+
+  function collectLinksFromEditors() {
+    const read = (wrapId, kind) => {
+      const out = [];
+      $$(wrapId + ' .seiyuu-editor-row').forEach((row) => {
+        const site = row.querySelector('[data-link="site"]').value.trim();
+        const url = row.querySelector('[data-link="url"]').value.trim();
+        if (!url) return; // dòng không có URL → bỏ qua
+        out.push({ site: site || linkHost(url) || 'Liên kết', url, color: '', icon: '', kind });
+      });
+      return out;
+    };
+    return read('#afExtLinksList', 'ext').concat(read('#afOtherLinksList', 'other'));
+  }
+
+  // Gộp theo loại: ext lấy bản fresh (ghi đè), other giữ bản cũ + thêm fresh chưa có (dedupe url)
+  function mergeLinksByKind(existing, fresh) {
+    const cur = Array.isArray(existing) ? existing : [];
+    const fr = Array.isArray(fresh) ? fresh : [];
+    const extFresh = fr.filter((l) => linkKindOf(l) === 'ext');
+    const otherOld = cur.filter((l) => linkKindOf(l) === 'other');
+    const otherFresh = fr.filter((l) => linkKindOf(l) === 'other')
+      .filter((l) => !otherOld.some((o) => o.url === l.url) && !extFresh.some((e) => e.url === l.url));
+    return extFresh.concat(otherOld, otherFresh);
+  }
+
   function updatePosterPreview() {
     const url = $('#af_poster').value.trim();
     const prev = $('#af_posterPreview');
@@ -6720,8 +6773,8 @@ function setupSubPopupEvents() {
       source: $('#af_source').value.trim(),
       hashtag: $('#af_hashtag').value.trim(),
       producers: splitList('af_producers'),
-      // Liên kết ngoài (auto-fill AniList hoặc giữ từ record cũ khi sửa)
-      links: Array.isArray(State.afLinks) ? State.afLinks : []
+      // Liên kết ngoài: đọc từ editor trong form (2 nhóm ext/other) — dòng không có URL bị bỏ qua
+      links: collectLinksFromEditors()
     };
   }
 
@@ -7276,20 +7329,20 @@ function setupSubPopupEvents() {
     return out;
   }
 
-  // Map externalLinks của 1 Media AniList → [{site,url,color,icon}] —
-  // lọc STREAMING (toàn 404), dedupe theo url, luôn thêm trang AniList vào đầu
+  // Map externalLinks của 1 Media AniList → [{site,url,color,icon,kind}] —
+  // kind: 'ext' (liên kết chính) | 'other' (streaming/link khác). Dedupe theo url, thêm trang AniList vào đầu.
   function anilistLinksFromMedia(m) {
     const links = [];
     const seen = new Set();
     for (const l of ((m && m.externalLinks) || [])) {
       if (!l || !l.url || l.disabled) continue;
-      if (String(l.type || '').toUpperCase() === 'STREAMING') continue; // streaming link — toàn 404, không hiển thị
       if (seen.has(l.url)) continue;
       seen.add(l.url);
-      links.push({ site: (l.site || linkHost(l.url) || 'Liên kết').trim(), url: l.url, color: l.color || '', icon: l.icon || '' });
+      const kind = String(l.type || '').toUpperCase() === 'STREAMING' ? 'other' : 'ext';
+      links.push({ site: (l.site || linkHost(l.url) || 'Liên kết').trim(), url: l.url, color: l.color || '', icon: l.icon || '', kind });
     }
     if (m && m.siteUrl && !links.some((l) => l.url === m.siteUrl)) {
-      links.unshift({ site: 'AniList', url: m.siteUrl, color: '#5365f5', icon: '' });
+      links.unshift({ site: 'AniList', url: m.siteUrl, color: '#5365f5', icon: '', kind: 'ext' });
     }
     return links;
   }
@@ -7303,7 +7356,7 @@ function setupSubPopupEvents() {
     return { links: anilistLinksFromMedia(m) };
   }
 
-  // Fallback Jikan/MAL: liên kết (/external) tìm theo tên anime — không streaming (toàn 404)
+  // Fallback Jikan/MAL: /external (kind ext) + /streaming (kind other) tìm theo tên anime
   async function jikanFetchExternalLinks(title) {
     const searchUrl = 'https://api.jikan.moe/v4/anime?q=' + encodeURIComponent(title) + '&limit=1&sfw=true';
     const res = await fetch(searchUrl, { headers: { 'Accept': 'application/json' }, signal: AbortSignal.timeout(6000) });
@@ -7313,21 +7366,24 @@ function setupSubPopupEvents() {
     if (!j || !j.mal_id) throw new Error('empty');
     const malUrl = j.url || 'https://myanimelist.net/anime/' + Number(j.mal_id);
     const links = [];
-    try {
-      const r = await fetch('https://api.jikan.moe/v4/anime/' + Number(j.mal_id) + '/external', { headers: { 'Accept': 'application/json' }, signal: AbortSignal.timeout(8000) });
-      if (r.ok) {
+    const getList = async (path, kind, fallbackName) => {
+      try {
+        const r = await fetch('https://api.jikan.moe/v4/anime/' + Number(j.mal_id) + path, { headers: { 'Accept': 'application/json' }, signal: AbortSignal.timeout(8000) });
+        if (!r.ok) return;
         const b = await r.json();
         for (const x of (b && b.data) || []) {
-          if (x && x.url) links.push({ site: (x.name || linkHost(x.url) || 'Liên kết').trim(), url: x.url, color: '', icon: '' });
+          if (x && x.url) links.push({ site: (x.name || linkHost(x.url) || fallbackName).trim(), url: x.url, color: '', icon: '', kind });
         }
-      }
-    } catch (_e) { /* external poate thất bại — MAL rămân oricum */ }
-    // Trang MAL luân adăugată în listă
-    if (!links.some((l) => l.url === malUrl)) links.push({ site: 'MyAnimeList', url: malUrl, color: '#2e51a2', icon: '' });
+      } catch (_e) { /* 1 nguồn lỗi thì bỏ qua — nguồn còn lại vẫn dùng được */ }
+    };
+    await getList('/external', 'ext', 'Liên kết');
+    await getList('/streaming', 'other', 'Link khác');
+    // Trang MyAnimeList luôn thêm vào danh sách
+    if (!links.some((l) => l.url === malUrl)) links.push({ site: 'MyAnimeList', url: malUrl, color: '#2e51a2', icon: '', kind: 'ext' });
     return { links };
   }
 
-  // Merge două orgine — dedupe după url (AniList + Jikan)
+  // Gộp 2 nguồn — dedupe theo url (AniList + Jikan)
   function mergeExtLinks(a, b) {
     if (!a) return b || { links: [] };
     if (!b) return a;
@@ -7393,13 +7449,15 @@ function setupSubPopupEvents() {
       }
       if (!result) result = { links: [] };
       State.linksCache.set(key, result);
-      // Admin đang xem mà record chưa có links → tự lưu ngược vào Supabase (chạy 1 lần rồi thôi)
+      // Admin đang xem mà record chưa có links → tự lưu ngược vào Supabase (chạy 1 lần rồi thôi);
+      // gộp theo loại: ghi đè nhóm ext, giữ nhóm other
       if (State.isAdmin && result.links.length && State.supabase) {
-        State.supabase.from('animes').update({ links: result.links }).eq('id', a.id)
+        const merged = mergeLinksByKind(a.links, result.links);
+        State.supabase.from('animes').update({ links: merged }).eq('id', a.id)
           .then(({ error }) => {
             if (!error) {
               const idx = State.animes.findIndex((x) => String(x.id) === String(a.id));
-              if (idx >= 0) State.animes[idx].links = result.links;
+              if (idx >= 0) State.animes[idx].links = merged;
             }
           })
           .catch(() => {});
@@ -7466,8 +7524,9 @@ function setupSubPopupEvents() {
     toast('Xong! Đã bổ sung ảnh nhân vật cho ' + updated + ' anime' + (skipped ? ' (bỏ qua ' + skipped + ' đã có/không có nhân vật)' : '') + '.', 'success', 6000);
   }
 
-  // Nút "Lấy liên kết": bổ sung liên kết ngoài (Official Site, Wikipedia...) cho anime cũ —
-  // AniList externalLinks trước, fallback Jikan/MAL; lưu vào cột links (jsonb) để khách xem instant.
+  // Nút "Lấy liên kết": làm mới liên kết cho toàn bộ anime —
+  // nhóm "ext" (Official Site, Wikipedia...) bị ghi đè bằng data mới (AniList → fallback Jikan/MAL),
+  // nhóm "link khác" (streaming...) được giữ nguyên; lưu vào cột links (jsonb) để khách xem instant.
   async function backfillExternalLinks() {
     if (!State.isAdmin) { toast('Bạn không có quyền.', 'error'); return; }
     const btn = $('#backfillLinksBtn');
@@ -7475,10 +7534,8 @@ function setupSubPopupEvents() {
     btn.disabled = true;
     const list = State.animes.slice();
     let updated = 0;
-    let skipped = 0;
     for (let i = 0; i < list.length; i++) {
       const a = list[i];
-      if (Array.isArray(a.links) && a.links.length) { skipped++; continue; } // đã có liên kết → bỏ qua
       toast('Lấy liên kết: ' + (i + 1) + '/' + list.length + ' — ' + (a.title || ''), 'info');
       try {
         let result = null;
@@ -7501,15 +7558,16 @@ function setupSubPopupEvents() {
           }
         }
         if (!result || !result.links.length) { await sleep(350); continue; }
-        const { error } = await State.supabase.from('animes').update({ links: result.links }).eq('id', a.id);
-        if (!error) { a.links = result.links; updated++; }
+        const merged = mergeLinksByKind(a.links, result.links);
+        const { error } = await State.supabase.from('animes').update({ links: merged }).eq('id', a.id);
+        if (!error) { a.links = merged; updated++; }
       } catch (err) {
         console.warn('Lỗi backfill liên kết cho', a.title, err);
       }
       await sleep(600); // nghỉ giữa các anime — tránh rate-limit AniList/Jikan
     }
     btn.disabled = false;
-    toast('Xong! Đã bổ sung liên kết cho ' + updated + ' anime' + (skipped ? ' (bỏ qua ' + skipped + ' đã có)' : '') + '.', 'success', 6000);
+    toast('Xong! Đã cập nhật liên kết cho ' + updated + ' anime (giữ nguyên nhóm "link khác").', 'success', 6000);
   }
 
   // Lấy toàn bộ thông tin bổ sung từ AniList cho anime cũ (tên Romaji/Native, synonyms,
@@ -7550,6 +7608,9 @@ function setupSubPopupEvents() {
           .map((t) => ({ name: String(t.name).trim(), rank: Number(t.rank) || 0, spoiler: false }));
         if (mediaTags.length && (!Array.isArray(a.tags) || !a.tags.length)) patch.tags = mediaTags;
         if (!a.studio) patch.studio = mainStudio;
+        // Liên kết: chỉ ghi đè nhóm ext, giữ nguyên nhóm "link khác" (other)
+        const freshLinks = anilistLinksFromMedia(media);
+        if (freshLinks.length) patch.links = mergeLinksByKind(a.links, freshLinks);
         const { error } = await State.supabase.from('animes').update(patch).eq('id', a.id);
         if (!error) {
           Object.assign(a, patch);
@@ -7679,9 +7740,11 @@ function setupSubPopupEvents() {
       .filter((t) => t && t.name && !t.isMediaSpoiler && !t.isGeneralSpoiler)
       .map((t) => ({ name: String(t.name).trim(), rank: Number(t.rank) || 0, spoiler: false }));
     $('#af_tags').value = tagsClean.map((t) => t.name).join(', ');
-    // Liên kết ngoài: chỉ ghi đè khi Media AniList trả kèm externalLinks (path Jikan/Kitsu không có — giữ nguyên)
+    // Liên kết ngoài: ghi đè nhóm ext bằng data AniList, giữ nguyên nhóm other đã có;
+    // path Jikan/Kitsu không có externalLinks → bỏ qua (Jikan path tự lấy riêng bên dưới)
     if (Array.isArray(it.externalLinks)) {
-      State.afLinks = anilistLinksFromMedia(it);
+      State.afLinks = mergeLinksByKind(State.afLinks, anilistLinksFromMedia(it));
+      renderLinkEditors(State.afLinks);
     }
 
     updatePosterPreview();
@@ -7693,6 +7756,14 @@ function setupSubPopupEvents() {
         const voices = await jikanFetchCast(it.id);
         if (voices.length) renderSeiyuuEditors(voices);
       } catch (_e) { /* bỏ qua lỗi seiyuu */ }
+      // Lấy luôn liên kết (gồm link khác/streaming) từ Jikan cho lần đầu nhập liệu
+      try {
+        const jl = await jikanFetchExternalLinks(($('#af_title').value || it.title || '').trim());
+        if (jl && jl.links.length) {
+          State.afLinks = mergeLinksByKind(State.afLinks, jl.links);
+          renderLinkEditors(State.afLinks);
+        }
+      } catch (_e) { /* bỏ qua lỗi links */ }
       return;
     }
     if (it._src === 'kitsu') return;
@@ -8748,6 +8819,17 @@ function setupSubPopupEvents() {
       wrap.appendChild(row);
       row.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); // danh sách có thanh cuộn riêng → cuộn tới dòng vừa thêm
     });
+
+    // Liên kết / Link khác: thêm dòng trống vào nhóm tương ứng trong form anime
+    const addLinkRow = (wrapId) => {
+      const wrap = $(wrapId);
+      if (!wrap) return;
+      wrap.appendChild(makeLinkEditorRow({}));
+      const rows = wrap.querySelectorAll('.seiyuu-editor-row');
+      if (rows.length) rows[rows.length - 1].scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    };
+    $('#addExtLinkBtn').addEventListener('click', () => addLinkRow('#afExtLinksList'));
+    $('#addOtherLinkBtn').addEventListener('click', () => addLinkRow('#afOtherLinksList'));
 
     // AniList tìm kiếm (input id = jikanQuery)
     $('#jikanSearchBtn').addEventListener('click', () => {
