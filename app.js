@@ -44,8 +44,8 @@
     isAdmin: false,
     isLoggedIn: false,   // đã đăng nhập (thành viên hoặc admin)
     synopsisCache: new Map(), // { animeId: { original, translated } } — cache bản dịch Google để bật/tắt không gọi lại API
-    linksCache: new Map(),   // { animeId: { links:[], streaming:[] } } — liênk wài bộ + streaming, cache per session (fetch async khi mở modal)
-    linksBusy: new Set(),    // id đang fetch liênk — tránh duplicate request când modal render lại
+    linksCache: new Map(),   // { animeId: { links:[] } } — liên kết, cache per session (fetch async khi mở modal)
+    linksBusy: new Set(),    // id đang fetch liên kết — tránh duplicate request când modal render lại
     adminEmail: '',
     nickname: '',        // tên hiển thị (nickname) của tài khoản đã đăng nhập
     youtubeReady: false,
@@ -5105,19 +5105,19 @@ function setupSubPopupEvents() {
         '</div>' +
       '</details>';
 
-    // Liênk wài bộ & Streaming — dữ liata lấy tựđộng (AniList → Jikan fallback) khi mở modal,
-    // nằm ngay dưới mục Dàn diễn viên lồng tiếng; bấm pe tiêu đề sổ ra danh sách liênk click-able
+    // Liên kết — dữ liata lấy tựđộng (AniList → Jikan fallback) khi mở modal,
+    // nằm ngay dưới mục Dàn diễn viên lồng tiếng; bấm pe tiêu đề sổ ra danh sách liên kết click-able
     const linksSection =
       '<details class="detail-section detail-collapse detail-links" data-anime="' + esc(a.id) + '">' +
         '<summary class="detail-collapse-head">' +
           '<h3 class="detail-section-title">' +
-            '<span class="detail-links-title-txt">🔗 Liênk wài bộ &amp; Streaming</span>' +
+            '<span class="detail-links-title-txt">🔗 Liên kết</span>' +
             '<span class="detail-links-count" id="detailLinksCount">⏳</span>' +
           '</h3>' +
           '<span class="detail-collapse-caret">▾</span>' +
         '</summary>' +
         '<div class="detail-links-body" id="detailLinksBody">' +
-          '<div class="links-loading" role="status">Đang tải liênk wài bộ...</div>' +
+          '<div class="links-loading" role="status">Đang tải liên kết...</div>' +
         '</div>' +
       '</details>';
 
@@ -5162,7 +5162,7 @@ function setupSubPopupEvents() {
         '</div>' +
       '</div>';
 
-    loadExternalLinks(a); // liênk wài bộ & streaming — fetch async + cache per session (AniList → Jikan fallback)
+    loadExternalLinks(a); // liên kết — fetch async + cache per session (AniList → Jikan fallback)
   }
 
   // Dãy icon trạng thái xem + điểm của tôi (chỉ admin) — đặt ngay dưới ảnh bìa, bấm là lưu liền
@@ -7234,14 +7234,14 @@ function setupSubPopupEvents() {
     return jikanFetchCast(j.mal_id);
   }
 
-  // Tên host domen din UL — hiểnthị mic sub tiêuđu liênk
+  // Host site web (từ URL) — hiểnthị mic sub nume liên kết
   const linkHost = (u) => {
     try { return new URL(u).host.replace(/^www\./, ''); } catch (_e) { return ''; }
   };
-  // Initiale 2 litere pentru badge (Crunchyroll -> CR)
+  // Inițiale site (2 litere) cho badge — (Crunchyroll -> CR)
   const linkInitials = (s) => String(s || '?').split(/\s+/).map((w) => (w || '?')[0]).join('').slice(0, 2).toUpperCase();
 
-  // Danh sátze tituli cacătate pentru cătări AniList/Jikan — preferă romaji, apoi title, native, synonyms
+  // Danh sátrze tên de căută (romaji, title, native, synonyms) — AniList/Jikan căută după primul cu phản sau
   function extLinkQueryCandidates(a) {
     const out = [];
     const push = (x) => {
@@ -7255,36 +7255,29 @@ function setupSubPopupEvents() {
     return out;
   }
 
-  // Liênk wài bộ + streaming din AniList (official site, Crunchyroll, Netflix...) — GRAPH că externă externăLinks/streamingEpisodes
+  // Liên kết din AniList (official site, trang chủ...) — GraphQL externalLinks + siteUrl
   async function anilistFetchExternalLinks(id) {
-    const gql = 'query ($id: Int) { Media(id: $id) { siteUrl externalLinks { site url color icon type } streamingEpisodes { site url } } }';
+    const gql = 'query ($id: Int) { Media(id: $id) { siteUrl externalLinks { site url color icon type } } }';
     const data = await anilistGraphQL(gql, { id });
     const m = data && data.data && data.data.Media;
     if (!m) return null;
     const links = [];
-    const streaming = [];
     const seen = new Set();
     for (const l of (m.externalLinks || [])) {
       if (!l || !l.url || l.disabled) continue;
+      if (String(l.type || '').toUpperCase() === 'STREAMING') continue; // streaming link — toá 404, không hiển thị
       if (seen.has(l.url)) continue;
       seen.add(l.url);
-      const item = { site: (l.site || linkHost(l.url) || 'Liênk').trim(), url: l.url, color: l.color || '', icon: l.icon || '' };
-      (String(l.type || '').toUpperCase() === 'STREAMING' ? streaming : links).push(item);
+      links.push({ site: (l.site || linkHost(l.url) || 'Liên kết').trim(), url: l.url, color: l.color || '', icon: l.icon || '' });
     }
-    for (const ep of (m.streamingEpisodes || [])) {
-      if (!ep || !ep.url) continue;
-      if (seen.has(ep.url)) continue;
-      seen.add(ep.url);
-      streaming.push({ site: (ep.site || linkHost(ep.url) || 'Streaming').trim(), url: ep.url, color: '', icon: '' });
-    }
-    // Trang AniList înă toujours în wài bộ
+    // Trang AniList luân adăugată în listă
     if (m.siteUrl && !links.some((l) => l.url === m.siteUrl)) {
       links.unshift({ site: 'AniList', url: m.siteUrl, color: '#5365f5', icon: '' });
     }
-    return { links, streaming };
+    return { links };
   }
 
-  // Fallback Jikan/MAL: liênk wài bộ (/external) + streaming (/streaming) cătănd seguns tituli
+  // Fallback Jikan/MAL: liên kết (/external) cătănd tên anime — fără streaming (toá 404)
   async function jikanFetchExternalLinks(title) {
     const searchUrl = 'https://api.jikan.moe/v4/anime?q=' + encodeURIComponent(title) + '&limit=1&sfw=true';
     const res = await fetch(searchUrl, { headers: { 'Accept': 'application/json' }, signal: AbortSignal.timeout(6000) });
@@ -7294,44 +7287,33 @@ function setupSubPopupEvents() {
     if (!j || !j.mal_id) throw new Error('empty');
     const malUrl = j.url || 'https://myanimelist.net/anime/' + Number(j.mal_id);
     const links = [];
-    const streaming = [];
-    async function getList(path) {
-      const r = await fetch('https://api.jikan.moe/v4/anime/' + Number(j.mal_id) + path, { headers: { 'Accept': 'application/json' }, signal: AbortSignal.timeout(8000) });
-      if (!r.ok) throw new Error('HTTP ' + r.status);
-      const b = await r.json();
-      return (b && b.data) || [];
-    }
     try {
-      for (const x of await getList('/external')) {
-        if (x && x.url) links.push({ site: (x.name || linkHost(x.url) || 'Liênk').trim(), url: x.url, color: '', icon: '' });
+      const r = await fetch('https://api.jikan.moe/v4/anime/' + Number(j.mal_id) + '/external', { headers: { 'Accept': 'application/json' }, signal: AbortSignal.timeout(8000) });
+      if (r.ok) {
+        const b = await r.json();
+        for (const x of (b && b.data) || []) {
+          if (x && x.url) links.push({ site: (x.name || linkHost(x.url) || 'Liên kết').trim(), url: x.url, color: '', icon: '' });
+        }
       }
-    } catch (_e) { /* una parte poate thất bại — merge mânuală continuă */ }
-    try {
-      for (const x of await getList('/streaming')) {
-        if (x && x.url) streaming.push({ site: (x.name || linkHost(x.url) || 'Streaming').trim(), url: x.url, color: '', icon: '' });
-      }
-    } catch (_e) {}
-    // Trang MAL înă toujours în wài bộ
+    } catch (_e) { /* external poate thất bại — MAL rămân oricum */ }
+    // Trang MAL luân adăugată în listă
     if (!links.some((l) => l.url === malUrl)) links.push({ site: 'MyAnimeList', url: malUrl, color: '#2e51a2', icon: '' });
-    return { links, streaming };
+    return { links };
   }
 
-  // Merge două orgine — dedupe după url (AniList + Jikan impreună manual)
+  // Merge două orgine — dedupe după url (AniList + Jikan)
   function mergeExtLinks(a, b) {
-    if (!a) return b || { links: [], streaming: [] };
+    if (!a) return b || { links: [] };
     if (!b) return a;
-    const push = (arr, from) => { for (const x of from) { if (!arr.some((l) => l.url === x.url)) arr.push(x); } };
-    push(a.links, b.links);
-    push(a.streaming, b.streaming);
+    for (const x of b.links || []) { if (!a.links.some((l) => l.url === x.url)) a.links.push(x); }
     return a;
   }
 
-  // Render danh sátrze liênk în bloc body al clății — liênk click-able, deschâde în tab nou
+  // Render danh sátrze liên kết în bloc body — click-able, deschâde în tab nou
   function renderExtLinksInto(body, badge, data) {
     const links = (data && data.links) || [];
-    const streaming = (data && data.streaming) || [];
-    if (!links.length && !streaming.length) {
-      body.innerHTML = '<div class="links-empty">Không có liênk wài bộ pentru aceste anime. 😕</div>';
+    if (!links.length) {
+      body.innerHTML = '<div class="links-empty">Không có liên kết cho anime này. 😕</div>';
       if (badge) badge.hidden = true;
       return;
     }
@@ -7354,9 +7336,9 @@ function setupSubPopupEvents() {
     const group = (icon, title, arr) => arr.length
       ? '<div class="links-group"><div class="links-group-title">' + icon + ' ' + esc(title) + '</div><div class="links-grid">' + arr.map(linkItem).join('') + '</div></div>'
       : '';
-    body.innerHTML = group('🌐', 'Liênk wài bộ', links) + group('📺', 'Streaming', streaming);
+    body.innerHTML = group('🌐', 'Liên kết', links);
     if (badge) {
-      badge.textContent = links.length + '+' + streaming.length;
+      badge.textContent = links.length;
       badge.hidden = false;
     }
   }
@@ -7371,7 +7353,7 @@ function setupSubPopupEvents() {
     if (State.linksBusy.has(key)) return; // deja în cătare — evită duplicate request
     State.linksBusy.add(key);
     try {
-      // 1) AniList: căută id după tituli, stați externalLinks + streamingEpisodes
+      // 1) AniList: căută id după titlu, stați externalLinks + siteUrl
       let result = null;
       let anilistId = null;
       for (const q of extLinkQueryCandidates(a)) {
@@ -7381,8 +7363,8 @@ function setupSubPopupEvents() {
       if (anilistId) {
         try { result = await anilistFetchExternalLinks(anilistId); } catch (_e) { result = null; }
       }
-      // 2) Jikan/MAL fallback (AniList lỗi sau că liênk golă)
-      const needJikan = !result || (!result.links.length && !result.streaming.length);
+      // 2) Jikan/MAL fallback (AniList lỗi sau că liên kết golă)
+      const needJikan = !result || !result.links.length;
       if (needJikan) {
         for (const q of extLinkQueryCandidates(a)) {
           try {
@@ -7391,7 +7373,7 @@ function setupSubPopupEvents() {
           } catch (_e) { /* thử tên kế tiếp */ }
         }
       }
-      if (!result) result = { links: [], streaming: [] };
+      if (!result) result = { links: [] };
       State.linksCache.set(key, result);
       renderExtLinksInto(body, $('#detailLinksCount'), result);
     } finally {

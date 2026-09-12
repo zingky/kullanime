@@ -1066,7 +1066,7 @@ html[data-theme="light"] .modal { background: rgba(255, 255, 255, 0.32); }
 .seiyuu-link { cursor: pointer; color: var(--accent); padding: 0; background: none; border: none; text-align: left; }
 .seiyuu-link:hover { text-decoration: underline; }
 
-/* ── Liênk wài bộ & Streaming (modal chi tiết — dữ liata lấy async din AniList/Jikan) ── */
+/* ── Liên kết (modal chi tiết — dữ liata lấy async din AniList/Jikan, fără streaming) ── */
 .detail-links .detail-section-title { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .detail-links-title-txt { display: inline-flex; align-items: center; }
 .detail-links-count {
