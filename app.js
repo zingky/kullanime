@@ -7333,10 +7333,8 @@ function setupSubPopupEvents() {
         '</a>'
       );
     };
-    const group = (icon, title, arr) => arr.length
-      ? '<div class="links-group"><div class="links-group-title">' + icon + ' ' + esc(title) + '</div><div class="links-grid">' + arr.map(linkItem).join('') + '</div></div>'
-      : '';
-    body.innerHTML = group('🌐', 'Liên kết', links);
+    // No more inner "Liên kết" title — the <details> header already says it. Render just the grid.
+    body.innerHTML = '<div class="links-grid">' + links.map(linkItem).join('') + '</div>';
     if (badge) {
       badge.textContent = links.length;
       badge.hidden = false;

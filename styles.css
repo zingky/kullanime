@@ -1088,9 +1088,6 @@ html[data-theme="light"] .modal { background: rgba(255, 255, 255, 0.32); }
 }
 @keyframes linksSpin { to { transform: rotate(360deg); } }
 .links-empty { color: var(--text-dim); font-size: 13px; }
-.links-group { margin-top: 12px; }
-.links-group + .links-group { margin-top: 14px; }
-.links-group-title { font-size: 12px; font-weight: 700; color: var(--text-dim); margin-bottom: 8px; }
 .links-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 6px; }
 .ext-link {
   display: flex; align-items: center; gap: 8px;
