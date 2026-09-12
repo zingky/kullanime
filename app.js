@@ -4905,6 +4905,14 @@ function setupSubPopupEvents() {
     return prior.concat(rest);
   }
 
+  // Popup tag mở ngang: sau khi hiện, đo bề rộng và kéo trái lại nếu tràn mép phải màn hình
+  function clampTagPopup(popup) {
+    popup.style.left = '0px';
+    const rect = popup.getBoundingClientRect();
+    const overflow = rect.right - (document.documentElement.clientWidth - 12);
+    if (overflow > 0) popup.style.left = Math.round(-overflow) + 'px';
+  }
+
   function renderAnimeDetail(a) {
     const el = $('#animeDetail');
     const genres = Array.isArray(a.genres) ? a.genres : [];
@@ -8881,6 +8889,7 @@ function setupSubPopupEvents() {
               if (p !== popup) p.classList.remove('open');
             });
             popup.classList.toggle('open', willOpen);
+            if (willOpen) clampTagPopup(popup);
           }
           e.stopPropagation();
         }
@@ -9009,7 +9018,7 @@ function setupSubPopupEvents() {
         const tmore = e.target.closest('[data-tag-more]');
         if (!tmore) return;
         const popup = tmore.querySelector('[data-tag-popup]');
-        if (popup) popup.classList.add('open');
+        if (popup) { popup.classList.add('open'); clampTagPopup(popup); }
       });
       animModalEl.addEventListener('mouseout', (e) => {
         // Chỉ đóng nếu chuột rời khỏi toàn bộ nút "+N" (và popup bên trong nó)
