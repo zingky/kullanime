@@ -8738,6 +8738,7 @@ function setupSubPopupEvents() {
         '<button type="button" class="seiyuu-remove" title="Xóa">✕</button>';
       row.querySelector('.seiyuu-remove').addEventListener('click', () => row.remove());
       wrap.appendChild(row);
+      row.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); // danh sách có thanh cuộn riêng → cuộn tới dòng vừa thêm
     });
 
     // AniList tìm kiếm (input id = jikanQuery)
