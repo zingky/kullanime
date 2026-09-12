@@ -149,13 +149,7 @@ body.bg-paused .bg-aurora * { animation-play-state: paused !important; }
   .aurora-blob, .twinkle, .meteor, .petal { animation: none !important; }
   .meteor, .petal { display: none; }
 }
-/* Mobile: chỉ giữ sao (thưa hơn) + 1 blob — ẩn hoa + sao băng để nhẹ GPU, đỡ hao pin */
-@media (max-width: 640px) {
-  .blob-2 { display: none; }
-  .aurora-blob { filter: blur(46px); opacity: 0.3; }
-  .meteor, .petal { display: none; }
-  .t5, .t6, .t7, .t8, .t10, .t11 { display: none; }
-}
+/* Mobile chạy full hiệu ứng như desktop (sao + hoa + sao băng) — không giới hạn */
 
 /* Glass surface helper */
 .glass {
