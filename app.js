@@ -3290,7 +3290,7 @@
     const el = $('#starField');
     if (!el || el.dataset.built) return;
     el.dataset.built = '1';
-    const n = window.innerWidth <= 640 ? 45 : 90;
+    const n = 90;
     let seed = 20260912;
     const rnd = () => { seed = (seed * 1103515245 + 12345) & 0x7fffffff; return seed / 0x7fffffff; };
     const shadows = [];
