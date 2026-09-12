@@ -1013,7 +1013,9 @@ html[data-theme="light"] .modal { background: rgba(255, 255, 255, 0.32); }
 }
 
 /* ── Thể loại: hiện 5 cái + nút ">" mở/đóng toàn bộ ── */
-.genre-chips { display: flex; flex-wrap: wrap; gap: 8px; flex-basis: 100%; }
+/* Thể loại + Tag nằm chung một dòng: meta-chips-row chiếm trọn hàng, 2 nhóm chip nằm cạnh nhau */
+.meta-chips-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; flex-basis: 100%; }
+.genre-chips { display: flex; flex-wrap: wrap; gap: 8px; }
 .genre-chips .chip { display: inline-flex; align-items: center; }
 .genre-chips.has-more:not(.open) .chip-btn:nth-child(n+6) { display: none; }
 .genre-chips.open .chip-btn { display: inline-flex; }
@@ -1021,7 +1023,7 @@ html[data-theme="light"] .modal { background: rgba(255, 255, 255, 0.32); }
 .chip-more:hover { border-color: var(--accent); background: rgba(168, 85, 247, 0.14); color: var(--text); }
 
 /* ── Tag: chip + popup_overflow ── */
-.tag-chips { display: flex; flex-wrap: wrap; gap: 6px; flex-basis: 100%; align-items: center; }
+.tag-chips { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
 .tag-chips .chip { display: inline-flex; align-items: center; font-size: 12px; padding: 2px 8px; border-radius: 999px; }
 .chip-tag { cursor: pointer; border: 1px solid rgba(16, 185, 129, 0.35); background: rgba(16, 185, 129, 0.10); color: #6ee7b7; transition: all 0.15s ease; }
 .chip-tag:hover { border-color: #10b981; background: rgba(16, 185, 129, 0.22); color: #a7f3d0; }
@@ -1034,7 +1036,7 @@ html[data-theme="light"] .modal { background: rgba(255, 255, 255, 0.32); }
 }
 .chip-tag-more:hover { border-color: #10b981; background: rgba(16, 185, 129, 0.20); color: #a7f3d0; }
 .tag-popup {
-  display: none; position: absolute; z-index: 200; bottom: calc(100% + 6px); left: 0;
+  display: none; position: absolute; z-index: 200; top: calc(100% + 6px); left: 0;
   max-width: 280px; padding: 8px 10px; border-radius: 10px;
   background: rgba(15, 23, 42, 0.35); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
   border: 1px solid rgba(148, 163, 184, 0.22); box-shadow: 0 8px 32px rgba(0,0,0,0.45);
@@ -1043,8 +1045,8 @@ html[data-theme="light"] .modal { background: rgba(255, 255, 255, 0.32); }
 .tag-popup.open { display: block; }
 .tag-popup .chip-tag { margin: 2px; }
 .tag-popup::after {
-  content: ''; position: absolute; top: 100%; left: 18px;
-  border: 6px solid transparent; border-top-color: rgba(15, 23, 42, 0.35);
+  content: ''; position: absolute; bottom: 100%; left: 18px;
+  border: 6px solid transparent; border-bottom-color: rgba(15, 23, 42, 0.35);
 }
 
 /* ── Khối Dàn diễn viên: bấm tiêu đề mới sổ ra (details/summary) ── */
@@ -1069,13 +1071,6 @@ html[data-theme="light"] .modal { background: rgba(255, 255, 255, 0.32); }
 /* ── Liên kết (modal chi tiết — dữ liata lấy async din AniList/Jikan, fără streaming) ── */
 .detail-links .detail-section-title { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .detail-links-title-txt { display: inline-flex; align-items: center; }
-.detail-links-count {
-  min-width: 24px; height: 24px; padding: 0 8px;
-  display: inline-flex; align-items: center; justify-content: center;
-  background: rgba(34, 211, 238, 0.15); border: 1px solid rgba(34, 211, 238, 0.45);
-  border-radius: 999px; font-size: 13px; font-weight: 800; color: var(--accent);
-}
-.detail-links-count[hidden] { display: none; }
 .detail-links-body { margin-top: 12px; }
 .links-loading {
   display: flex; align-items: center; gap: 8px;
@@ -1088,7 +1083,7 @@ html[data-theme="light"] .modal { background: rgba(255, 255, 255, 0.32); }
 }
 @keyframes linksSpin { to { transform: rotate(360deg); } }
 .links-empty { color: var(--text-dim); font-size: 13px; }
-.links-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 6px; }
+.links-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 6px; }
 .ext-link {
   display: flex; align-items: center; gap: 8px;
   padding: 7px 9px; border-radius: 10px;

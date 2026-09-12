@@ -5008,10 +5008,11 @@ function setupSubPopupEvents() {
     const genreMore = genres.length > maxGenres
       ? '<button type="button" class="chip chip-more" data-genre-more title="Xem toàn bộ thể loại"><span data-more-caret>▾</span> <span data-more-label>' + (genres.length - maxGenres) + ' thể loại</span></button>'
       : '';
-    chips.push('<div class="genre-chips' + (genres.length > maxGenres ? ' has-more' : '') + '">' + genreBtns + genreMore + '</div>');
+    const genreRow = '<div class="genre-chips' + (genres.length > maxGenres ? ' has-more' : '') + '">' + genreBtns + genreMore + '</div>';
 
     // Tag: hiện 3 tag rank cao nhất (ưu tiên Yuri/Girls Love) + nút tròn "+N" mở popup toàn bộ
     const tagItems = sortedTagsForDisplay(a.tags);
+    let tagRow = '';
     if (tagItems.length) {
       const maxTags = 3;
       const topTags = tagItems.slice(0, maxTags);
@@ -5028,8 +5029,10 @@ function setupSubPopupEvents() {
             '<span class="tag-popup" data-tag-popup>' + restTags.map(tagChip).join('') + '</span>' +
           '</span>';
       }
-      chips.push('<div class="tag-chips">' + tagHtml + '</div>');
+      tagRow = '<div class="tag-chips">' + tagHtml + '</div>';
     }
+    // Thể loại + Tag nằm chung một dòng
+    chips.push('<div class="meta-chips-row">' + genreRow + tagRow + '</div>');
     // Nguồn (click để lọc anime cùng nguồn)
     if (a.source) {
       chips.push('<button type="button" class="chip chip-btn" data-search="' + esc(a.source) + '" title="Tìm anime theo nguồn">📚 ' + esc(a.source) + '</button>');
@@ -5113,7 +5116,6 @@ function setupSubPopupEvents() {
         '<summary class="detail-collapse-head">' +
           '<h3 class="detail-section-title">' +
             '<span class="detail-links-title-txt">🔗 Liên kết</span>' +
-            '<span class="detail-links-count" id="detailLinksCount">⏳</span>' +
           '</h3>' +
           '<span class="detail-collapse-caret">▾</span>' +
         '</summary>' +
@@ -5166,7 +5168,7 @@ function setupSubPopupEvents() {
     // Liên kết: đọc từ Supabase nếu record đã có (instant, 0 request API ngoài) —
     // chỉ live-fetch (AniList → Jikan fallback) khi record cũ chưa có links
     if (Array.isArray(a.links) && a.links.length) {
-      renderExtLinksInto($('#detailLinksBody'), $('#detailLinksCount'), { links: a.links });
+      renderExtLinksInto($('#detailLinksBody'), { links: a.links });
     } else {
       loadExternalLinks(a);
     }
@@ -7325,12 +7327,11 @@ function setupSubPopupEvents() {
     return a;
   }
 
-  // Render danh sátrze liên kết în bloc body — click-able, deschâde în tab nou
-  function renderExtLinksInto(body, badge, data) {
+  // Render danh sách liên kết vào phần thân — mỗi link mở tab mới
+  function renderExtLinksInto(body, data) {
     const links = (data && data.links) || [];
     if (!links.length) {
       body.innerHTML = '<div class="links-empty">Không có liên kết cho anime này. 😕</div>';
-      if (badge) badge.hidden = true;
       return;
     }
     const linkItem = (l) => {
@@ -7349,12 +7350,7 @@ function setupSubPopupEvents() {
         '</a>'
       );
     };
-    // No more inner "Liên kết" title — the <details> header already says it. Render just the grid.
     body.innerHTML = '<div class="links-grid">' + links.map(linkItem).join('') + '</div>';
-    if (badge) {
-      badge.textContent = links.length;
-      badge.hidden = false;
-    }
   }
 
   // Điều phối chính: cache phiên → AniList → fallback Jikan → render vào modal
@@ -7363,7 +7359,7 @@ function setupSubPopupEvents() {
     if (!body) return;
     const key = String(a.id);
     const cached = State.linksCache.get(key);
-    if (cached) { renderExtLinksInto(body, $('#detailLinksCount'), cached); return; }
+    if (cached) { renderExtLinksInto(body, cached); return; }
     if (State.linksBusy.has(key)) return; // đang tải — tránh request trùng
     State.linksBusy.add(key);
     try {
@@ -7400,7 +7396,7 @@ function setupSubPopupEvents() {
           })
           .catch(() => {});
       }
-      renderExtLinksInto(body, $('#detailLinksCount'), result);
+      renderExtLinksInto(body, result);
     } finally {
       State.linksBusy.delete(key);
     }
@@ -7531,7 +7527,7 @@ function setupSubPopupEvents() {
         const patch = {
           title_romaji: (media.title && media.title.romaji) || a.title_romaji || '',
           title_native: (media.title && media.title.native) || a.title_native || '',
-          title_synonyms: (Array.isArray(media.synonyms) ? media.synonyms : ((media.title && Array.isArray(media.title.synonyms)) ? media.title.synonyms : [])).filter((s) => s !== a.title),
+          // title_synonyms: chỉ lấy lúc auto-fill đầu tiên — backfill không ghi đè "tên khác"
           start_date: anilistDateStr(media.startDate) || a.start_date || '',
           end_date: anilistDateStr(media.endDate) || a.end_date || '',
           season: mapAnilistSeason(media.season) || a.season || '',
