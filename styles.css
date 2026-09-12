@@ -1439,7 +1439,8 @@ html[data-theme="light"] .modal { background: rgba(255, 255, 255, 0.32); }
 .form-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 18px; }
 .poster-preview { margin-top: 8px; }
 .poster-preview img { max-width: 120px; border-radius: 8px; border: 1px solid var(--border); }
-.seiyuu-list { display: flex; flex-direction: column; gap: 8px; }
+/* Danh sách seiyuu trong form admin có thể rất dài → giới hạn chiều cao + thanh cuộn riêng */
+.seiyuu-list { display: flex; flex-direction: column; gap: 8px; max-height: 300px; overflow-y: auto; padding-right: 6px; scrollbar-width: thin; }
 .seiyuu-editor-row { display: flex; gap: 8px; flex-wrap: wrap; }
 .seiyuu-editor-row input { flex: 1 1 120px; min-width: 90px; }
 .seiyuu-remove { border: var(--glass-border); background: var(--bg-elev); border-radius: 7px; width: 34px; cursor: pointer; color: var(--danger); font-size: 15px; }
