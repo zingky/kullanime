@@ -4905,14 +4905,6 @@ function setupSubPopupEvents() {
     return prior.concat(rest);
   }
 
-  // Popup tag mở ngang: sau khi hiện, đo bề rộng và kéo trái lại nếu tràn mép phải màn hình
-  function clampTagPopup(popup) {
-    popup.style.left = '0px';
-    const rect = popup.getBoundingClientRect();
-    const overflow = rect.right - (document.documentElement.clientWidth - 12);
-    if (overflow > 0) popup.style.left = Math.round(-overflow) + 'px';
-  }
-
   function renderAnimeDetail(a) {
     const el = $('#animeDetail');
     const genres = Array.isArray(a.genres) ? a.genres : [];
@@ -5018,26 +5010,21 @@ function setupSubPopupEvents() {
       : '';
     const genreRow = '<div class="genre-chips' + (genres.length > maxGenres ? ' has-more' : '') + '">' + genreBtns + genreMore + '</div>';
 
-    // Tag: hiện 3 tag rank cao nhất (ưu tiên Yuri/Girls Love) + nút tròn "+N" mở popup toàn bộ
+    // Tag: hiện 3 tag rank cao nhất (ưu tiên Yuri/Girls Love) + nút "+N" bấm xổ toàn bộ tag tại chỗ, "−" để thu gọn
     const tagItems = sortedTagsForDisplay(a.tags);
     let tagRow = '';
     if (tagItems.length) {
       const maxTags = 3;
-      const topTags = tagItems.slice(0, maxTags);
       const restTags = tagItems.slice(maxTags);
       const priorNames = new Set(['yuri', 'girls love']);
       const tagChip = (t) => {
         const isPrior = priorNames.has(String(t.name).toLowerCase());
         return '<button type="button" class="chip chip-tag' + (isPrior ? ' chip-tag-prior' : '') + '" data-search="' + esc(t.name) + '" title="Tìm anime theo tag: ' + esc(t.name) + '">' + esc(t.name) + '</button>';
       };
-      let tagHtml = topTags.map(tagChip).join('');
-      if (restTags.length) {
-        tagHtml +=
-          '<span class="chip chip-tag-more" data-tag-more role="button" tabindex="0" title="Hiện toàn bộ tag">+' + restTags.length +
-            '<span class="tag-popup" data-tag-popup>' + restTags.map(tagChip).join('') + '</span>' +
-          '</span>';
-      }
-      tagRow = '<div class="tag-chips">' + tagHtml + '</div>';
+      const tagHtml = tagItems.map(tagChip).join('') + (restTags.length
+        ? '<button type="button" class="chip chip-tag-more" data-tag-more title="Hiện/thu gọn toàn bộ tag"><span data-tag-more-label>+' + restTags.length + '</span></button>'
+        : '');
+      tagRow = '<div class="tag-chips' + (restTags.length ? ' has-more' : '') + '">' + tagHtml + '</div>';
     }
     // Thể loại + Tag nằm chung một dòng
     chips.push('<div class="meta-chips-row">' + genreRow + tagRow + '</div>');
@@ -5061,19 +5048,22 @@ function setupSubPopupEvents() {
           '</summary>' +
           '<div class="seiyuu-grid">' +
             seiyuu.map((s) => {
-              // Ảnh chính = ảnh nhân vật (character art), ảnh nhỏ = seiyuu
-              const vaImg = s.image ? '<img src="' + esc(s.image) + '" alt="" loading="lazy" onerror="this.style.display=\'none\'" />' : '';
+              // Mỗi cặp: trái = ảnh nhân vật (tên nhân vật ở dòng trên), phải = ảnh diễn viên (tên diễn viên ở dòng dưới)
               const charImg = s.charImage
-                ? '<img class="seiyuu-char-img" src="' + esc(s.charImage) + '" alt="" loading="lazy" onerror="this.style.display=\'none\'" />'
-                : '';
-              const main = charImg || vaImg || '<span>🎙</span>';
-              const badge = s.charImage && vaImg ? '<span class="seiyuu-va-badge">' + vaImg + '</span>' : '';
+                ? '<img src="' + esc(s.charImage) + '" alt="" loading="lazy" onerror="this.style.display=\'none\'" />'
+                : '<span>🎭</span>';
+              const vaImg = s.image
+                ? '<img src="' + esc(s.image) + '" alt="" loading="lazy" onerror="this.style.display=\'none\'" />'
+                : '<span>🎙</span>';
               return (
                 '<div class="seiyuu-card">' +
-                  '<div class="seiyuu-avatar">' + main + badge + '</div>' +
-                  '<div class="seiyuu-info">' +
-                    '<button type="button" class="seiyuu-name seiyuu-link" data-search="' + esc(s.name || '') + '" title="Tìm anime theo diễn viên">' + esc(s.name || '') + '</button>' +
-                    '<div class="seiyuu-char">' + esc(s.character || '') + '</div>' +
+                  '<div class="seiyuu-half seiyuu-half-char">' +
+                    '<div class="seiyuu-half-name">' + esc(s.character || '—') + '</div>' +
+                    '<div class="seiyuu-half-img">' + charImg + '</div>' +
+                  '</div>' +
+                  '<div class="seiyuu-half seiyuu-half-va">' +
+                    '<div class="seiyuu-half-img">' + vaImg + '</div>' +
+                    '<button type="button" class="seiyuu-name seiyuu-link" data-search="' + esc(s.name || '') + '" title="Tìm anime theo diễn viên">' + esc(s.name || '—') + '</button>' +
                   '</div>' +
                 '</div>'
               );
@@ -8958,29 +8948,17 @@ function setupSubPopupEvents() {
         }
         return;
       }
-      // Tag: nút "+N" mở/đóng popup toàn bộ tag (click — fallback cho mobile, nơi không có hover)
+      // Tag: nút "+N" xổ toàn bộ tag ngay tại chỗ (giống thể loại), nút thành "−" để thu gọn
       const tmore = e.target.closest('[data-tag-more]');
       if (tmore) {
-        // Click vào chính tag (data-search) bên trong popup → để sự kiện search chạy, không đóng/thao tác ở đây
-        if (!e.target.closest('[data-search]')) {
-          const popup = tmore.querySelector('[data-tag-popup]');
-          if (popup) {
-            const willOpen = !popup.classList.contains('open');
-            // Đóng mọi popup tag khác đang mở
-            $('#animeModal').querySelectorAll('.tag-popup.open').forEach((p) => {
-              if (p !== popup) p.classList.remove('open');
-            });
-            popup.classList.toggle('open', willOpen);
-            if (willOpen) clampTagPopup(popup);
-          }
-          e.stopPropagation();
+        const wrap = tmore.closest('.tag-chips');
+        if (wrap) {
+          const open = wrap.classList.toggle('open');
+          const label = wrap.querySelector('[data-tag-more-label]');
+          const rest = Math.max(0, wrap.querySelectorAll('.chip-tag').length - 3);
+          if (label) label.textContent = open ? '−' : '+' + rest;
         }
         return;
-      }
-      // Click ra ngoài popup tag → đóng
-      if (!e.target.closest('[data-tag-popup]')) {
-        const modal = $('#animeModal');
-        modal.querySelectorAll('.tag-popup.open').forEach((p) => p.classList.remove('open'));
       }
       // Icon trạng thái xem của tôi — bấm là lưu liền (⏳ lưu "Đang xem" + mở popup chọn tập)
       const watchIco = e.target.closest('.watch-ico');
@@ -9093,23 +9071,15 @@ function setupSubPopupEvents() {
       if (!e.target.closest('#heartPop, #epPop, #statusPop') && !e.__popOpened) closeMiniPop();
     });
 
-    // Hover (desktop) mở popup tag — mouseover/mouseout delegate trên modal
+    // Accordion: modal chi tiết anime chỉ mở 1 mục cùng lúc (Seiyuu / Liên kết / Số lần đã xem) —
+    // sự kiện 'toggle' không nổi bọt nên phải bắt ở giai đoạn capture trên modal
     const animModalEl = $('#animeModal');
     if (animModalEl) {
-      animModalEl.addEventListener('mouseover', (e) => {
-        const tmore = e.target.closest('[data-tag-more]');
-        if (!tmore) return;
-        const popup = tmore.querySelector('[data-tag-popup]');
-        if (popup) { popup.classList.add('open'); clampTagPopup(popup); }
-      });
-      animModalEl.addEventListener('mouseout', (e) => {
-        // Chỉ đóng nếu chuột rời khỏi toàn bộ nút "+N" (và popup bên trong nó)
-        const tmore = e.target.closest('[data-tag-more]');
-        if (!tmore) return;
-        if (tmore.contains(e.relatedTarget)) return;
-        const popup = tmore.querySelector('[data-tag-popup]');
-        if (popup) popup.classList.remove('open');
-      });
+      animModalEl.addEventListener('toggle', (e) => {
+        const d = e.target;
+        if (d.tagName !== 'DETAILS' || !d.open || !d.classList.contains('detail-collapse')) return;
+        animModalEl.querySelectorAll('details.detail-collapse[open]').forEach((x) => { if (x !== d) x.open = false; });
+      }, true);
     }
   }
 
