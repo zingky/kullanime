@@ -5048,7 +5048,7 @@ function setupSubPopupEvents() {
           '</summary>' +
           '<div class="seiyuu-grid">' +
             seiyuu.map((s) => {
-              // 2 ảnh cùng hàng (nhân vật trái, diễn viên phải); tên nhân vật phía trên-trái, tên diễn viên phía dưới-phải
+              // 1 hàng 3 ô: ô 1 ảnh nhân vật tròn, ô 2 hai dòng tên (NV trên trái / DV dưới phải), ô 3 ảnh diễn viên tròn
               const charImg = s.charImage
                 ? '<img src="' + esc(s.charImage) + '" alt="" loading="lazy" onerror="this.style.display=\'none\'" />'
                 : '<span>🎭</span>';
@@ -5057,10 +5057,12 @@ function setupSubPopupEvents() {
                 : '<span>🎙</span>';
               return (
                 '<div class="seiyuu-card">' +
-                  '<div class="seiyuu-char-name">' + esc(s.character || '—') + '</div>' +
                   '<div class="seiyuu-img seiyuu-img-char">' + charImg + '</div>' +
+                  '<div class="seiyuu-mid">' +
+                    '<div class="seiyuu-char-name">' + esc(s.character || '—') + '</div>' +
+                    '<button type="button" class="seiyuu-name seiyuu-link" data-search="' + esc(s.name || '') + '" title="Tìm anime theo diễn viên">' + esc(s.name || '—') + '</button>' +
+                  '</div>' +
                   '<div class="seiyuu-img seiyuu-img-va">' + vaImg + '</div>' +
-                  '<button type="button" class="seiyuu-name seiyuu-link" data-search="' + esc(s.name || '') + '" title="Tìm anime theo diễn viên">' + esc(s.name || '—') + '</button>' +
                 '</div>'
               );
             }).join('') +
