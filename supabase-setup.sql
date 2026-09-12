@@ -61,6 +61,9 @@ create table if not exists public.animes (
   seiyuu          jsonb not null default '[]'::jsonb,
   -- tags từ AniList: [{"name":"Yuri","rank":87,"spoiler":false}, ...]
   tags            jsonb not null default '[]'::jsonb,
+  -- liên kết ngoài (Official Site, Wikipedia...): [{"site":"...","url":"...","color":"...","icon":"..."}]
+  -- (admin auto-fill/backfill lấy 1 lần từ AniList/Jikan; client đọc thẳng, không gọi API ngoài)
+  links           jsonb not null default '[]'::jsonb,
   created_at      timestamptz not null default now(),
   updated_at      timestamptz not null default now()
 );
