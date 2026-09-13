@@ -1,23 +1,31 @@
-/* ============================================================
-   config.js — Cấu hình App (Supabase, Cloudinary, AniList, GitHub)
-   ------------------------------------------------------------
-   Đây là website tĩnh 100%, không có build-time. file `.env.local`
-   ở thư mục gốc dùng để lưu các giá trị nhạy cảm (không commit).
-   Ở môi trường dev (mở qua http server), `loadConfig()` sẽ cố gắng
-   fetch `.env.local` để đọc trực tiếp. Khi không đọc được (vd: khi
-   deploy lên GitHub Pages nơi file này không được serve) thì rơi về
-   các giá trị mặc định công khai bên dưới.
+/*
+ * KullAnime — site tĩnh (GitHub Pages + Supabase)
+ * Dùng:
+ *   - Supabase (DB anime + bình luận ngắn)
+ *   - Cloudinary (upload ảnh comment)
+ *   - AniList GraphQL (auto-fill thông tin anime, diễn viên lồng tiếng)
+ *   - GitHub repo Kull-Vietsub (file phụ đề .ass, tự động lấy topic)
+ *
+ * Hướng dẫn sửa config khi fork:
+ *   1. Tạo project Supabase riêng → điền URL + anon key vào DEFAULTS
+ *   2. Tạo Cloudinary account → điền cloud name + unsigned preset
+ *   3. Nếu muốn dùng phụ đề .ass của riêng mình,
+ *      sửa GITHUB_SUBS_OWNER / GITHUB_SUBS_REPO / GITHUB_SUBS_PATH
+ *
+ * Lưu ý bảo mật:
+ *   - Khóa anon Supabase và upload preset Cloudinary là public —
+ *     an toàn khi đưa lên trình duyệt, vì RLS/Supabase và preset
+ *     unsigned kiểm soát quyền, không dựa vào việc giấu key.
+ *   - KHÔNG đưa service_role key hay Cloudinary API secret vào đây.
+ *
+ * Cách dùng trong code:
+ *   - App đọc config sau khi tải xong config.js:
+ *       const cfg = await AppConfig.load();
+ *     và dùng các trường cfg.SUPABASE_URL, cfg.GITHUB_RAW_BASE, ...
+ *   - DEFAULTS là giá trị mặc định dùng được ngay khi không có
+ *     .env.local / __APP_ENV__.
+ */
 
-   ⚠️ LƯU Ý BẢO MẬT:
-   - SUPABASE_ANON_KEY là khóa "publishable" — an toàn để đưa lên
-     trình duyệt. Quyền truy cập dữ liệu được kiểm soát CHẶT CHẼ
-     bằng RLS ở tầng Supabase (xem supabase-setup.sql), KHÔNG dựa
-     vào việc giấu key.
-   - UPLOAD_PRESET là preset "unsigned" — cho phép tải ảnh bình luận
-     lên Cloudinary mà không cần API secret.
-   - KHÔNG BAO GIỜ đặt SUPABASE_SERVICE_ROLE_KEY hoặc cloudinary
-     API SECRET ở đây — những thứ đó phải nằm ở server-side.
-   ============================================================ */
 
 (function (global) {
   'use strict';

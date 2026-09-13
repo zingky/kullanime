@@ -32,7 +32,7 @@
   <!-- File cấu hình (đọc .env.local / fallback) -->
   <script src="./config.js"></script>
 
-  <link rel="stylesheet" href="./styles.css?v=81" />
+  <link rel="stylesheet" href="./styles.css?v=82" />
 </head>
 <body>
   <!-- Nền đêm sao + cánh hoa anh đào (night sky + sakura) — JS sinh sao tĩnh, CSS animation transform/opacity -->
@@ -271,11 +271,10 @@
       </p>
       <p class="footer-meta">made with ♥️ kull@duck.com</p>
     </div>
+    <div class="footer-controls">
+      <button type="button" class="bg-fx-toggle" id="bgFxToggle" aria-pressed="true" title="Bật/tắt hiệu ứng nền (sao + hoa anh đào)">✨ Hiệu ứng nền: Bật</button>
+    </div>
   </footer>
-  <!-- Công tắc hiệu ứng nền (đêm sao + hoa rơi) — dưới footer, căn phải -->
-  <div class="bg-toggle-wrap container">
-    <button type="button" class="bg-fx-toggle" id="bgFxToggle" aria-pressed="true" title="Bật/tắt hiệu ứng nền (sao + hoa anh đào)">✨ Hiệu ứng nền: Bật</button>
-  </div>
 
   <!-- ======================= CHAT CHUNG (bong bóng nổi góc phải) ======================= -->
   <button type="button" class="chat-fab" id="chatFab" aria-expanded="false" aria-label="Mở Chat All" title="Chat All">
@@ -730,7 +729,7 @@
   <div class="mini-pop hidden" id="epPop"></div>
   <div class="mini-pop hidden" id="heartPop"></div>
 
-  <script src="./app.js?v=75"></script>
+  <script src="./app.js?v=76"></script>
 </body>
 </html>
 

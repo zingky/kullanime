@@ -100,7 +100,8 @@ p, h1, h2, h3, h4, h5, h6, li, a, span, div, td, th {
   100% { transform: translate(-3vw, 4vw) scale(0.94); }
 }
 /* Sao tĩnh: 1 div duy nhất, JS bơm box-shadow (~90 chấm) — không animation, 0 tốn GPU */
-.star-field { position: absolute; top: 0; left: 0; width: 2px; height: 2px; border-radius: 50%; background: transparent; opacity: 0.8; }
+.star-field { position: absolute; top: 0; left: 0; width: 2px; height: 2px; border-radius: 50%; background: transparent; opacity: 0.95; z-index: 1; pointer-events: none; }
+html[data-theme="light"] .star-field { opacity: 0.9; }
 /* 12 sao nhấp nháy (opacity) — vị trí/kích cỡ/chu kỳ rải ngẫu nhiên bằng tay */
 .twinkle { position: absolute; border-radius: 50%; background: #fff; box-shadow: 0 0 6px 1px rgba(255,255,255,0.7); animation: starTwinkle 3s ease-in-out infinite; }
 .t1 { top: 8%; left: 12%; width: 3px; height: 3px; animation-duration: 2.6s; }
@@ -325,7 +326,7 @@ select.input { appearance: none; -webkit-appearance: none; background-image: url
    number of cột được tính tự động từ bề rộng container, không đổi theo mốc cứng. */
 .anime-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(135px, 100%), 1fr)); gap: clamp(9px, 1.4vw, 14px); }
 
-.anime-card { position: relative; background: var(--bg-card); border: var(--glass-border); border-radius: var(--radius); overflow: hidden; cursor: pointer; transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease; backdrop-filter: blur(14px) saturate(150%); -webkit-backdrop-filter: blur(14px) saturate(150%); box-shadow: var(--shadow-soft); }
+.anime-card { position: relative; background: transparent; border: var(--glass-border); border-radius: var(--radius); overflow: hidden; cursor: pointer; transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease; backdrop-filter: blur(20px) saturate(140%); -webkit-backdrop-filter: blur(20px) saturate(140%); box-shadow: var(--shadow-soft); }
 .anime-card:hover { transform: translateY(-6px); box-shadow: var(--shadow); border-color: rgba(168, 85, 247, 0.4); }
 .card-poster { position: relative; aspect-ratio: 3 / 4.2; overflow: hidden; background: var(--bg-soft); }
 .card-poster img { width: 100%; height: 100%; object-fit: cover; display: block; transition: transform 0.3s ease; }
@@ -1497,11 +1498,13 @@ html[data-theme="light"] .modal { background: rgba(255, 255, 255, 0.32); }
 
 /* ============ FOOTER (gọn, bám sát text) ============ */
 .app-footer {
+  position: relative;
   border-top: var(--glass-border);
   background: transparent;
   padding: 6px 0 12px;
   margin-top: 8px;
 }
+.app-footer .footer-controls { position: absolute; right: 12px; top: 50%; transform: translateY(-50%); }
 .footer-inner { text-align: center; }
 .footer-brand { margin: 0 0 1px; font-size: 13.5px; font-weight: 600; line-height: 1.4; }
 .footer-brand em { font-style: normal; background: var(--grad); -webkit-background-clip: text; background-clip: text; color: transparent; }
@@ -1509,8 +1512,7 @@ html[data-theme="light"] .modal { background: rgba(255, 255, 255, 0.32); }
 .footer-meta + .footer-meta { margin-top: 1px; }
 .app-footer a { color: var(--accent); text-decoration: none; }
 .app-footer a:hover { text-decoration: underline; }
-/* Công tắc hiệu ứng nền — dưới footer, căn phải, nút ghost nhỏ không làm trang cao thêm */
-.bg-toggle-wrap { display: flex; justify-content: flex-end; padding-bottom: 10px; }
+/* Công tắc hiệu ứng nền — nằm chung dòng footer, ghim sát mép phải */
 .bg-fx-toggle {
   background: transparent; border: var(--glass-border); border-radius: 999px;
   color: var(--text-faint); font-size: 12px; font-weight: 600; cursor: pointer;
@@ -1518,6 +1520,11 @@ html[data-theme="light"] .modal { background: rgba(255, 255, 255, 0.32); }
 }
 .bg-fx-toggle:hover { opacity: 1; border-color: var(--accent); color: var(--text); }
 body.bg-fx-off .bg-fx-toggle { opacity: 0.5; }
+
+
+@media (max-width: 640px) {
+
+}
 
 /* ============ CHAT CHUNG — NÚT BONG BÓNG + PANEL NỔI ============ */
 /* Nút bong bóng chat (FAB) góc dưới-phải */
