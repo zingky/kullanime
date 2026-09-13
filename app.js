@@ -9164,10 +9164,12 @@ function setupSubPopupEvents() {
      21. KHỞI TẠO APP
      ────────────────────────────────────────────────────── */
   async function init() {
+    // Dựng nền sao NGAY LẬP TỨC — không chờ Supabase/mạng: nếu initSupabase() chậm
+    // hoặc treo (fetch không phản hồi) thì sao vẫn hiện bình thường.
+    loadBgFx();
     await initSupabase();
     ensureSubSettings(); // nạp cài đặt phụ đề toàn cục từ localStorage
     loadPlayerPrefs();   // nạp tùy chọn tự động / ngẫu nhiên từ localStorage
-    loadBgFx();          // dựng sao tĩnh + áp công tắc hiệu ứng nền (đêm sao + hoa rơi)
     bindEvents();
     updatePlayerControlsUI();
     // Load cache danh sách .ass ngay lập tức (không cần chờ load anime/songs)
