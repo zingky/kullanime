@@ -3285,30 +3285,37 @@
   }
 
   // ===================== HIỆU ỨNG NỀN (đêm sao + hoa anh đào) =====================
-  // Sao tĩnh: bơm ~90 chấm box-shadow vào #starField (1 div duy nhất, không animation).
-  // Công tắc #bgFxToggle: lưu localStorage 'kullanime_bgfx' (mặc định bật).
-  // Tab ẩn: pause hết animation nền (tiết kiệm pin) qua class body.bg-paused.
+  // Sao: rải ~60 span .star-dot vào #bgAurora — CHUNG LỚP với cánh hoa sakura
+  // (các span .petal). DOM thật, không box-shadow, không ::before → hiện chắc chắn
+  // giống hệt sakura trên mọi môi trường deploy. Công tắc #bgFxToggle: icon ✨ duy nhất.
   const BGFX_KEY = 'kullanime_bgfx';
   function buildStarField() {
-    const el = $('#starField');
-    if (!el || el.dataset.built) return;
-    el.dataset.built = '1';
-    const n = 90;
+    const layer = $('#bgAurora');
+    if (!layer || layer.dataset.starsBuilt) return;
+    layer.dataset.starsBuilt = '1';
+    const n = 60;
     let seed = 20260912;
     const rnd = () => { seed = (seed * 1103515245 + 12345) & 0x7fffffff; return seed / 0x7fffffff; };
-    const shadows = [];
+    const frag = document.createDocumentFragment();
     for (let i = 0; i < n; i++) {
-      const x = Math.floor(rnd() * 100);
-      const y = Math.floor(rnd() * 100);
-      shadows.push(x + 'vw ' + y + 'vh 0 0 rgba(255,255,255,' + (0.35 + rnd() * 0.55).toFixed(2) + ')');
+      const s = document.createElement('span');
+      s.className = 'star-dot';
+      const size = (1 + rnd() * 2.4).toFixed(1);
+      const glow = (2 + rnd() * 3).toFixed(1);
+      s.style.cssText = 'top:' + (rnd() * 100).toFixed(1) + '%;left:' + (rnd() * 100).toFixed(1) + '%;'
+        + 'width:' + size + 'px;height:' + size + 'px;'
+        + 'opacity:' + (0.35 + rnd() * 0.6).toFixed(2) + ';'
+        + 'box-shadow:0 0 ' + glow + 'px rgba(255,255,255,0.8);';
+      frag.appendChild(s);
     }
-    el.style.boxShadow = shadows.join(',');
+    layer.appendChild(frag);
   }
   function applyBgFx(on) {
     document.body.classList.toggle('bg-fx-off', !on);
     const btn = $('#bgFxToggle');
     if (btn) {
-      btn.textContent = on ? '✨ Hiệu ứng nền: Bật' : '✨ Hiệu ứng nền: Tắt';
+      // Nút chỉ còn icon ✨ — trạng thái tắt thể hiện qua mờ/đậm của icon
+      btn.textContent = '✨';
       btn.setAttribute('aria-pressed', on ? 'true' : 'false');
     }
   }
