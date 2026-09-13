@@ -3,6 +3,9 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <!-- color-scheme: dark — báo trình duyệt trang đã tối, ngừng bật "Auto Dark/Force Dark"
+       (nếu không khai báo, Chrome mobile đảo trắng→đen khiến ngôi sao biến thành chấm đen) -->
+  <meta name="color-scheme" content="dark" />
   <meta name="description" content="KullAnime — Website cá nhân trưng bày anime đã xem & trình phát nhạc OST kèm phụ đề .ass" />
   <meta name="theme-color" content="#0b0f19" />
   <title>KullAnime 🌸 — Anime & OST Player</title>
@@ -32,7 +35,7 @@
   <!-- File cấu hình (đọc .env.local / fallback) -->
   <script src="./config.js"></script>
 
-  <link rel="stylesheet" href="./styles.css?v=85" />
+  <link rel="stylesheet" href="./styles.css?v=86" />
 </head>
 <body>
   <!-- Nền đêm sao + cánh hoa anh đào (night sky + sakura) — JS sinh sao tĩnh, CSS animation transform/opacity -->
@@ -729,7 +732,7 @@
   <div class="mini-pop hidden" id="epPop"></div>
   <div class="mini-pop hidden" id="heartPop"></div>
 
-  <script src="./app.js?v=79"></script>
+  <script src="./app.js?v=80"></script>
 </body>
 </html>
 

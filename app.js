@@ -3300,11 +3300,11 @@
     for (let i = 0; i < n; i++) {
       const s = document.createElement('span');
       s.className = 'star-dot';
-      const size = (2.5 + rnd() * 3.5).toFixed(1);
-      const glow = (4 + rnd() * 6).toFixed(1);
+      const size = (1 + rnd() * 2.4).toFixed(1);   // 1–3.4px: chấm sao thanh mảnh
+      const glow = (2 + rnd() * 3).toFixed(1);
       s.style.cssText = 'top:' + (rnd() * 100).toFixed(1) + '%;left:' + (rnd() * 100).toFixed(1) + '%;'
         + 'width:' + size + 'px;height:' + size + 'px;'
-        + 'opacity:' + (0.7 + rnd() * 0.3).toFixed(2) + ';'
+        + 'opacity:' + (0.35 + rnd() * 0.6).toFixed(2) + ';'
         + 'box-shadow:0 0 ' + glow + 'px rgba(255,255,255,0.95);'
         + 'animation-delay:-' + (rnd() * 3).toFixed(2) + 's;animation-duration:' + (2 + rnd() * 3).toFixed(1) + 's;';
       frag.appendChild(s);
