@@ -14,6 +14,7 @@
 }
 
 :root {
+  color-scheme: dark;
   /* ── Glassmorphism design tokens — siêu trong để nền sao/hoa xuyên qua (liquid glass) ── */
   --bg: #0a0e1a;
   --bg-soft: rgba(255, 255, 255, 0.012);
@@ -38,19 +39,6 @@
   --shadow: 0 18px 50px rgba(0, 0, 0, 0.45);
   --shadow-soft: 0 10px 30px rgba(0, 0, 0, 0.32);
   --grad: linear-gradient(135deg, #a855f7 0%, #6366f1 45%, #22d3ee 100%);
-}
-
-html[data-theme="light"] {
-  --bg: #eef1fb;
-  --bg-soft: rgba(255, 255, 255, 0.5);
-  --bg-card: rgba(255, 255, 255, 0.62);
-  --bg-elev: rgba(255, 255, 255, 0.78);
-  --border: rgba(15, 23, 42, 0.12);
-  --border-strong: rgba(15, 23, 42, 0.2);
-  --text: #0f172a;
-  --text-dim: #475569;
-  --text-faint: #7d8aa3;
-  --shadow: 0 18px 50px rgba(2, 6, 23, 0.18);
 }
 
 * { box-sizing: border-box; }
@@ -100,13 +88,11 @@ p, h1, h2, h3, h4, h5, h6, li, a, span, div, td, th {
   100% { transform: translate(-3vw, 4vw) scale(0.94); }
 }
 /* Sao tĩnh: 1 div duy nhất, JS bơm box-shadow (~90 chấm) — không animation, 0 tốn GPU */
-.star-field { position: absolute; top: 0; left: 0; width: 2px; height: 2px; border-radius: 50%; background: transparent; opacity: 0.95; z-index: 1; pointer-events: none; }
-html[data-theme="light"] .star-field { opacity: 0.9; }
-/* === TEST TẠM THỜI: ẨN SAKURA để kiểm tra sao có hiện không === */
-.petal { display: none !important; }
+.star-field { position: absolute; top: 0; left: 0; width: 2px; height: 2px; border-radius: 50%; background: transparent; opacity: 0.95; z-index: 1; pointer-events: none; forced-color-adjust: none; }
 /* Sao dạng span DOM thật — CHUNG LỚP .bg-aurora với cánh hoa sakura (JS rải ~60 chấm).
-   Mỗi chấm là 1 span absolute, không animation — hiện chắc chắn như sakura. */
-.star-dot { position: absolute; border-radius: 50%; background: #fff; pointer-events: none; animation: starTwinkle 3s ease-in-out infinite; }
+   Mỗi chấm là 1 span absolute. forced-color-adjust: none — chặn trình duyệt (Auto Dark /
+   Forced Colors) đảo màu trắng của sao thành đen trên trang nền tối. */
+.star-dot { position: absolute; border-radius: 50%; background: #fff; pointer-events: none; forced-color-adjust: none; animation: starTwinkle 3s ease-in-out infinite; }
 /* Lớp sao tĩnh CSS thuần (~40 chấm radial-gradient) — LUÔN hiện kể cả khi JS bị
    lỗi/bị chặn trên deploy; chồng thêm với lớp box-shadow của JS (#starField)
    → trời sao dày và tự nhiên hơn. */
@@ -157,7 +143,7 @@ html[data-theme="light"] .star-field { opacity: 0.9; }
 }
 /* 12 sao nhấp nháy (opacity) — vị trí/kích cỡ/chu kỳ rải ngẫu nhiên bằng tay */
 /* 12 sao nhấp nháy (opacity) — vị trí/kích cỡ/chu kỳ rải ngẫu nhiên bằng tay */
-.twinkle { position: absolute; border-radius: 50%; background: #fff; box-shadow: 0 0 6px 1px rgba(255,255,255,0.7); animation: starTwinkle 3s ease-in-out infinite; }
+.twinkle { position: absolute; border-radius: 50%; background: #fff; box-shadow: 0 0 6px 1px rgba(255,255,255,0.7); forced-color-adjust: none; animation: starTwinkle 3s ease-in-out infinite; }
 .t1 { top: 8%; left: 12%; width: 3px; height: 3px; animation-duration: 2.6s; }
 .t2 { top: 18%; left: 78%; width: 2px; height: 2px; animation-duration: 3.4s; animation-delay: -1.2s; }
 .t3 { top: 32%; left: 45%; width: 3px; height: 3px; animation-duration: 2.2s; animation-delay: -0.6s; }
@@ -172,7 +158,7 @@ html[data-theme="light"] .star-field { opacity: 0.9; }
 .t12 { top: 48%; left: 22%; width: 2px; height: 2px; animation-duration: 4.3s; animation-delay: -0.2s; }
 @keyframes starTwinkle { 0%, 100% { opacity: 0.15; } 50% { opacity: 1; } }
 /* Sao băng: vệt sáng bay chéo 1s mỗi 10s (9s ẩn, 1s bay) */
-.meteor { position: absolute; top: -5%; left: 70%; width: 140px; height: 2px; border-radius: 2px; background: linear-gradient(90deg, #fff, transparent); transform: rotate(-35deg); opacity: 0; animation: meteorFall 10s linear infinite; }
+.meteor { position: absolute; top: -5%; left: 70%; width: 140px; height: 2px; border-radius: 2px; background: linear-gradient(90deg, #fff, transparent); forced-color-adjust: none; transform: rotate(-35deg); opacity: 0; animation: meteorFall 10s linear infinite; }
 @keyframes meteorFall {
   0%, 91% { transform: rotate(-35deg) translateX(0); opacity: 0; }
   92% { opacity: 1; }
@@ -880,7 +866,6 @@ select.input { appearance: none; -webkit-appearance: none; background-image: url
 .modal-overlay.open { display: flex; animation: fadeIn 0.2s ease; }
 @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 .modal { position: relative; width: 100%; background: rgba(20, 26, 45, 0.32); backdrop-filter: blur(32px) saturate(170%); -webkit-backdrop-filter: blur(32px) saturate(170%); border: var(--glass-border); border-radius: 20px; box-shadow: var(--shadow); padding: 22px 18px; margin-top: 6vh; animation: slideUp 0.24s ease; }
-html[data-theme="light"] .modal { background: rgba(255, 255, 255, 0.32); }
 @keyframes slideUp { from { transform: translateY(24px); opacity: 0; } to { transform: none; opacity: 1; } }
 .modal-sm { max-width: 400px; }
 .modal-md { max-width: 520px; }
