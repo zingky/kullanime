@@ -3311,38 +3311,174 @@
     }
     layer.appendChild(frag);
   }
-  function applyBgFx(on) {
-    document.body.classList.toggle('bg-fx-off', !on);
+  function applyBgFx(mode) {
+    document.body.classList.remove('fx-mode-off', 'fx-mode-stars', 'fx-mode-fireworks');
+    document.body.classList.add('fx-mode-' + mode);
     const btn = $('#bgFxToggle');
     if (btn) {
-      // Nút chỉ còn icon ✨ — trạng thái tắt thể hiện qua mờ/đậm của icon
-      btn.textContent = '✨';
-      btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+      if (mode === 'off') {
+        btn.textContent = '✨';
+        btn.setAttribute('aria-label', 'Bật hiệu ứng sao + sakura');
+        btn.setAttribute('aria-pressed', 'false');
+        btn.style.opacity = '0.5';
+      } else if (mode === 'stars') {
+        btn.textContent = '✨';
+        btn.setAttribute('aria-label', 'Bật hiệu ứng pháo hoa');
+        btn.setAttribute('aria-pressed', 'true');
+        btn.style.opacity = '1';
+      } else {
+        btn.textContent = '🎆';
+        btn.setAttribute('aria-label', 'Tắt hiệu ứng');
+        btn.setAttribute('aria-pressed', 'true');
+        btn.style.opacity = '1';
+      }
     }
+    if (mode === 'fireworks') { startFireworks(); } else { stopFireworks(); }
   }
   function loadBgFx() {
-    let on = true;
+    let mode = 'stars';
     try {
       const raw = localStorage.getItem(BGFX_KEY);
-      if (raw === 'off') on = false;
+      if (raw === 'off') mode = 'off';
+      else if (raw === 'fireworks') mode = 'fireworks';
     } catch (_e) { /* ignore */ }
     buildStarField();
-    applyBgFx(on);
+    applyBgFx(mode);
     const btn = $('#bgFxToggle');
     if (btn && !btn.dataset.bound) {
       btn.dataset.bound = '1';
       btn.addEventListener('click', () => {
-        const cur = !document.body.classList.contains('bg-fx-off');
-        try { localStorage.setItem(BGFX_KEY, cur ? 'off' : 'on'); } catch (_e) { /* ignore */ }
-        applyBgFx(!cur);
+        const cur = document.body.classList.contains('fx-mode-off') ? 'off'
+          : document.body.classList.contains('fx-mode-fireworks') ? 'fireworks' : 'stars';
+        const next = cur === 'off' ? 'stars' : cur === 'stars' ? 'fireworks' : 'off';
+        try { localStorage.setItem(BGFX_KEY, next); } catch (_e) { /* ignore */ }
+        applyBgFx(next);
       });
     }
     if (!document.body.dataset.bgPauseBound) {
       document.body.dataset.bgPauseBound = '1';
       document.addEventListener('visibilitychange', () => {
         document.body.classList.toggle('bg-paused', !!document.hidden);
+        if (document.hidden) { stopFireworks(); } else if (document.body.classList.contains('fx-mode-fireworks')) { startFireworks(); }
       });
     }
+  }
+
+  // ===================== PHÁO HOA CANVAS =====================
+  const _fw = {
+    canvas: null, ctx: null, raf: 0, rockets: [], particles: [],
+    running: false, w: 0, h: 0, lastLaunch: 0
+  };
+  function initFireworksCanvas() {
+    _fw.canvas = $('#fireworksCanvas');
+    if (!_fw.canvas) return;
+    _fw.ctx = _fw.canvas.getContext('2d');
+    const resize = () => {
+      _fw.w = _fw.canvas.width = window.innerWidth;
+      _fw.h = _fw.canvas.height = window.innerHeight;
+    };
+    resize();
+    window.addEventListener('resize', resize);
+  }
+  function spawnRocket() {
+    const x = _fw.w * (0.15 + Math.random() * 0.7);
+    const targetY = _fw.h * (0.1 + Math.random() * 0.35);
+    const hue = Math.floor(Math.random() * 360);
+    _fw.rockets.push({
+      x, y: _fw.h, targetY, vx: (Math.random() - 0.5) * 1.2,
+      vy: -(8 + Math.random() * 4), hue, trail: []
+    });
+  }
+  function explode(x, y, hue) {
+    const count = 60 + Math.floor(Math.random() * 50);
+    const type = Math.floor(Math.random() * 4);
+    const baseSpeed = 2 + Math.random() * 3;
+    for (let i = 0; i < count; i++) {
+      let angle, speed, clr;
+      if (type === 0) {
+        angle = (Math.PI * 2 * i) / count + (Math.random() - 0.5) * 0.1;
+        speed = baseSpeed * (0.7 + Math.random() * 0.6);
+        clr = 'hsl(' + ((hue + Math.random() * 40 - 20 + 360) % 360) + ',100%,' + (60 + Math.random() * 20) + '%)';
+      } else if (type === 1) {
+        const t = (Math.PI * 2 * i) / count;
+        const r = 3 * (1 - Math.sin(t)) * (0.8 + Math.random() * 0.4);
+        angle = t; speed = r;
+        clr = 'hsl(' + ((hue + 330) % 360) + ',100%,' + (65 + Math.random() * 15) + '%)';
+      } else if (type === 2) {
+        const arm = i % 5;
+        const dist = (Math.floor(i / 5) / (count / 5)) * baseSpeed * 2.5;
+        angle = (Math.PI * 2 * arm) / 5 + (Math.random() - 0.5) * 0.3;
+        speed = dist * (0.6 + Math.random() * 0.5);
+        clr = 'hsl(' + ((hue + 60) % 360) + ',100%,' + (60 + Math.random() * 20) + '%)';
+      } else {
+        const ring = i < count / 2 ? 1 : 2;
+        angle = (Math.PI * 2 * i) / (count / 2) + (Math.random() - 0.5) * 0.15;
+        speed = baseSpeed * ring * (0.6 + Math.random() * 0.5);
+        clr = 'hsl(' + ((hue + 180) % 360) + ',100%,' + (55 + Math.random() * 25) + '%)';
+      }
+      _fw.particles.push({
+        x, y, vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed,
+        life: 1, decay: 0.008 + Math.random() * 0.012, gravity: 0.04 + Math.random() * 0.03,
+        size: 1.5 + Math.random() * 2, clr, alpha: 1
+      });
+    }
+  }
+  function fwLoop(ts) {
+    if (!_fw.running) return;
+    const ctx = _fw.ctx;
+    ctx.globalCompositeOperation = 'destination-out';
+    ctx.fillStyle = 'rgba(0,0,0,0.18)';
+    ctx.fillRect(0, 0, _fw.w, _fw.h);
+    ctx.globalCompositeOperation = 'lighter';
+    for (let i = _fw.rockets.length - 1; i >= 0; i--) {
+      const r = _fw.rockets[i];
+      r.trail.push({ x: r.x, y: r.y, life: 1 });
+      if (r.trail.length > 8) r.trail.shift();
+      r.x += r.vx; r.y += r.vy; r.vy += 0.12;
+      for (const t of r.trail) {
+        ctx.beginPath();
+        ctx.arc(t.x, t.y, 1.8, 0, Math.PI * 2);
+        ctx.fillStyle = 'hsla(' + r.hue + ',100%,70%,' + (t.life * 0.6) + ')';
+        ctx.fill();
+        t.life -= 0.12;
+      }
+      if (r.vy >= -1 || r.y <= r.targetY) {
+        explode(r.x, r.y, r.hue);
+        _fw.rockets.splice(i, 1);
+      }
+    }
+    for (let i = _fw.particles.length - 1; i >= 0; i--) {
+      const p = _fw.particles[i];
+      p.x += p.vx; p.y += p.vy; p.vy += p.gravity; p.vx *= 0.99;
+      p.life -= p.decay; p.alpha = Math.max(0, p.life);
+      if (p.life <= 0) { _fw.particles.splice(i, 1); continue; }
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.size * p.alpha, 0, Math.PI * 2);
+      ctx.fillStyle = p.clr;
+      ctx.globalAlpha = p.alpha;
+      ctx.fill();
+      ctx.globalAlpha = 1;
+    }
+    if (ts - _fw.lastLaunch > 600 + Math.random() * 800) {
+      spawnRocket();
+      _fw.lastLaunch = ts;
+    }
+    _fw.raf = requestAnimationFrame(fwLoop);
+  }
+  function startFireworks() {
+    if (_fw.running) return;
+    if (!_fw.ctx) initFireworksCanvas();
+    _fw.running = true;
+    _fw.lastLaunch = 0;
+    _fw.raf = requestAnimationFrame(fwLoop);
+  }
+  function stopFireworks() {
+    _fw.running = false;
+    if (_fw.raf) cancelAnimationFrame(_fw.raf);
+    _fw.raf = 0;
+    if (_fw.ctx) _fw.ctx.clearRect(0, 0, _fw.w, _fw.h);
+    _fw.rockets = [];
+    _fw.particles = [];
   }
 
   // ===================== PANEL SUB SETTINGS (giống chat) =====================

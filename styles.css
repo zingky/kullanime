@@ -181,8 +181,10 @@ p, h1, h2, h3, h4, h5, h6, li, a, span, div, td, th {
   100% { transform: translate3d(-2vw, 108vh, 0) rotate(380deg); opacity: 0; }
 }
 /* Tắt hiệu ứng (công tắc dưới footer) → giữ nền tối phẳng + 2 blob rất mờ */
-body.bg-fx-off .star-field, body.bg-fx-off .star-dot, body.bg-fx-off .twinkle, body.bg-fx-off .meteor, body.bg-fx-off .petal { display: none; }
-body.bg-fx-off .aurora-blob { animation: none; opacity: 0.18; }
+body.fx-mode-off .star-field, body.fx-mode-off .star-dot, body.fx-mode-off .twinkle, body.fx-mode-off .meteor, body.fx-mode-off .petal { display: none; }
+body.fx-mode-off .aurora-blob { animation: none; opacity: 0.18; }
+/* Chế độ pháo hoa → ẩn sao/sakura, chỉ hiện pháo hoa */
+body.fx-mode-fireworks .star-field, body.fx-mode-fireworks .star-dot, body.fx-mode-fireworks .twinkle, body.fx-mode-fireworks .meteor, body.fx-mode-fireworks .petal { display: none; }
 /* Tab ẩn → dừng hết animation nền (tiết kiệm pin) */
 body.bg-paused .bg-aurora * { animation-play-state: paused !important; }
 /* Tôn trọng người dùng bật "Giảm chuyển động" trong hệ điều hành → tắt hết */
@@ -1560,6 +1562,14 @@ select.input { appearance: none; -webkit-appearance: none; background-image: url
 }
 .bg-fx-toggle:hover { opacity: 1; border-color: var(--accent); color: var(--text); }
 body.bg-fx-off .bg-fx-toggle { opacity: 0.5; }
+
+/* ── Pháo hoa canvas ── */
+#fireworksCanvas {
+  position: fixed; inset: 0; z-index: -1; pointer-events: none;
+  width: 100%; height: 100%;
+}
+body.fx-mode-off #fireworksCanvas,
+body.fx-mode-stars #fireworksCanvas { opacity: 0; }
 
 
 @media (max-width: 640px) {
