@@ -102,9 +102,11 @@ p, h1, h2, h3, h4, h5, h6, li, a, span, div, td, th {
 /* Sao tĩnh: 1 div duy nhất, JS bơm box-shadow (~90 chấm) — không animation, 0 tốn GPU */
 .star-field { position: absolute; top: 0; left: 0; width: 2px; height: 2px; border-radius: 50%; background: transparent; opacity: 0.95; z-index: 1; pointer-events: none; }
 html[data-theme="light"] .star-field { opacity: 0.9; }
+/* === TEST TẠM THỜI: ẨN SAKURA để kiểm tra sao có hiện không === */
+.petal { display: none !important; }
 /* Sao dạng span DOM thật — CHUNG LỚP .bg-aurora với cánh hoa sakura (JS rải ~60 chấm).
    Mỗi chấm là 1 span absolute, không animation — hiện chắc chắn như sakura. */
-.star-dot { position: absolute; border-radius: 50%; background: #fff; pointer-events: none; }
+.star-dot { position: absolute; border-radius: 50%; background: #fff; pointer-events: none; animation: starTwinkle 3s ease-in-out infinite; }
 /* Lớp sao tĩnh CSS thuần (~40 chấm radial-gradient) — LUÔN hiện kể cả khi JS bị
    lỗi/bị chặn trên deploy; chồng thêm với lớp box-shadow của JS (#starField)
    → trời sao dày và tự nhiên hơn. */
