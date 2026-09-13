@@ -3385,8 +3385,8 @@
     const targetY = _fw.h * (0.1 + Math.random() * 0.35);
     const hue = Math.floor(Math.random() * 360);
     _fw.rockets.push({
-      x, y: _fw.h, targetY, vx: (Math.random() - 0.5) * 1.2,
-      vy: -(8 + Math.random() * 4), hue, trail: []
+      x, y: _fw.h, targetY, vx: (Math.random() - 0.5) * 0.9,
+      vy: -(6 + Math.random() * 3), hue, trail: []
     });
   }
   function explode(x, y, hue) {
@@ -3418,7 +3418,7 @@
       }
       _fw.particles.push({
         x, y, vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed,
-        life: 1, decay: 0.008 + Math.random() * 0.012, gravity: 0.04 + Math.random() * 0.03,
+        life: 1, decay: 0.006 + Math.random() * 0.009, gravity: 0.03 + Math.random() * 0.0225,
         size: 1.5 + Math.random() * 2, clr, alpha: 1
       });
     }
@@ -3434,7 +3434,7 @@
       const r = _fw.rockets[i];
       r.trail.push({ x: r.x, y: r.y, life: 1 });
       if (r.trail.length > 8) r.trail.shift();
-      r.x += r.vx; r.y += r.vy; r.vy += 0.12;
+      r.x += r.vx; r.y += r.vy; r.vy += 0.09;
       for (const t of r.trail) {
         ctx.beginPath();
         ctx.arc(t.x, t.y, 1.8, 0, Math.PI * 2);
@@ -3459,7 +3459,7 @@
       ctx.fill();
       ctx.globalAlpha = 1;
     }
-    if (ts - _fw.lastLaunch > 600 + Math.random() * 800) {
+    if (ts - _fw.lastLaunch > 800 + Math.random() * 1067) {
       spawnRocket();
       _fw.lastLaunch = ts;
     }
