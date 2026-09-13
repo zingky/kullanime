@@ -102,6 +102,55 @@ p, h1, h2, h3, h4, h5, h6, li, a, span, div, td, th {
 /* Sao tĩnh: 1 div duy nhất, JS bơm box-shadow (~90 chấm) — không animation, 0 tốn GPU */
 .star-field { position: absolute; top: 0; left: 0; width: 2px; height: 2px; border-radius: 50%; background: transparent; opacity: 0.95; z-index: 1; pointer-events: none; }
 html[data-theme="light"] .star-field { opacity: 0.9; }
+/* Lớp sao tĩnh CSS thuần (~40 chấm radial-gradient) — LUÔN hiện kể cả khi JS bị
+   lỗi/bị chặn trên deploy; chồng thêm với lớp box-shadow của JS (#starField)
+   → trời sao dày và tự nhiên hơn. */
+.bg-aurora::before {
+  content: ""; position: absolute; inset: 0; z-index: 1; pointer-events: none; opacity: 0.9;
+  background-repeat: no-repeat;
+  background-image:
+    radial-gradient(2px 2px at 3% 7%, rgba(255,255,255,0.85) 50%, transparent 51%),
+    radial-gradient(2px 2px at 9% 22%, rgba(255,255,255,0.5) 50%, transparent 51%),
+    radial-gradient(3px 3px at 14% 41%, rgba(255,255,255,0.9) 50%, transparent 51%),
+    radial-gradient(2px 2px at 6% 63%, rgba(255,255,255,0.4) 50%, transparent 51%),
+    radial-gradient(2px 2px at 11% 88%, rgba(255,255,255,0.7) 50%, transparent 51%),
+    radial-gradient(2px 2px at 18% 12%, rgba(255,255,255,0.5) 50%, transparent 51%),
+    radial-gradient(3px 3px at 21% 30%, rgba(255,255,255,0.95) 50%, transparent 51%),
+    radial-gradient(2px 2px at 25% 55%, rgba(255,255,255,0.4) 50%, transparent 51%),
+    radial-gradient(2px 2px at 22% 76%, rgba(255,255,255,0.65) 50%, transparent 51%),
+    radial-gradient(2px 2px at 30% 5%, rgba(255,255,255,0.6) 50%, transparent 51%),
+    radial-gradient(2px 2px at 33% 19%, rgba(255,255,255,0.75) 50%, transparent 51%),
+    radial-gradient(2px 2px at 29% 45%, rgba(255,255,255,0.35) 50%, transparent 51%),
+    radial-gradient(3px 3px at 36% 68%, rgba(255,255,255,0.85) 50%, transparent 51%),
+    radial-gradient(2px 2px at 31% 92%, rgba(255,255,255,0.5) 50%, transparent 51%),
+    radial-gradient(2px 2px at 42% 11%, rgba(255,255,255,0.45) 50%, transparent 51%),
+    radial-gradient(2px 2px at 45% 26%, rgba(255,255,255,0.7) 50%, transparent 51%),
+    radial-gradient(2px 2px at 40% 38%, rgba(255,255,255,0.4) 50%, transparent 51%),
+    radial-gradient(3px 3px at 48% 52%, rgba(255,255,255,0.95) 50%, transparent 51%),
+    radial-gradient(2px 2px at 44% 74%, rgba(255,255,255,0.5) 50%, transparent 51%),
+    radial-gradient(2px 2px at 52% 88%, rgba(255,255,255,0.6) 50%, transparent 51%),
+    radial-gradient(2px 2px at 55% 4%, rgba(255,255,255,0.55) 50%, transparent 51%),
+    radial-gradient(3px 3px at 58% 16%, rgba(255,255,255,0.85) 50%, transparent 51%),
+    radial-gradient(2px 2px at 53% 33%, rgba(255,255,255,0.4) 50%, transparent 51%),
+    radial-gradient(2px 2px at 62% 47%, rgba(255,255,255,0.7) 50%, transparent 51%),
+    radial-gradient(2px 2px at 57% 61%, rgba(255,255,255,0.45) 50%, transparent 51%),
+    radial-gradient(3px 3px at 65% 79%, rgba(255,255,255,0.9) 50%, transparent 51%),
+    radial-gradient(2px 2px at 60% 95%, rgba(255,255,255,0.5) 50%, transparent 51%),
+    radial-gradient(2px 2px at 72% 9%, rgba(255,255,255,0.7) 50%, transparent 51%),
+    radial-gradient(2px 2px at 76% 24%, rgba(255,255,255,0.45) 50%, transparent 51%),
+    radial-gradient(3px 3px at 70% 39%, rgba(255,255,255,0.95) 50%, transparent 51%),
+    radial-gradient(2px 2px at 74% 56%, rgba(255,255,255,0.4) 50%, transparent 51%),
+    radial-gradient(2px 2px at 78% 71%, rgba(255,255,255,0.65) 50%, transparent 51%),
+    radial-gradient(2px 2px at 72% 86%, rgba(255,255,255,0.5) 50%, transparent 51%),
+    radial-gradient(2px 2px at 85% 6%, rgba(255,255,255,0.55) 50%, transparent 51%),
+    radial-gradient(3px 3px at 88% 21%, rgba(255,255,255,0.85) 50%, transparent 51%),
+    radial-gradient(2px 2px at 82% 36%, rgba(255,255,255,0.4) 50%, transparent 51%),
+    radial-gradient(2px 2px at 91% 51%, rgba(255,255,255,0.7) 50%, transparent 51%),
+    radial-gradient(2px 2px at 86% 66%, rgba(255,255,255,0.45) 50%, transparent 51%),
+    radial-gradient(3px 3px at 93% 82%, rgba(255,255,255,0.9) 50%, transparent 51%),
+    radial-gradient(2px 2px at 96% 94%, rgba(255,255,255,0.5) 50%, transparent 51%);
+}
+/* 12 sao nhấp nháy (opacity) — vị trí/kích cỡ/chu kỳ rải ngẫu nhiên bằng tay */
 /* 12 sao nhấp nháy (opacity) — vị trí/kích cỡ/chu kỳ rải ngẫu nhiên bằng tay */
 .twinkle { position: absolute; border-radius: 50%; background: #fff; box-shadow: 0 0 6px 1px rgba(255,255,255,0.7); animation: starTwinkle 3s ease-in-out infinite; }
 .t1 { top: 8%; left: 12%; width: 3px; height: 3px; animation-duration: 2.6s; }
@@ -141,7 +190,7 @@ html[data-theme="light"] .star-field { opacity: 0.9; }
   100% { transform: translate3d(-2vw, 108vh, 0) rotate(380deg); opacity: 0; }
 }
 /* Tắt hiệu ứng (công tắc dưới footer) → giữ nền tối phẳng + 2 blob rất mờ */
-body.bg-fx-off .star-field, body.bg-fx-off .twinkle, body.bg-fx-off .meteor, body.bg-fx-off .petal { display: none; }
+body.bg-fx-off .star-field, body.bg-fx-off .twinkle, body.bg-fx-off .meteor, body.bg-fx-off .petal, body.bg-fx-off .bg-aurora::before { display: none; }
 body.bg-fx-off .aurora-blob { animation: none; opacity: 0.18; }
 /* Tab ẩn → dừng hết animation nền (tiết kiệm pin) */
 body.bg-paused .bg-aurora * { animation-play-state: paused !important; }
@@ -326,7 +375,8 @@ select.input { appearance: none; -webkit-appearance: none; background-image: url
    number of cột được tính tự động từ bề rộng container, không đổi theo mốc cứng. */
 .anime-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(135px, 100%), 1fr)); gap: clamp(9px, 1.4vw, 14px); }
 
-.anime-card { position: relative; background: transparent; border: var(--glass-border); border-radius: var(--radius); overflow: hidden; cursor: pointer; transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease; backdrop-filter: blur(20px) saturate(140%); -webkit-backdrop-filter: blur(20px) saturate(140%); box-shadow: var(--shadow-soft); }
+/* Card anime: nền trong suốt tuyệt đối, KHÔNG blur — sao/hoa nền xuyên RÕ qua phần chữ */
+.anime-card { position: relative; background: transparent; border: var(--glass-border); border-radius: var(--radius); overflow: hidden; cursor: pointer; transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease; box-shadow: var(--shadow-soft); }
 .anime-card:hover { transform: translateY(-6px); box-shadow: var(--shadow); border-color: rgba(168, 85, 247, 0.4); }
 .card-poster { position: relative; aspect-ratio: 3 / 4.2; overflow: hidden; background: var(--bg-soft); }
 .card-poster img { width: 100%; height: 100%; object-fit: cover; display: block; transition: transform 0.3s ease; }
