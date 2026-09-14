@@ -1547,19 +1547,20 @@ select.input { appearance: none; -webkit-appearance: none; background-image: url
   margin-top: 8px;
 }
 .footer-inner { text-align: center; }
-/* Brand + công tắc hiệu ứng nằm CHUNG MỘT DÒNG (flex giữa, nút ngay cạnh chữ) */
-.footer-brand { display: inline-flex; align-items: center; justify-content: center; gap: 8px; margin: 0 0 1px; font-size: 13.5px; font-weight: 600; line-height: 1.4; }
+.footer-brand { margin: 0 0 1px; font-size: 13.5px; font-weight: 600; line-height: 1.4; }
 .footer-brand em { font-style: normal; background: var(--grad); -webkit-background-clip: text; background-clip: text; color: transparent; }
 .footer-meta { margin: 0; font-size: 12px; color: var(--text-faint); line-height: 1.45; }
 .footer-meta + .footer-meta { margin-top: 1px; }
 .app-footer a { color: var(--accent); text-decoration: none; }
 .app-footer a:hover { text-decoration: underline; }
-/* Công tắc hiệu ứng nền — nút icon nhỏ ngay cạnh brand */
+/* Công tắc hiệu ứng nền — nút icon ghim sát mép phải màn hình, giữa theo chiều dọc footer */
 .bg-fx-toggle {
+  position: fixed; right: 12px; bottom: 12px;
   background: transparent; border: var(--glass-border); border-radius: 999px;
   color: var(--text-faint); font-size: 12px; font-weight: 600; cursor: pointer;
   padding: 2px 8px; opacity: 0.7; transition: opacity 0.15s ease, border-color 0.15s ease, color 0.15s ease;
   line-height: 1.5;
+  z-index: 90;
 }
 .bg-fx-toggle:hover { opacity: 1; border-color: var(--accent); color: var(--text); }
 body.fx-mode-off .bg-fx-toggle { opacity: 0.5; }
