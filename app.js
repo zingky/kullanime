@@ -6516,15 +6516,12 @@ function setupSubPopupEvents() {
      ────────────────────────────────────────────────────── */
   function updateLoginUI() {
     const icon = $('#loginBtnIcon');
-    const label = $('#loginBtnLabel');
     const adminBtn = $('#adminBtn');
     if (State.isLoggedIn) {
       icon.textContent = State.isAdmin ? '🔑' : '👤';
-      label.textContent = State.nickname || (State.adminEmail ? State.adminEmail.split('@')[0] : '') || (State.isAdmin ? 'Admin' : 'Thành viên');
       adminBtn.classList.toggle('hidden', !State.isAdmin);
     } else {
       icon.textContent = '👤';
-      label.textContent = 'Đăng nhập';
       adminBtn.classList.add('hidden');
     }
   }
