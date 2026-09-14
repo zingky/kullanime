@@ -8,7 +8,7 @@
   <meta name="color-scheme" content="dark" />
   <meta name="description" content="KullAnime — Website cá nhân trưng bày anime đã xem & trình phát nhạc OST kèm phụ đề .ass" />
   <meta name="theme-color" content="#0b0f19" />
-  <title>KullAnime 🌸 — Anime & OST Player</title>
+  <title>Kull Anime List & Youtube Aegisub Player</title>
 
   <!-- Favicon: hoa anh đào (sakura, cánh hoa hồng) -->
   <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
@@ -35,7 +35,7 @@
   <!-- File cấu hình (đọc .env.local / fallback) -->
   <script src="./config.js"></script>
 
-  <link rel="stylesheet" href="./styles.css?v=87" />
+  <link rel="stylesheet" href="./styles.css?v=88" />
 </head>
 <body>
   <!-- Nền đêm sao + cánh hoa anh đào (night sky + sakura) — JS sinh sao tĩnh, CSS animation transform/opacity -->
@@ -71,9 +71,8 @@
         <button class="btn btn-admin hidden" id="adminBtn">
           <span>🛠️</span><span class="btn-label">Quản trị</span>
         </button>
-        <button class="btn btn-login" id="loginBtn">
+        <button class="btn btn-login" id="loginBtn" title="Đăng nhập / Tài khoản" aria-label="Đăng nhập / Tài khoản">
           <span id="loginBtnIcon">👤</span>
-          <span class="btn-label" id="loginBtnLabel">Đăng nhập</span>
         </button>
         <!-- Nút Tải lại dữ liệu mới nhất — tạm ẩn (mỗi lần vào web là tải mới) -->
         <button class="btn btn-refresh" id="refreshBtn" title="Tải lại dữ liệu mới nhất" aria-label="Tải lại dữ liệu mới nhất" style="display: none;">
@@ -267,16 +266,16 @@
   <!-- ======================= FOOTER ======================= -->
   <footer class="app-footer">
     <div class="footer-inner container">
-      <p class="footer-brand">🌸 Kull Anime List</p>
+      <p class="footer-brand">
+        🌸 Kull Anime & Song List
+        <button type="button" class="bg-fx-toggle" id="bgFxToggle" aria-pressed="true" aria-label="Bật/tắt hiệu ứng nền (sao + hoa anh đào)" title="Bật/tắt hiệu ứng nền">✨</button>
+      </p>
       <p class="footer-meta">
         © 2026 Kull · <a href="https://github.com/zingky/kullanime" target="_blank" rel="noopener">KullAniList</a> ·
         <a href="https://github.com/zingky/Kull-Vietsub/tree/main/subs" target="_blank" rel="noopener">VietSub</a> ·
         <a href="https://github.com/zingky/YouTube-Aegisub-Loader" target="_blank" rel="noopener">YouTube Aegisub Loader</a>
       </p>
       <p class="footer-meta">made with ♥️ kull@duck.com</p>
-    </div>
-    <div class="footer-controls">
-      <button type="button" class="bg-fx-toggle" id="bgFxToggle" aria-pressed="true" aria-label="Bật/tắt hiệu ứng nền (sao + hoa anh đào)" title="Bật/tắt hiệu ứng nền (sao + hoa anh đào)">✨</button>
     </div>
   </footer>
 
@@ -733,7 +732,7 @@
   <div class="mini-pop hidden" id="epPop"></div>
   <div class="mini-pop hidden" id="heartPop"></div>
 
-  <script src="./app.js?v=82"></script>
+  <script src="./app.js?v=83"></script>
 </body>
 </html>
 
