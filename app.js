@@ -464,16 +464,9 @@
     }
   }
 
-  async function loadAnimes(force) {
+  async function loadAnimes() {
     if (!State.supabase) return;
-    const grid = $('#animeGrid');
-    // Cache-first: render ngay từ cache nếu còn fresh (0 request Supabase)
-    const cache = readPubDataCache();
-    if (!force && cache && isPubCacheFresh(cache) && cache.animes.length) {
-      State.animes = cache.animes;
-      renderAnimeGrid();
-      return;
-    }
+    // Luôn fetch mới từ Supabase (mỗi lần vào web là tải dữ liệu mới nhất)
     $('#animeLoading').classList.remove('hidden');
     $('#animeEmpty').classList.add('hidden');
     const { data, error } = await State.supabase
@@ -484,32 +477,16 @@
     if (error) {
       console.error('Lỗi đọc animes:', error);
       toast('Không tải được danh sách anime: ' + error.message, 'error', 5000);
-      // Fallback: vẫn hiển thị cache cũ nếu có (dù hết hạn)
-      if (cache && cache.animes.length) {
-        State.animes = cache.animes;
-        renderAnimeGrid();
-      }
       return;
     }
-    const list = data || [];
-    State.animes = list;
-    persistPubCachePart('animes', list, computeMaxUpdated(list));
+    State.animes = data || [];
     renderAnimeGrid();
   }
 
-  async function loadSongs(force) {
+  async function loadSongs() {
     if (!State.supabase) return;
     const loading = $('#songLoading');
-    // Cache-first: render ngay từ cache nếu còn fresh (0 request Supabase)
-    const cache = readPubDataCache();
-    if (!force && cache && isPubCacheFresh(cache) && cache.songs.length) {
-      State.songs = cache.songs;
-      if (loading) loading.classList.add('hidden');
-      const empty = $('#songEmpty');
-      if (empty) empty.classList.add('hidden');
-      renderSongList();
-      return;
-    }
+    // Luôn fetch mới từ Supabase (mỗi lần vào web là tải dữ liệu mới nhất)
     if (loading) loading.classList.remove('hidden');
     const empty = $('#songEmpty');
     if (empty) empty.classList.add('hidden');
@@ -522,16 +499,9 @@
     if (error) {
       console.error('Lỗi đọc songs:', error);
       toast('Không tải được danh sách nhạc: ' + error.message, 'error', 5000);
-      // Fallback: hiển thị cache cũ nếu có
-      if (cache && cache.songs.length) {
-        State.songs = cache.songs;
-        renderSongList();
-      }
       return;
     }
-    const list = data || [];
-    State.songs = list;
-    persistPubCachePart('songs', list, computeMaxUpdated(list));
+    State.songs = data || [];
     renderSongList();
   }
 
@@ -5798,18 +5768,9 @@ function setupSubPopupEvents() {
   }
 
   // Tải toàn bộ chat chung (anime_id = null + tất cả bình luận trong phim, kèm tên anime)
-  async function loadGlobalChat(force) {
+  async function loadGlobalChat() {
     if (!State.supabase) return;
-    // Cache-first: dùng chat cache khi còn fresh (0 request Supabase)
-    const cache = readPubDataCache();
-    if (!force && cache && isPubCacheFresh(cache) && Array.isArray(cache.chatAll)) {
-      State.chatAll = cache.chatAll;
-      const animeMap = {};
-      State.animes.forEach((a) => { animeMap[String(a.id)] = a; });
-      State.chatMap = animeMap;
-      renderGlobalChat();
-      return;
-    }
+    // Luôn fetch mới từ Supabase (mỗi lần vào web là tải dữ liệu mới nhất)
     const { data, error } = await State.supabase
       .from('comments')
       .select('*')
@@ -5817,14 +5778,6 @@ function setupSubPopupEvents() {
       .limit(100);
     if (error) {
       console.error('Lỗi đọc chat chung:', error);
-      // Fallback: hiển thị cache cũ nếu có
-      if (cache && Array.isArray(cache.chatAll)) {
-        State.chatAll = cache.chatAll;
-        const animeMap = {};
-        State.animes.forEach((a) => { animeMap[String(a.id)] = a; });
-        State.chatMap = animeMap;
-        renderGlobalChat();
-      }
       return;
     }
     const comments = data || [];
@@ -5832,7 +5785,6 @@ function setupSubPopupEvents() {
     State.animes.forEach((a) => { animeMap[String(a.id)] = a; });
     State.chatAll = comments;
     State.chatMap = animeMap;
-    persistPubCachePart('chat', comments, computeMaxUpdated(comments));
     renderGlobalChat();
   }
 
