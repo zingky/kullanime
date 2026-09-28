@@ -4928,21 +4928,6 @@ function setupSubPopupEvents() {
     return true;
   }
 
-  // Nhấp nhẹ 1 thẻ vừa đổi (vòng sáng lan ra rồi tắt) để có cảm giác "vừa cập nhật xong"
-  // mà không cần vẽ lại danh sách.
-  let _cardFlashTimer = null;
-  function flashAnimeCard(animeId) {
-    const grid = $('#animeGrid');
-    if (!grid) return;
-    const card = grid.querySelector('.anime-card[data-id="' + String(animeId) + '"]');
-    if (!card) return;
-    card.classList.remove('card-flash');
-    void card.offsetWidth;                 // ép reflow để animation chạy lại từ đầu
-    card.classList.add('card-flash');
-    clearTimeout(_cardFlashTimer);
-    _cardFlashTimer = setTimeout(() => card.classList.remove('card-flash'), 620);
-  }
-
   // ── Lọc "tên khác" (synonyms) — bỏ bản dịch Nga / Thái / Indonesia ──
   // AniList trả về cả tên tiếng Nga (Cyrillic), tiếng Thái và bản Indonesia trong
   // `synonyms`; các bản dịch này không có ích với web tiếng Việt và gây rối.
@@ -5413,9 +5398,7 @@ function setupSubPopupEvents() {
     const stFilter = $('#myStatusFilter');
     const canPatch = !(stFilter && stFilter.value && stFilter.value !== 'all')
       && patchAnimeCardMeta(animeId);
-    if (canPatch) {
-      flashAnimeCard(animeId);          // nhấp nhẹ 1 thẻ cho có phản hồi
-    } else {
+    if (!canPatch) {
       renderAnimeGrid(true);            // quiet = không phát lại cardIn (render ẩn ầm ầm)
     }
     if (State.currentAnime && String(State.currentAnime.id) === String(animeId)) {
