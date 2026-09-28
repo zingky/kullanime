@@ -4888,6 +4888,61 @@ function setupSubPopupEvents() {
     return s + ' → ' + e;
   }
 
+  // Text badge trạng thái xem trên card — dùng CHUNG cho lúc render lần đầu
+  // và lúc cập nhật tại chỗ, nên hai nơi luôn khớp, không lệch chữ.
+  function myStatusBadgeText(a) {
+    const mySt = myStatusMeta(a.my_status);
+    const totalEp = Number(a.total_episodes) || 0;
+    const wCount = (Array.isArray(a.watch_dates) ? a.watch_dates.filter(Boolean) : []).length;
+    if (mySt.cls === 'my-watching') {
+      const we = Number(a.watched_episodes) || 0;
+      return '🔥 Đang xem' + ((we > 0 || totalEp > 0) ? ' ' + we + '/' + (totalEp || '?') + ' tập' : '');
+    }
+    if (mySt.cls === 'my-watched') return '✅ Đã xem' + (wCount > 0 ? ' · ' + wCount + ' lần' : '');
+    if (mySt.cls === 'my-planned') return '➕ Muốn xem';
+    return '⬜ Chưa xem';
+  }
+
+  // Cập nhật tại chỗ (in-place) đúng THẺ anime vừa bấm 🌸 / ♥ thay vì vẽ lại cả lưới.
+  // Chỉ sửa 2 mảng nhỏ (badge trạng thái + nút ♥) nên KHÔNG chạy lại animation cardIn,
+  // không reload ảnh poster → danh sách không bị "chớp" nhấp nháy.
+  // Trả về false nếu không thể sửa tại chỗ (thẻ không có trong trang hiện tại) → caller vẽ lại.
+  function patchAnimeCardMeta(animeId) {
+    const grid = $('#animeGrid');
+    if (!grid) return false;
+    const card = grid.querySelector('.anime-card[data-id="' + String(animeId) + '"]');
+    if (!card) return false;
+    const a = State.animes.find((x) => String(x.id) === String(animeId));
+    if (!a) return false;
+
+    const badge = card.querySelector('.card-status-badge');
+    if (badge) {
+      badge.className = 'card-status-badge ' + myStatusMeta(a.my_status).cls;
+      badge.textContent = myStatusBadgeText(a);
+    }
+    const heart = card.querySelector('.card-heart-btn');
+    if (heart) {
+      const v = Math.round(Number(a.my_rating) || 0);
+      heart.textContent = '♥' + (v > 0 ? ' ' + v : '');
+    }
+    return true;
+  }
+
+  // Nhấp nhẹ 1 thẻ vừa đổi (vòng sáng lan ra rồi tắt) để có cảm giác "vừa cập nhật xong"
+  // mà không cần vẽ lại danh sách.
+  let _cardFlashTimer = null;
+  function flashAnimeCard(animeId) {
+    const grid = $('#animeGrid');
+    if (!grid) return;
+    const card = grid.querySelector('.anime-card[data-id="' + String(animeId) + '"]');
+    if (!card) return;
+    card.classList.remove('card-flash');
+    void card.offsetWidth;                 // ép reflow để animation chạy lại từ đầu
+    card.classList.add('card-flash');
+    clearTimeout(_cardFlashTimer);
+    _cardFlashTimer = setTimeout(() => card.classList.remove('card-flash'), 620);
+  }
+
   function animeCardHTML(a) {
     const rating = Number(a.rating) || 0;
     const mySt = myStatusMeta(a.my_status);
@@ -4898,14 +4953,7 @@ function setupSubPopupEvents() {
       : posterFallback(a);
 
     // Nút 🌸 (góc trên-phải) mở menu trạng thái — LUÔN hiển thị để sửa trạng thái nhanh + badge trạng thái (góc dưới-phải)
-    const wCountCard = (Array.isArray(a.watch_dates) ? a.watch_dates.filter(Boolean) : []).length;
-    let badgeText;
-    if (mySt.cls === 'my-watching') {
-      const we = Number(a.watched_episodes) || 0;
-      badgeText = '🔥 Đang xem' + ((we > 0 || totalEp > 0) ? ' ' + we + '/' + (totalEp || '?') + ' tập' : '');
-    } else if (mySt.cls === 'my-watched') badgeText = '✅ Đã xem' + (wCountCard > 0 ? ' · ' + wCountCard + ' lần' : '');
-    else if (mySt.cls === 'my-planned') badgeText = '➕ Muốn xem';
-    else badgeText = '⬜ Chưa xem';
+    const badgeText = myStatusBadgeText(a);
     const statusUI =
       '<button type="button" class="card-sakura" data-quick="menu" title="Đặt trạng thái xem">🌸</button>' +
       '<span class="card-status-badge ' + mySt.cls + '">' + esc(badgeText) + '</span>';
@@ -5318,7 +5366,19 @@ function setupSubPopupEvents() {
         State.currentAnime = State.animes[idx];
       }
     }
-    renderAnimeGrid();
+    // Cập nhật danh sách: ưu tiên sửa tại chỗ đúng thẻ vừa đổi (không vẽ lại cả lưới
+    // → không chạy lại animation cardIn, không reload poster, không "chớp").
+    // Chỉ vẽ lại khi thật sự không sửa tại chỗ được:
+    //   • đang lọc theo trạng thái xem → thẻ có thể phải rời khỏi / vào kết quả lọc
+    //   • thẻ không nằm trong trang hiện tại (lọc/sắp xếp đã đẩy sang trang khác)
+    const stFilter = $('#myStatusFilter');
+    const canPatch = !(stFilter && stFilter.value && stFilter.value !== 'all')
+      && patchAnimeCardMeta(animeId);
+    if (canPatch) {
+      flashAnimeCard(animeId);          // nhấp nhẹ 1 thẻ cho có phản hồi
+    } else {
+      renderAnimeGrid(true);            // quiet = không phát lại cardIn (render ẩn ầm ầm)
+    }
     if (State.currentAnime && String(State.currentAnime.id) === String(animeId)) {
       renderAnimeDetail(State.currentAnime);
     }
