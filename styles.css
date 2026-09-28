@@ -2319,6 +2319,17 @@ select.input option { background: #141a2d; color: var(--text); }
 .admin-adv-summary::-webkit-details-marker { display: none; }
 .admin-adv-summary:hover { color: var(--accent); }
 .admin-adv-grid { padding: 0 14px 14px; }
+/* ── Hàng 10 trái tim chấm điểm trong form admin (ô #af_my_rating là nguồn sự thật) ── */
+.af-hearts { display: flex; gap: 3px; margin-top: 6px; flex-wrap: wrap; }
+.af-heart {
+  width: 26px; height: 26px; padding: 0; line-height: 1;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: rgba(255,255,255,0.04); border: 1px solid var(--glass-border);
+  border-radius: 7px; color: var(--text-faint); font-size: 14px; cursor: pointer;
+  transition: transform 0.12s ease, color 0.12s ease, border-color 0.12s ease, background 0.12s ease;
+}
+.af-heart:hover { transform: scale(1.12); border-color: rgba(244, 63, 94, 0.5); color: #f472b6; }
+.af-heart.on { color: #fb7185; border-color: rgba(244, 63, 94, 0.45); background: rgba(244, 63, 94, 0.14); }
 
 /* ── Tên phụ (Native/Romaji) & synonyms trong header chi tiết ── */
 .detail-aliases { display: flex; flex-wrap: wrap; gap: 4px 12px; margin: 2px 0 4px; }

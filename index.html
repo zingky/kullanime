@@ -35,7 +35,7 @@
   <!-- File cấu hình (đọc .env.local / fallback) -->
   <script src="./config.js"></script>
 
-  <link rel="stylesheet" href="./styles.css?v=90" />
+  <link rel="stylesheet" href="./styles.css?v=91" />
 </head>
 <body>
   <!-- Nền đêm sao + cánh hoa anh đào (night sky + sakura) — JS sinh sao tĩnh, CSS animation transform/opacity -->
@@ -590,6 +590,20 @@
             <label for="af_watched_ep">Số tập đã xem</label>
             <input type="number" id="af_watched_ep" class="input" min="0" value="0" />
           </div>
+          <div class="field">
+            <label for="af_my_status">Trạng thái xem của tôi 🌸</label>
+            <select id="af_my_status" class="input">
+              <option value="Chưa xem">⬜ Chưa xem</option>
+              <option value="Muốn xem">➕ Muốn xem</option>
+              <option value="Đang xem">⏳ Đang xem</option>
+              <option value="Đã xem">✅ Đã xem</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="af_my_rating">Điểm của tôi ♥ (0–10)</label>
+            <input type="number" id="af_my_rating" class="input" min="0" max="10" step="1" value="0" placeholder="0 = chưa chấm" />
+            <div class="af-hearts" id="afHearts" title="Bấm 1 trái tim là chấm, bấm lại trái tim đó để xoá"></div>
+          </div>
           <div class="field field-span-2">
             <label for="af_poster">Poster URL</label>
             <input type="url" id="af_poster" class="input" placeholder="https://..." />
@@ -730,7 +744,7 @@
   <div class="mini-pop hidden" id="epPop"></div>
   <div class="mini-pop hidden" id="heartPop"></div>
 
-  <script src="./app.js?v=84"></script>
+  <script src="./app.js?v=85"></script>
 </body>
 </html>
 
