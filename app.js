@@ -4490,6 +4490,15 @@ function setupSubPopupEvents() {
   /* ──────────────────────────────────────────────────────
      8. RENDER ANIME GRID + FILTER
      ────────────────────────────────────────────────────── */
+  // Mốc thời gian "hoạt động gần nhất" của 1 anime = thời điểm mới nhất trong
+  // created_at / updated_at. Dùng cho chế độ sắp xếp "Gần đây" để anime vừa
+  // thêm mới lẫn vừa cập nhật (bấm 🌸/♥, sửa thông tin) đều lên đầu danh sách.
+  function recentStamp(a) {
+    const c = a && a.created_at ? Date.parse(a.created_at) : NaN;
+    const u = a && a.updated_at ? Date.parse(a.updated_at) : NaN;
+    return Math.max(isNaN(c) ? 0 : c, isNaN(u) ? 0 : u);
+  }
+
   function renderAnimeGrid(quiet) {
     const grid = $('#animeGrid');
     const empty = $('#animeEmpty');
@@ -4562,8 +4571,11 @@ function setupSubPopupEvents() {
       list.sort((a, b) => (a.year || 0) - (b.year || 0) || String(a.title || '').localeCompare(String(b.title || ''), 'vi'));
     } else if (mode === 'title') {
       list.sort((a, b) => String(a.title || '').localeCompare(String(b.title || ''), 'vi'));
-    } else { // recent — mới thêm vào dữ liệu (created_at)
-      list.sort((a, b) => new Date(a.created_at || 0) - new Date(b.created_at || 0));
+    } else { // recent — mới thêm VỪA mới cập nhật (trạng thái xem, điểm ♥, sửa thông tin…)
+      // Mốc thời gian = thời điểm "động" nhất của anime = max(created_at, updated_at).
+      // Nhờ vậy vừa thêm anime mới, vừa vừa bấm 🌸/♥ hay sửa thông tin đều lên đầu danh sách.
+      // (DB có trigger trg_animes_updated_at tự set updated_at = now() mỗi lần UPDATE.)
+      list.sort((a, b) => recentStamp(a) - recentStamp(b));
     }
     if (State.animeSortDir === 'desc') list.reverse();
     updateSortDirBtn();
@@ -5386,6 +5398,9 @@ function setupSubPopupEvents() {
     const idx = State.animes.findIndex((x) => String(x.id) === String(animeId));
     if (idx > -1) {
       Object.assign(State.animes[idx], patch);
+      // Trigger DB đã set updated_at = now(), nhưng dữ liệu trong bộ nhớ chưa có
+      // → tự set luôn để sắp xếp "Gần đây" đưa anime vừa cập nhật lên đầu ngay.
+      State.animes[idx].updated_at = new Date().toISOString();
       if (State.currentAnime && String(State.currentAnime.id) === String(animeId)) {
         State.currentAnime = State.animes[idx];
       }
