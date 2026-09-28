@@ -4499,6 +4499,24 @@ function setupSubPopupEvents() {
     return Math.max(isNaN(c) ? 0 : c, isNaN(u) ? 0 : u);
   }
 
+  // Mốc ngày phát hành đầu tiên của anime — dùng cho chế độ sắp xếp "Phát hành".
+  // start_date lưu dạng chuỗi "YYYY-MM-DD" (một phần có thể chỉ có "YYYY" hoặc
+  // "YYYY-MM"); chuẩn hoá về UTC để không lệt theo múi giờ của máy người xem.
+  // Anime chưa có start_date thì lùi về trường `year` để không bị đẩy xuống đáy.
+  function releaseStamp(a) {
+    const s = String((a && a.start_date) || '').trim();
+    if (s) {
+      let t = NaN;
+      if (/^\d{4}$/.test(s)) t = Date.parse(s + '-01-01T00:00:00Z');
+      else if (/^\d{4}-\d{2}$/.test(s)) t = Date.parse(s + '-01T00:00:00Z');
+      else if (/^\d{4}-\d{2}-\d{2}$/.test(s)) t = Date.parse(s + 'T00:00:00Z');
+      else t = Date.parse(s);
+      if (!isNaN(t)) return t;
+    }
+    const y = parseInt(a && a.year, 10);
+    return isNaN(y) ? 0 : Date.UTC(y, 0, 1);
+  }
+
   function renderAnimeGrid(quiet) {
     const grid = $('#animeGrid');
     const empty = $('#animeEmpty');
@@ -4567,8 +4585,11 @@ function setupSubPopupEvents() {
     if (mode === 'rating') {
       list.sort((a, b) => (Number(a.rating) || 0) - (Number(b.rating) || 0));
     } else if (mode === 'release') {
-      // Phát hành: năm mới nhất lên trước; hoà năm thì theo mùa+tiêu đề cho ổn định
-      list.sort((a, b) => (a.year || 0) - (b.year || 0) || String(a.title || '').localeCompare(String(b.title || ''), 'vi'));
+      // Phát hành: NGÀY PHÁT HÀNH ĐẦU TIÊN (start_date) mới nhất lên trước.
+      // Trước đây chỉ so sánh `year` nên anime cùng năm bị xếp bừa/bằng tiêu đề,
+      // và anime thiếu `year` bị đẩy xuống đáy. Nay dùng ngày thật → chính xác tới ngày.
+      list.sort((a, b) => releaseStamp(a) - releaseStamp(b)
+        || String(a.title || '').localeCompare(String(b.title || ''), 'vi'));
     } else if (mode === 'title') {
       list.sort((a, b) => String(a.title || '').localeCompare(String(b.title || ''), 'vi'));
     } else { // recent — mới thêm VỪA mới cập nhật (trạng thái xem, điểm ♥, sửa thông tin…)
