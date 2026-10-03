@@ -403,23 +403,6 @@ select.input { appearance: none; -webkit-appearance: none; background-image: url
   transition: all 0.15s ease;
 }
 .card-sakura:hover { transform: scale(1.14); border-color: #f472b6; background: rgba(11, 15, 25, 0.85); box-shadow: 0 0 12px rgba(244, 114, 182, 0.4); }
-
-/* Nút ✏️ Sửa anime trên card (CHỈ admin) — góc trên-TRÁI poster, đối diện nút 🌸.
-   Cùng kích thước/phong cách .card-sakura nhưng tông xanh để phân biệt ngay. */
-.card-edit-btn {
-  position: absolute; top: 7px; left: 7px; z-index: 3;
-  width: 27px; height: 27px; padding: 0;
-  display: inline-flex; align-items: center; justify-content: center;
-  border-radius: 50%;
-  background: rgba(11, 15, 25, 0.62);
-  backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
-  border: 1px solid rgba(96, 165, 250, 0.45);
-  font-size: 13px; line-height: 1; cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-  transition: all 0.15s ease;
-}
-.card-edit-btn:hover { transform: scale(1.14); border-color: #60a5fa; background: rgba(11, 15, 25, 0.88); box-shadow: 0 0 12px rgba(96, 165, 250, 0.45); }
-.card-edit-btn:active { transform: scale(0.92); }
 .my-status-chip.my-watched { color: var(--success); border-color: rgba(34, 197, 94, 0.45); }
 .my-status-chip.my-watching { color: var(--accent); }
 .my-status-chip.my-planned { color: var(--warning); border-color: rgba(245, 158, 11, 0.45); }
@@ -1210,6 +1193,21 @@ select.input { appearance: none; -webkit-appearance: none; background-image: url
 .watch-ico.my-unwatched.on { color: var(--text-dim); border-color: rgba(148,163,184,0.55); background: rgba(148,163,184,0.16); }
 .watch-ico.heart.on { color: var(--danger); border-color: rgba(244,63,94,0.7); background: rgba(244,63,94,0.18); box-shadow: 0 0 10px rgba(244,63,94,0.35); }
 .watch-ico.heart b { font-size: 10px; font-weight: 800; margin-left: 1px; }
+
+/* Nút ✏️ Sửa anime — nằm cuối dãy nút admin, viền xanh để tách bạch khỏi
+   4 nút trạng thái + ♥ (vốn dùng màu theo trạng thái). */
+.watch-ico.edit {
+  color: #93c5fd;
+  border-color: rgba(96, 165, 250, 0.6);
+  background: rgba(37, 99, 235, 0.16);
+}
+.watch-ico.edit:hover {
+  color: #dbeafe;
+  border-color: #60a5fa;
+  background: rgba(37, 99, 235, 0.32);
+  box-shadow: 0 0 12px rgba(96, 165, 250, 0.45);
+}
+.watch-ico.edit:active { transform: scale(0.92); }
 
 
 /* Dưới ảnh bìa trong modal anime */

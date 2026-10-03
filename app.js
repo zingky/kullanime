@@ -441,10 +441,6 @@
   function applyAuthState() {
     updateLoginUI();
     updateAuthUI();
-    // Vẽ lại lưới anime (chế độ quiet = không phát lại animation cardIn) để các nút
-    // chỉ-ADMIN (vd nút ✏️ Sửa trên card) xuất hiện/ biến mất ngay khi đăng nhập /
-    // đăng xuất mà không phải F5. Bỏ qua nếu danh sách chưa có dữ liệu.
-    if ((State.animes || []).length) renderAnimeGrid(true);
   }
 
   // Ẩn/hiện ô tên hiển thị + captcha trong composer theo trạng thái đăng nhập
@@ -5024,10 +5020,6 @@ function setupSubPopupEvents() {
     const statusUI =
       '<button type="button" class="card-sakura" data-quick="menu" title="Đặt trạng thái xem">🌸</button>' +
       '<span class="card-status-badge ' + mySt.cls + '">' + esc(badgeText) + '</span>';
-    // Nút ✏️ Sửa (CHỈ admin) — góc trên-TRÁI poster, đối diện nút 🌸 để không chồng lên nhau
-    const editUI = State.isAdmin
-      ? '<button type="button" class="card-edit-btn" data-edit-card="1" title="Sửa anime này" aria-label="Sửa anime này">✏️</button>'
-      : '';
 
     // Meta: ★ điểm cộng đồng (AniDB) | nút điểm của tôi (bấm để mở popup chấm ♥; hiển thị trái tim trước, số sau) | tổng số tập đã phát hành
     const metaRight =
@@ -5041,7 +5033,6 @@ function setupSubPopupEvents() {
         '<div class="card-poster">' + img +
           '<span class="card-status ' + statusClass(a.status) + '">' + esc(a.status || '') + '</span>' +
           statusUI +
-          editUI +
         '</div>' +
         '<div class="card-body">' +
           '<h3 class="card-title">' + esc(a.title || '') + '</h3>' +
@@ -5422,6 +5413,9 @@ function setupSubPopupEvents() {
         icoBtn(opts[0]) + icoBtn(opts[1]) + icoBtn(opts[2]) + icoBtn(opts[3]) +
         '<span class="watch-ico-sep" aria-hidden="true"></span>' +
         '<button type="button" class="watch-ico heart' + (myRating > 0 ? ' on' : '') + '" id="myRatingBtn" title="Điểm của tôi ' + (myRating > 0 ? myRating + '/10' : '(chưa chấm)') + ' — bấm để chấm ♥">♥' + (myRating > 0 ? '<b>' + myRating + '</b>' : '') + '</button>' +
+        '<span class="watch-ico-sep" aria-hidden="true"></span>' +
+        // Nút ✏️ Sửa — cùng dãy nút admin, bấm mở form sửa anime này
+        '<button type="button" class="watch-ico edit" id="detailEditBtn" data-anime="' + esc(a.id) + '" title="Sửa thông tin anime này" aria-label="Sửa thông tin anime này">✏️</button>' +
       '</div>'
     );
   }
@@ -7044,6 +7038,17 @@ function setupSubPopupEvents() {
     closeModal('animeFormModal');
     await loadAnimes();
     renderAdminAnimeList();
+    // Sửa từ trang chi tiết → loadAnimes() thay mới State.animes nhưng State.currentAnime
+    // vẫn trỏ tới object CŨ, nên modal chi tiết sẽ hiện dữ liệu cũ. Trỏ lại record mới
+    // và vẽ lại modal để thấy ngay thay đổi (vd vừa sửa "Trạng thái 🌸" / "Tự đánh giá").
+    if (id && State.currentAnime && String(State.currentAnime.id) === String(id)) {
+      const fresh = State.animes.find((x) => String(x.id) === String(id));
+      const amEl = $('#animeModal');
+      if (fresh && amEl && amEl.classList.contains('open')) {
+        State.currentAnime = fresh;
+        renderAnimeDetail(fresh);
+      }
+    }
   }
 
   async function deleteAnime(id) {
@@ -8221,16 +8226,6 @@ function setupSubPopupEvents() {
       const card = e.target.closest('.anime-card');
       if (!card || !card.dataset.id) return;
 
-      // Nút ✏️ Sửa (chỉ admin) — mở form sửa anime, KHÔNG mở modal chi tiết
-      const eBtn = e.target.closest('.card-edit-btn');
-      if (eBtn) {
-        if (!State.isAdmin) return;
-        e.__popOpened = true;
-        e.stopPropagation();
-        openEditAnimeForm(card.dataset.id);
-        return;
-      }
-
       // Nút điểm ♥ ở meta: bấm để mở popup chấm điểm ♥ (menu 10 tim, không mở modal)
       const hBtn = e.target.closest('.card-heart-btn');
       if (hBtn) {
@@ -9243,6 +9238,17 @@ function setupSubPopupEvents() {
           e.__popOpened = true;
           openHeartPop(rateBtn, tracker.dataset.anime);
         }
+        return;
+      }
+      // Nút ✏️ Sửa anime (cùng dãy nút admin) — mở form sửa, không đóng modal chi tiết
+      const detailEdit = e.target.closest('#detailEditBtn');
+      if (detailEdit) {
+        if (!State.isAdmin) return;
+        const animeId = detailEdit.dataset.anime
+          || (($('#myTracker') || {}).dataset || {}).anime;
+        if (!animeId) return;
+        e.__popOpened = true;
+        openEditAnimeForm(animeId);
         return;
       }
       // Nút ✕ xoá một ngày đã xem khỏi danh sách
