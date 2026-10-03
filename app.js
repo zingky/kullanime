@@ -441,6 +441,10 @@
   function applyAuthState() {
     updateLoginUI();
     updateAuthUI();
+    // Vẽ lại lưới anime (chế độ quiet = không phát lại animation cardIn) để các nút
+    // chỉ-ADMIN (vd nút ✏️ Sửa trên card) xuất hiện/ biến mất ngay khi đăng nhập /
+    // đăng xuất mà không phải F5. Bỏ qua nếu danh sách chưa có dữ liệu.
+    if ((State.animes || []).length) renderAnimeGrid(true);
   }
 
   // Ẩn/hiện ô tên hiển thị + captcha trong composer theo trạng thái đăng nhập
@@ -5020,6 +5024,10 @@ function setupSubPopupEvents() {
     const statusUI =
       '<button type="button" class="card-sakura" data-quick="menu" title="Đặt trạng thái xem">🌸</button>' +
       '<span class="card-status-badge ' + mySt.cls + '">' + esc(badgeText) + '</span>';
+    // Nút ✏️ Sửa (CHỈ admin) — góc trên-TRÁI poster, đối diện nút 🌸 để không chồng lên nhau
+    const editUI = State.isAdmin
+      ? '<button type="button" class="card-edit-btn" data-edit-card="1" title="Sửa anime này" aria-label="Sửa anime này">✏️</button>'
+      : '';
 
     // Meta: ★ điểm cộng đồng (AniDB) | nút điểm của tôi (bấm để mở popup chấm ♥; hiển thị trái tim trước, số sau) | tổng số tập đã phát hành
     const metaRight =
@@ -5033,6 +5041,7 @@ function setupSubPopupEvents() {
         '<div class="card-poster">' + img +
           '<span class="card-status ' + statusClass(a.status) + '">' + esc(a.status || '') + '</span>' +
           statusUI +
+          editUI +
         '</div>' +
         '<div class="card-body">' +
           '<h3 class="card-title">' + esc(a.title || '') + '</h3>' +
@@ -8211,6 +8220,16 @@ function setupSubPopupEvents() {
     $('#animeGrid').addEventListener('click', (e) => {
       const card = e.target.closest('.anime-card');
       if (!card || !card.dataset.id) return;
+
+      // Nút ✏️ Sửa (chỉ admin) — mở form sửa anime, KHÔNG mở modal chi tiết
+      const eBtn = e.target.closest('.card-edit-btn');
+      if (eBtn) {
+        if (!State.isAdmin) return;
+        e.__popOpened = true;
+        e.stopPropagation();
+        openEditAnimeForm(card.dataset.id);
+        return;
+      }
 
       // Nút điểm ♥ ở meta: bấm để mở popup chấm điểm ♥ (menu 10 tim, không mở modal)
       const hBtn = e.target.closest('.card-heart-btn');
