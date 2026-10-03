@@ -214,6 +214,12 @@
     if (!m) return;
     m.classList.add('open');
     m.setAttribute('aria-hidden', 'false');
+    // Luôn cuộn về đầu khi mở: .modal-overlay là vùng cuộn (overflow-y:auto) nên
+    // scrollTop được giữ lại giữa các lần mở. Không reset thì mở lại form sau khi
+    // lưu (đang ở cuối trang, cạnh nút "Lưu") vẫn hiện đúng chỗ cuộn cũ.
+    m.scrollTop = 0;
+    const inner = m.querySelector('.modal');
+    if (inner) inner.scrollTop = 0;
   }
   function closeModal(id) {
     const m = $('#' + id);
