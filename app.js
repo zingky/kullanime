@@ -5554,16 +5554,16 @@ function setupSubPopupEvents() {
     return ok;
   }
 
-  // Đặt trạng thái xem + tự đồng bộ số lần đã xem:
-  //   chọn "Đã xem"  → +1 lần + thêm ngày hôm nay (nếu chưa có hôm nay)
-  //   chọn "Chưa xem" → xoá 1 lần đã xem nếu đã có (xoá ngày gần nhất)
-  async function syncWatchOnStatus(animeId, newStatus, extra) {
-    const a = State.animes.find((x) => String(x.id) === String(animeId));
-    if (!a) return false;
-    const patch = { my_status: newStatus };
-    if (extra) Object.assign(patch, extra);
-    if (newStatus === 'Đã xem' && String(a.my_status || '') !== 'Đã xem') {
-      const dates = (Array.isArray(a.watch_dates) ? a.watch_dates : []).filter(Boolean);
+  // Tính phần điều chỉnh "số lần xem + danh sách ngày xem" khi ĐỔI trạng thái xem.
+  // Hàm thuần (không gọi mạng) để dùng CHUNG cho cả 2 đường:
+  //   • bấm nút trạng thái ngoài card  → syncWatchOnStatus()
+  //   • chọn trạng thái trong form admin → saveAnime()
+  //   chọn "Đã xem" (từ trạng thái khác) → +1 lần + thêm ngày hôm nay (nếu chưa có hôm nay)
+  //   rời "Đã xem" thành "Chưa xem"      → bỏ ngày xem gần nhất, giảm 1 lần
+  function watchDatesPatchForStatusChange(oldStatus, oldDates, newStatus) {
+    const patch = {};
+    const dates = (Array.isArray(oldDates) ? oldDates : []).filter(Boolean);
+    if (newStatus === 'Đã xem' && String(oldStatus || '') !== 'Đã xem') {
       const now = new Date();
       const today = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0');
       if (!dates.includes(today)) {
@@ -5571,14 +5571,25 @@ function setupSubPopupEvents() {
         patch.watch_dates = dates;
         patch.watch_count = dates.length;
       }
-    } else if (newStatus === 'Chưa xem' && String(a.my_status || '') === 'Đã xem') {
-      const dates = (Array.isArray(a.watch_dates) ? a.watch_dates : []).filter(Boolean);
+    } else if (newStatus === 'Chưa xem' && String(oldStatus || '') === 'Đã xem') {
       if (dates.length) {
         dates.pop(); // xoá lần xem gần nhất
         patch.watch_dates = dates;
         patch.watch_count = dates.length;
       }
     }
+    return patch;
+  }
+
+  // Đặt trạng thái xem + tự đồng bộ số lần đã xem (dùng khi bấm nút ngoài card)
+  async function syncWatchOnStatus(animeId, newStatus, extra) {
+    const a = State.animes.find((x) => String(x.id) === String(animeId));
+    if (!a) return false;
+    const patch = Object.assign(
+      { my_status: newStatus },
+      watchDatesPatchForStatusChange(a.my_status, a.watch_dates, newStatus)
+    );
+    if (extra) Object.assign(patch, extra);
     return saveMyTracker(animeId, patch);
   }
 
@@ -7010,9 +7021,17 @@ function setupSubPopupEvents() {
     btn.disabled = true;
     let error;
     if (id) {
+      // Sửa anime có sẵn: nếu trạng thái xem ĐỔI thì áp đúng logic như bấm nút ngoài card
+      // (chọn "Đã xem" → +1 lần xem + ghi ngày hôm nay; bỏ "Đã xem" → trừ đi 1 lần).
+      const old = State.animes.find((x) => String(x.id) === String(id));
+      if (old) {
+        Object.assign(payload, watchDatesPatchForStatusChange(old.my_status, old.watch_dates, payload.my_status));
+      }
       const r = await State.supabase.from('animes').update(payload).eq('id', id);
       error = r.error;
     } else {
+      // Thêm anime mới: chọn sẵn "Đã xem" cũng tính 1 lần xem + ngày hôm nay
+      Object.assign(payload, watchDatesPatchForStatusChange('', [], payload.my_status));
       const r = await State.supabase.from('animes').insert(payload);
       error = r.error;
     }
