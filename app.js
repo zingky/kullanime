@@ -6830,7 +6830,6 @@ function setupSubPopupEvents() {
     $('#af_watched_ep').value = a.watched_episodes || 0;
     $('#af_my_status').value = myStatusMeta(a.my_status).label;
     $('#af_my_rating').value = Math.max(0, Math.min(10, Math.round(Number(a.my_rating) || 0)));
-    renderAfHearts(Number($('#af_my_rating').value) || 0);
     $('#af_poster').value = a.poster_url || '';
     $('#af_genres').value = (Array.isArray(a.genres) ? a.genres : []).join(', ');
     $('#af_tags').value = (Array.isArray(a.tags) ? a.tags : []).map((t) => (t && t.name) || '').join(', ');
@@ -6852,19 +6851,6 @@ function setupSubPopupEvents() {
     openModal('animeFormModal');
   }
 
-  // Hàng 10 trái tim chấm điểm trong form admin — bấm 1 tim là chấm N/10,
-  // bấm lại đúng tim đó thì xoá về 0. Ô số #af_my_rating luôn là nguồn sự thật.
-  function renderAfHearts(val) {
-    const wrap = $('#afHearts');
-    if (!wrap) return;
-    const cur = Math.max(0, Math.min(10, parseInt(val, 10) || 0));
-    let h = '';
-    for (let i = 1; i <= 10; i++) {
-      h += '<button type="button" class="af-heart' + (i <= cur ? ' on' : '') + '" data-val="' + i + '" title="' + i + '/10">' + (i <= cur ? '♥' : '♡') + '</button>';
-    }
-    wrap.innerHTML = h;
-  }
-
   function resetAnimeForm() {
     ['af_title', 'af_year', 'af_studio', 'af_poster', 'af_genres', 'af_tags', 'af_synopsis',
      'af_title_romaji', 'af_title_native', 'af_title_synonyms', 'af_start_date',
@@ -6877,7 +6863,6 @@ function setupSubPopupEvents() {
     $('#af_status').value = 'Đang chiếu';
     $('#af_my_status').value = 'Chưa xem';
     $('#af_my_rating').value = 0;
-    renderAfHearts(0);
     State.afLinks = []; // form mới — chưa có liên kết (auto-fill AniList sẽ điền)
     renderLinkEditors([]);
     renderSeiyuuEditors([]);
@@ -9105,22 +9090,6 @@ function setupSubPopupEvents() {
 
     // Poster preview + upload
     $('#af_poster').addEventListener('input', updatePosterPreview);
-    // Hàng 10 trái tim trong form admin: bấm tim N → chấm N/10, bấm lại tim N → xoá về 0
-    const afHearts = $('#afHearts');
-    if (afHearts) {
-      afHearts.addEventListener('click', (e) => {
-        const b = e.target.closest('.af-heart');
-        if (!b) return;
-        const n = parseInt(b.dataset.val, 10) || 0;
-        const cur = Math.max(0, Math.min(10, parseInt($('#af_my_rating').value, 10) || 0));
-        const next = (cur === n) ? 0 : n;
-        $('#af_my_rating').value = next;
-        renderAfHearts(next);
-      });
-    }
-    // Gõ tay trong ô số → hàng trái tim cập nhật theo
-    const afRating = $('#af_my_rating');
-    if (afRating) afRating.addEventListener('input', () => renderAfHearts(afRating.value));
     $('#af_posterUpload').addEventListener('click', () => $('#af_avatarInput').click());
     $('#af_avatarInput').addEventListener('change', async (e) => {
       const file = e.target.files && e.target.files[0];
