@@ -35,7 +35,7 @@
   <!-- File cấu hình (đọc .env.local / fallback) -->
   <script src="./config.js"></script>
 
-  <link rel="stylesheet" href="./styles.css?v=95" />
+  <link rel="stylesheet" href="./styles.css?v=96" />
 </head>
 <body>
   <!-- Nền đêm sao + cánh hoa anh đào (night sky + sakura) — JS sinh sao tĩnh, CSS animation transform/opacity -->
@@ -561,47 +561,54 @@
             <label for="af_title">Tên anime *</label>
             <input type="text" id="af_title" class="input" required />
           </div>
-          <div class="field">
-            <label for="af_status">Trạng thái</label>
-            <select id="af_status" class="input">
-              <option>Đang chiếu</option>
-              <option>Hoàn thành</option>
-              <option>Sắp chiếu</option>
-              <option>Tạm ngưng</option>
-            </select>
+          <!-- Nhóm ô NGẮN: chỉ vài chữ/number → gom lưới 4 cột (desktop) / 2 cột (mobile),
+               ô nhập thấp gọn, thay vì mỗi ô một hàng cao như các ô khác. -->
+          <div class="field-span-2 form-compact">
+            <div class="field">
+              <label for="af_status">Trạng thái</label>
+              <select id="af_status" class="input">
+                <option>Đang chiếu</option>
+                <option>Hoàn thành</option>
+                <option>Sắp chiếu</option>
+                <option>Tạm ngưng</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="af_rating">Rating (0-10)</label>
+              <input type="number" id="af_rating" class="input" min="0" max="10" step="0.1" value="0" />
+            </div>
+            <div class="field">
+              <label for="af_year">Năm phát hành</label>
+              <input type="number" id="af_year" class="input" min="1950" max="2100" placeholder="2024" />
+            </div>
+            <div class="field">
+              <label for="af_studio">Studio</label>
+              <input type="text" id="af_studio" class="input" />
+            </div>
+            <div class="field">
+              <label for="af_total_ep">Tổng số tập</label>
+              <input type="number" id="af_total_ep" class="input" min="0" value="0" />
+            </div>
+            <div class="field">
+              <label for="af_watched_ep">Số tập đã xem</label>
+              <input type="number" id="af_watched_ep" class="input" min="0" value="0" />
+            </div>
+            <div class="field">
+              <label for="af_my_status">Trạng thái xem của tôi 🌸</label>
+              <select id="af_my_status" class="input">
+                <option value="Chưa xem">⬜ Chưa xem</option>
+                <option value="Muốn xem">➕ Muốn xem</option>
+                <option value="Đang xem">⏳ Đang xem</option>
+                <option value="Đã xem">✅ Đã xem</option>
+              </select>
+            </div>
           </div>
-          <div class="field">
-            <label for="af_rating">Rating (0-10)</label>
-            <input type="number" id="af_rating" class="input" min="0" max="10" step="0.1" value="0" />
-          </div>
-          <div class="field">
-            <label for="af_year">Năm phát hành</label>
-            <input type="number" id="af_year" class="input" min="1950" max="2100" placeholder="2024" />
-          </div>
-          <div class="field">
-            <label for="af_studio">Studio</label>
-            <input type="text" id="af_studio" class="input" />
-          </div>
-          <div class="field">
-            <label for="af_total_ep">Tổng số tập</label>
-            <input type="number" id="af_total_ep" class="input" min="0" value="0" />
-          </div>
-          <div class="field">
-            <label for="af_watched_ep">Số tập đã xem</label>
-            <input type="number" id="af_watched_ep" class="input" min="0" value="0" />
-          </div>
-          <div class="field">
-            <label for="af_my_status">Trạng thái xem của tôi 🌸</label>
-            <select id="af_my_status" class="input">
-              <option value="Chưa xem">⬜ Chưa xem</option>
-              <option value="Muốn xem">➕ Muốn xem</option>
-              <option value="Đang xem">⏳ Đang xem</option>
-              <option value="Đã xem">✅ Đã xem</option>
-            </select>
-          </div>
-          <div class="field">
-            <label for="af_my_rating">Điểm của tôi ♥ (0–10)</label>
-            <input type="number" id="af_my_rating" class="input" min="0" max="10" step="1" value="0" placeholder="0 = chưa chấm" />
+          <!-- Điểm ♥: ô số + hàng 10 trái tim nằm cùng 1 hàng ngang (gọn, không chiếm dọc) -->
+          <div class="field-span-2 form-myrow">
+            <div class="field form-myrow-field">
+              <label for="af_my_rating">Điểm của tôi ♥ (0–10)</label>
+              <input type="number" id="af_my_rating" class="input" min="0" max="10" step="1" value="0" placeholder="0 = chưa chấm" />
+            </div>
             <div class="af-hearts" id="afHearts" title="Bấm 1 trái tim là chấm, bấm lại trái tim đó để xoá"></div>
           </div>
           <div class="field field-span-2">

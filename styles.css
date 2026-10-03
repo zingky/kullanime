@@ -2344,8 +2344,33 @@ select.input option { background: #141a2d; color: var(--text); }
 .admin-adv-grid { padding: 0 14px 14px; }
 /* ── Hàng 10 trái tim chấm điểm trong form admin (ô #af_my_rating là nguồn sự thật) ── */
 .af-hearts { display: flex; gap: 3px; margin-top: 6px; flex-wrap: wrap; }
+/* ── Form: nhóm ô NGẮN gọn (trạng thái / rating / năm / studio / số tập / trạng thái & điểm của tôi) ──
+   Dữ liệu các ô này chỉ vài chữ hoặc 1 con số nên không cần ô cao như các ô dài.
+   Gom vào lưới 4 cột (desktop) / 2 cột (mobile) + ô nhập thấp gọn → form bớt dài,
+   bớt phải kéo lên kéo xuống. Ô "Điểm ♥" tách ra 1 hàng ngang: ô số + 10 trái tim. */
+.form-compact {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px 10px;
+}
+.form-compact .field { min-width: 0; }
+.form-compact .field label { font-size: 11.5px; line-height: 1.3; }
+.form-compact .input,
+.form-myrow .input { padding: 6px 10px; font-size: 13px; line-height: 1.3; }
+.form-compact select.input,
+.form-myrow select.input { padding-right: 28px; background-position: right 10px center; }
+@media (max-width: 639px) {
+  .form-compact { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+/* Ô "Điểm của tôi ♥": số bên trái, hàng 10 tim bên phải cùng 1 hàng ngang */
+.form-myrow { display: flex; align-items: flex-end; gap: 12px; flex-wrap: wrap; }
+.form-myrow-field { flex: 0 0 150px; min-width: 0; }
+.form-myrow .field label { font-size: 11.5px; line-height: 1.3; }
+.form-myrow .af-hearts { margin-top: 0; padding-bottom: 2px; }
+
 .af-heart {
-  width: 26px; height: 26px; padding: 0; line-height: 1;
+  width: 24px; height: 24px; padding: 0; line-height: 1;
   display: inline-flex; align-items: center; justify-content: center;
   background: rgba(255,255,255,0.04); border: 1px solid var(--glass-border);
   border-radius: 7px; color: var(--text-faint); font-size: 14px; cursor: pointer;
