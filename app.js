@@ -379,8 +379,11 @@
   function synopsisHTML(raw) {
     let html = esc(String(raw || ''));
     SYNOPSIS_OK_TAGS.forEach((tag) => {
+      // Sau esc(), mọi thẻ đều ở dạng "&lt;i&gt;". Mở lại thành HTML THẬT "<i>"/"</i>"
+      // (không phải hạ chữ thường — nếu chỉ toLowerCase thì thẻ vẫn còn dạng escaped,
+      //  hiện nguyên chữ "<i>" và thẻ đóng biến mất).
       html = html
-        .replace(new RegExp('&lt;' + tag + '&gt;', 'gi'), function (m) { return m.toLowerCase(); })
+        .replace(new RegExp('&lt;' + tag + '&gt;', 'gi'), '<' + tag + '>')
         .replace(new RegExp('&lt;/' + tag + '&gt;', 'gi'), '</' + tag + '>');
     });
     return html;
