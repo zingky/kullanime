@@ -1069,7 +1069,13 @@ select.input { appearance: none; -webkit-appearance: none; background-image: url
 /* ── Thể loại: hiện 5 cái + nút ">" mở/đóng toàn bộ ── */
 /* Thể loại + Tag nằm chung một dòng: meta-chips-row chiếm trọn hàng, 2 nhóm chip nằm cạnh nhau */
 .meta-chips-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; flex-basis: 100%; }
-.genre-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+/* Thể loại + Tag nằm chung MỘT dòng liền mạch — kể cả trên mobile.
+   `display: contents` bỏ "khung" của 2 wrapper này nên chip thể loại và chip tag
+   cùng trở thành flex item trực tiếp của .meta-chips-row, xoay vòng liền nhau.
+   Trước đây 2 wrapper là 2 flex item nên khi màn hình hẹp (mobile) chúng bị ép
+   xuống 2 hàng riêng: thể loại 1 hàng, tag 1 hàng → "tách riêng ra".
+   JS vẫn thao tác bình thường vì closest()/querySelector đi theo DOM tree. */
+.genre-chips { display: contents; }
 .genre-chips .chip { display: inline-flex; align-items: center; }
 .genre-chips.has-more:not(.open) .chip-btn:nth-child(n+6) { display: none; }
 .genre-chips.open .chip-btn { display: inline-flex; }
@@ -1077,7 +1083,8 @@ select.input { appearance: none; -webkit-appearance: none; background-image: url
 .chip-more:hover { border-color: var(--accent); background: rgba(168, 85, 247, 0.14); color: var(--text); }
 
 /* ── Tag: chip + popup_overflow ── */
-.tag-chips { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+/* Tag: chip + popup_overflow — `display: contents` xem giải thích ở .genre-chips */
+.tag-chips { display: contents; }
 .tag-chips .chip { display: inline-flex; align-items: center; font-size: 12px; padding: 2px 8px; border-radius: 999px; }
 .chip-tag { cursor: pointer; border: 1px solid rgba(16, 185, 129, 0.35); background: rgba(16, 185, 129, 0.10); color: #6ee7b7; transition: all 0.15s ease; }
 .chip-tag:hover { border-color: #10b981; background: rgba(16, 185, 129, 0.22); color: #a7f3d0; }
@@ -1092,6 +1099,17 @@ select.input { appearance: none; -webkit-appearance: none; background-image: url
 /* Tag xổ inline ngay tại chỗ (giống thể loại): ẩn tag từ thứ 4 trở đi khi chưa mở; nút "+N" ↔ "−" */
 .tag-chips.has-more:not(.open) .chip-tag:nth-child(n+4) { display: none; }
 .tag-chips.open .chip-tag { display: inline-flex; }
+
+/* ── Mobile: tên anime + thể loại + tag dồn liền nhau thành 1 khối ──
+   Trên desktop (≥641px) 2 cột: poster | chữ → khoảng hẹp nên trông gọn. Trên
+   mobile 1 cột, header có padding-bottom + đường kẻ ngăn + gap 12px của
+   .detail-main khiến tên và dãy chip trông như 2 khối rời rạc → siết lại cho
+   liền mạch (desktop giữ nguyên). */
+@media (max-width: 640px) {
+  .anime-modal .detail-main { gap: 8px; }
+  .anime-modal .detail-header { padding-bottom: 4px; }
+  .anime-modal .detail-chips { gap: 5px; }
+}
 
 /* ── Khối Dàn diễn viên: bấm tiêu đề mới sổ ra (details/summary) ── */
 .detail-collapse summary.detail-collapse-head {
