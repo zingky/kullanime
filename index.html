@@ -667,7 +667,10 @@
                 <label for="af_hashtag">Hashtag</label>
                 <input type="text" id="af_hashtag" class="input" placeholder="shingekinokyojin" />
               </div>
-              <div class="field field-span-2">
+              <!-- Hashtag + Producers cùng 1 hàng: cả hai đều là .field đơn (không field-span-2)
+                   nên trên desktop ≥640px chúng tự nằm cạnh nhau trong grid 2 cột;
+                   mobile <640px grid 1 cột nên tự xếp dọc. -->
+              <div class="field">
                 <label for="af_producers">Producers (phân cách dấu phẩy)</label>
                 <input type="text" id="af_producers" class="input" placeholder="Pony Canyon, Kodansha..." />
               </div>
