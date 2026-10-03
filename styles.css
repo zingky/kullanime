@@ -904,9 +904,10 @@ select.input { appearance: none; -webkit-appearance: none; background-image: url
   width: 52px; height: 52px;
   align-items: center; justify-content: center;
   border-radius: 50%;
-  border: 1px solid rgba(255, 255, 255, 0.18);
-  background: rgba(20, 26, 44, 0.86);
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  background: rgba(20, 26, 44, 0.38);          /* nền trong suốt hơn — thấy nội dung phía sau */
   color: var(--text);
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.65);  /* giữ dấu ✕ rõ trên nền trong */
   font-size: 20px; line-height: 1; padding: 0;
   font-family: inherit;
   cursor: pointer;
