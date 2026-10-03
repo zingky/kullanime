@@ -942,6 +942,21 @@ select.input { appearance: none; -webkit-appearance: none; background-image: url
 .anime-modal .anime-detail .detail-subtitle,
 .anime-modal .anime-detail .detail-side-label { white-space: normal; }
 
+/* In nghiên/đậm/gạch chân trong nội dung rich text — khai báo tường minh để luôn hiện
+   đúng dù có style nào reset font-style (ví dụ <i>Tensei Shitara Ken Deshita</i>). */
+.detail-synopsis i,
+.detail-synopsis em,
+.comment-body i,
+.comment-body em,
+.chat-bubble-body i,
+.chat-bubble-body em { font-style: italic; }
+.detail-synopsis b,
+.detail-synopsis strong,
+.comment-body b,
+.comment-body strong,
+.chat-bubble-body b,
+.chat-bubble-body strong { font-style: normal; font-weight: 700; }
+
 @media (min-width: 641px) {
   /* Chốt chặn quan trọng nhất: cột poster CỐ ĐỊNH 240px. Flex basis fixed + max-width cứng
      không bao giờ bị phình theo min-content, còn cột chữ flex:1 1 0%; min-width:0 luôn
@@ -1184,6 +1199,7 @@ select.input { appearance: none; -webkit-appearance: none; background-image: url
   backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
   color: var(--text-dim); font-size: 15px; line-height: 1; cursor: pointer;
   transition: all 0.15s ease;
+  flex: 0 0 auto;              /* không để flex bóp méo icon khi dãy nút dài ra */
 }
 .watch-ico:hover { border-color: var(--accent); color: var(--text); transform: scale(1.12); }
 
@@ -1212,15 +1228,16 @@ select.input { appearance: none; -webkit-appearance: none; background-image: url
 
 /* Dưới ảnh bìa trong modal anime */
 .detail-watch-icons {
-  display: flex; align-items: center; gap: 7px;
+  display: flex; align-items: center; justify-content: center; gap: 6px;
+  flex-wrap: wrap;              /* màn hình hẹp thì xuống hàng, KHÔNG bóp méo icon */
   padding: 10px 12px; margin-top: 12px;
   background: var(--bg-card); border: var(--glass-border);
   border-radius: var(--radius-sm);
   backdrop-filter: blur(12px) saturate(150%); -webkit-backdrop-filter: blur(12px) saturate(150%);
   box-shadow: var(--shadow-soft);
 }
-.detail-watch-icons .watch-ico { width: 34px; height: 34px; font-size: 17px; }
-.watch-ico-sep { width: 1px; height: 22px; background: var(--border); margin: 0 3px; }
+.detail-watch-icons .watch-ico { width: 30px; height: 30px; font-size: 15px; }
+.watch-ico-sep { width: 1px; height: 22px; background: var(--border); margin: 0 2px; flex: 0 0 auto; }
 
 /* ── Số lần đã xem (chỉ trang chi tiết anime) ── */
 .detail-watch { /* kế thừa .detail-section */ }

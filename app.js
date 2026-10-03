@@ -370,6 +370,22 @@
     return sanitizeHTMLFallback(html);
   }
 
+  // Tóm tắt anime: cho phép vài thẻ ĐỊNH DẠNG an toàn — <i>/<em> in nghiên, <b>/<strong>
+  // in đậm, <u> gạch chân, <s>/<strike>/<del> gạch ngang, <br> xuống dòng.
+  // Cách làm: escape toàn bộ trước (chặn mọi HTML thô), rồi MỞ LẠI đúng các thẻ nằm
+  // trong danh sách cho phép. Nhờ vậy ghi "<i>Tensei Shitara Ken Deshita</i>" hiện đúng
+  // in nghiên, mà vẫn không bao giờ render <script>, <a>, <img> hay event handler.
+  const SYNOPSIS_OK_TAGS = ['i', 'em', 'b', 'strong', 'u', 's', 'strike', 'del', 'br'];
+  function synopsisHTML(raw) {
+    let html = esc(String(raw || ''));
+    SYNOPSIS_OK_TAGS.forEach((tag) => {
+      html = html
+        .replace(new RegExp('&lt;' + tag + '&gt;', 'gi'), function (m) { return m.toLowerCase(); })
+        .replace(new RegExp('&lt;/' + tag + '&gt;', 'gi'), '</' + tag + '>');
+    });
+    return html;
+  }
+
   // Bộ lọc từ cấm cơ bản (biến thành ***)
   const BAD_WORDS = ['fuck', 'shit', 'bitch', 'đmm', 'clmm', 'cmm', 'clgt', 'đụ', 'địt', 'lồn', 'cặc', 'buồi'];
   function filterBadWords(str) {
@@ -5378,7 +5394,7 @@ function setupSubPopupEvents() {
               '<span>📖 Tóm tắt (Synopsis)</span>' +
               '<button type="button" class="synopsis-translate-btn" id="synopsisTranslateBtn" data-anime="' + esc(a.id) + '" title="Dịch tóm tắt sang tiếng Việt">🌐 Dịch</button>' +
             '</h3>' +
-            '<div class="detail-synopsis-scroll"><p class="detail-synopsis" id="synopsisText" data-original="' + esc(synopsis) + '">' + esc(synopsis) + '</p></div>' +
+            '<div class="detail-synopsis-scroll"><p class="detail-synopsis" id="synopsisText" data-original="' + esc(synopsis) + '">' + synopsisHTML(synopsis) + '</p></div>' +
           '</section>' +
           seiyuuSection +
           linksSection +
