@@ -891,6 +891,38 @@ select.input { appearance: none; -webkit-appearance: none; background-image: url
   pointer-events: auto;
 }
 
+/* ── Nút ✕ đóng modal chi tiết anime: CỐ ĐỊNH đáy-phải màn hình (mobile) ──
+   Trên mobile nút ✕ ở góc trên-phải rất khó với tới bằng ngón cái → thay bằng nút
+   tròn nổi ở đáy màn hình. Nút là con trực tiếp của <body> nên position:fixed bám
+   đúng viewport (không bị .modal-overlay có backdrop-filter "nhốt" lại khiến cuộn theo).
+   Chỉ hiện khi #animeModal đang mở; desktop vẫn dùng nút ✕ góc trên-phải như cũ. */
+.anime-close-fab {
+  display: none;
+  position: fixed;
+  right: 16px;
+  bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+  width: 52px; height: 52px;
+  align-items: center; justify-content: center;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(20, 26, 44, 0.86);
+  color: var(--text);
+  font-size: 20px; line-height: 1; padding: 0;
+  font-family: inherit;
+  cursor: pointer;
+  z-index: 130;                          /* nổi trên .modal-overlay (z-index: 100) */
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+  -webkit-tap-highlight-color: transparent;
+  transition: transform 0.12s ease;
+}
+.anime-close-fab:active { transform: scale(0.92); }
+@media (max-width: 640px) {
+  #animeModal.open ~ .anime-close-fab { display: inline-flex; }
+  /* Mobile: ẩn nút ✕ góc trên-phải để không trùng với nút đáy */
+  .anime-modal .anime-modal-sticky { display: none; }
+}
+
 /* ── Flex chính: mặc định 1 cột (mobile); từ 641px thành 2 cột: poster trái + chữ phải ──
    Dùng flex (không dùng grid) để cột poster khóa cứng bằng flex-basis + max-width,
    không có cơ chế "growth limit" của grid track làm cột chữ bị ép về 0. */
