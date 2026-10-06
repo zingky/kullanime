@@ -7414,29 +7414,39 @@ function setupSubPopupEvents() {
   }
 
   // Đồng bộ thanh bulk-select: đếm số mục đã chọn + trạng thái nút xóa / select-all
+  // Gọi luôn khi phải tái tính toàn bộ UI (thay vì chỉ có sự kiện individual)
   function syncAdminBulkBar(kind) {
     const key = kind === 'anime' ? 'adminSelectedAnime' : 'adminSelectedComments';
     const bar = $(kind === 'anime' ? 'animeBulkBar' : 'commentBulkBar');
     const countEl = $(kind === 'anime' ? 'animeSelectedCount' : 'commentSelectedCount');
     const selAll = $(kind === 'anime' ? 'animeSelectAll' : 'commentSelectAll');
     if (!bar) return;
-    const n = State[key].size;
+    // 1) Luôn clear state trước để tránh lỗi giữ chân khi tải lại/lọc
+    State[key].clear();
+    const n = State[key].size; // vẫn bằng 0 → chỉ dùng chiều rộng để hiển thị
     const checkboxes = document.querySelectorAll((kind === 'anime' ? '#adminAnimeList' : '#adminCommentList') + ' .admin-cb');
     const total = checkboxes.length;
     const delBtn = $(kind === 'anime' ? 'animeBulkDelBtn' : 'commentBulkDelBtn');
     const clearBtn = $(kind === 'anime' ? 'animeClearSelBtn' : 'commentClearSelBtn');
-    // Luôn hiển thị count + trạng thái nút xóa
+    const checkedAll = total > 0 && n === total;
+    // 2) Hiển thị count + nút
     if (countEl) countEl.textContent = (total ? 'Tổng ' + total + ' · ' : '') + 'Chọn ' + n + ' mục';
     if (delBtn) delBtn.disabled = n === 0;
     if (clearBtn) clearBtn.disabled = n === 0;
+    // 3) Select-all chỉ true khi chọn hết; indeterminate khi partial
     if (selAll) {
       selAll.disabled = total === 0;
-      selAll.checked = n > 0 && n === total;
-      selAll.indeterminate = n > 0 && n < total;
+      selAll.checked = checkedAll;
+      selAll.indeterminate = !checkedAll && n > 0 && n < total;
+    }
+    // 4) Nếu UI có state không khớp (do client-side), auto-sync toàn bộ checkbox + highlight
+    if (n === 0) {
+      document.querySelectorAll((kind === 'anime' ? '#adminAnimeList' : '#adminCommentList') + ' .admin-cb').forEach((cb) => { cb.checked = false; });
+      document.querySelectorAll((kind === 'anime' ? '#adminAnimeList' : '#adminCommentList') + ' .admin-row').forEach((r) => r.classList.remove('selected'));
     }
   }
 
-  // Huỷ toàn bộ tick chọn (anime / bình luận): bỏ Set + bỏ tick + bỏ highlight dòng
+  // Huỷ toàn bộ tick chọn (anime / bình luận): xóa hết Set + bỏ tick + bỏ highlight dòng
   function clearAdminSelection(kind) {
     const isAnime = kind === 'anime';
     const set = isAnime ? State.adminSelectedAnime : State.adminSelectedComments;
@@ -8901,7 +8911,10 @@ function setupSubPopupEvents() {
         cbs.forEach((cb) => { cb.checked = all; });
         State.adminSelectedAnime.clear();
         if (all) cbs.forEach((cb) => State.adminSelectedAnime.add(String(cb.dataset.cbid)));
-        document.querySelectorAll('#adminAnimeList .admin-row').forEach((r) => r.classList.toggle('selected', all));
+        document.querySelectorAll('#adminAnimeList .admin-row').forEach((r) => {
+          r.classList.toggle('selected', all);
+          r.dataset.explicit = '0';
+        });
         syncAdminBulkBar('anime');
       });
     }
@@ -8945,7 +8958,6 @@ function setupSubPopupEvents() {
         } else {
           _shiftAnchor.comments = String(cb.dataset.cbid);
           setAdminRowChecked('comments', cb, want);
-          syncAdminBulkBar('comments');
         }
       }
     });
