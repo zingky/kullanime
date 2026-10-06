@@ -100,9 +100,40 @@
 
   // Khôi phục trạng thái nút "Now" NGAY lúc khởi tạo (trước lần renderAnimeGrid đầu)
   // để người dùng quay lại vẫn thấy bộ lọc đang bật.
+  // PA-A share-link: ?now=1 (hoặc true/on/yes) ép BẬT, ?now=0 (false/off/no) ép TẮT —
+  // ưu tiên hơn localStorage để người mới mở link vẫn tự bật Now. Không có param
+  // thì giữ hành vi cũ (đọc localStorage).
   const SEASON_NOW_KEY = 'kullanime_season_now';
+  function readSeasonNowParam() {
+    try {
+      const v = new URLSearchParams(window.location.search || '').get('now');
+      if (v == null) return null;
+      const s = String(v).trim().toLowerCase();
+      if (['1', 'true', 'on', 'yes'].includes(s)) return true;
+      if (['0', 'false', 'off', 'no'].includes(s)) return false;
+      return null;
+    } catch (_e) { return null; }
+  }
+  // Đồng bộ ?now=1 lên URL (replaceState, không reload) để link copy/share giữ
+  // trạng thái Now; tắt Now / xoá lọc thì gỡ param cho gọn.
+  function syncSeasonNowURL() {
+    try {
+      const url = new URL(window.location.href);
+      if (State.seasonNow) url.searchParams.set('now', '1');
+      else url.searchParams.delete('now');
+      const next = url.pathname + (url.searchParams.toString() ? '?' + url.searchParams.toString() : '') + (url.hash || '');
+      const cur = window.location.pathname + (window.location.search || '') + (window.location.hash || '');
+      if (next !== cur) window.history.replaceState(null, '', next);
+    } catch (_e) { /* ignore */ }
+  }
   try {
-    State.seasonNow = localStorage.getItem(SEASON_NOW_KEY) === '1';
+    const fromURL = readSeasonNowParam();
+    if (fromURL != null) {
+      State.seasonNow = fromURL;
+      try { localStorage.setItem(SEASON_NOW_KEY, fromURL ? '1' : '0'); } catch (_e2) { /* ignore */ }
+    } else {
+      State.seasonNow = localStorage.getItem(SEASON_NOW_KEY) === '1';
+    }
   } catch (_e) { /* ignore */ }
 
   /* ──────────────────────────────────────────────────────
@@ -4672,6 +4703,45 @@ function setupSubPopupEvents() {
     renderAnimePagination(totalPages);
     // Desktop ngang: đối chiếu chiều cao card thật → chỉnh số hàng vừa màn hình nếu cần
     syncAnimeRows(quiet);
+    // Preload ảnh poster của ±2 trang kề (nếu chưa từng load) để bấm chuyển trang
+    // thấy ảnh ngay — ví dụ đang ở trang 1 thì nạp sẵn trang 2+3, ở trang 5 thì
+    // nạp sẵn 3,4,6,7. Dữ liệu đã có sẵn trong `list` nên chỉ tốn băng thông ảnh.
+    preloadAnimePages(list, perPage, page, totalPages);
+  }
+
+  // Cache URL poster đã preload để không nạp trùng khi đảo qua lại giữa các trang.
+  const _preloadedPosters = new Set();
+  function preloadAnimePages(list, perPage, page, totalPages) {
+    try {
+      const targets = [];
+      [-2, -1, 1, 2].forEach((off) => {
+        const p = page + off;
+        if (p >= 1 && p <= totalPages) targets.push(p);
+      });
+      if (!targets.length) return;
+      const batch = [];
+      targets.forEach((p) => {
+        const s = (p - 1) * perPage;
+        list.slice(s, s + perPage).forEach((a) => {
+          const u = a && a.poster_url;
+          if (u && !_preloadedPosters.has(u) && batch.indexOf(u) === -1) batch.push(u);
+        });
+      });
+      if (!batch.length) return;
+      // Chặn burst: mỗi lần render tối đa ~48 ảnh; dồn vào lúc rảnh để không
+      // giật frame render chính.
+      const capped = batch.slice(0, 48);
+      capped.forEach((u) => _preloadedPosters.add(u));
+      // Chống phình Set khi duyệt web lâu (poster URL ổn định nên hiếm khi đầy).
+      if (_preloadedPosters.size > 1500) _preloadedPosters.clear();
+      const kick = () => {
+        capped.forEach((u) => {
+          try { const im = new Image(); if ('decoding' in im) im.decoding = 'async'; im.src = u; } catch (_e) { /* ignore */ }
+        });
+      };
+      if (window.requestIdleCallback) window.requestIdleCallback(kick, { timeout: 1500 });
+      else setTimeout(kick, 120);
+    } catch (_e) { /* ignore */ }
   }
 
   // Desktop màn ngang? (≥900px + landscape) — điều kiện áp "vừa chiều cao màn hình"
@@ -4841,6 +4911,7 @@ function setupSubPopupEvents() {
     State.seasonNow = false;
     try { localStorage.setItem(SEASON_NOW_KEY, '0'); } catch (_e) { /* ignore */ }
     renderSeasonNowBtn();
+    syncSeasonNowURL();
     updateSortDirBtn();
     updateFilterBadge();
     renderAnimeGrid();
@@ -8353,11 +8424,13 @@ function setupSubPopupEvents() {
     });
     // Nút "Now": lọc anime MÙA HIỆN TẠI — bấm 1 lần để bật, bấm lại để bỏ lọc.
     // Trạng thái lưu localStorage nên lần sau quay lại web vẫn giữ lựa chọn.
+    // Đồng thời đồng bộ ?now=1 lên URL để copy link gửi người khác vẫn tự bật.
     const nowBtn = $('#seasonNowBtn');
     if (nowBtn) nowBtn.addEventListener('click', () => {
       State.seasonNow = !State.seasonNow;
       try { localStorage.setItem(SEASON_NOW_KEY, State.seasonNow ? '1' : '0'); } catch (_e) { /* ignore */ }
       renderSeasonNowBtn();
+      syncSeasonNowURL();
       resetAnimePageAndRender();
     });
     renderSeasonNowBtn(); // đồng bộ giao diện với trạng thái đã lưu từ lần truy cập trước
