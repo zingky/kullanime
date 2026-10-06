@@ -92,7 +92,7 @@
     adminSelectedAnime: new Set(),    // IDs anime đang tick chọn (admin bulk delete)
     adminSelectedComments: new Set(), // IDs bình luận đang tick chọn (admin bulk delete)
     chatAll: [],           // toàn bộ tin chat chung
-    chatVisible: 3,        // số tin chat hiển thị (thu gọn = 3)
+    chatVisible: 7,        // số tin chat hiển thị (mặc định 7 tin gần nhất cho đầy panel)
     chatExpanded: false,   // trạng thái mở rộng sticky chat
     // Nút "Now": lọc anime MÙA HIỆN TẠI theo thời gian bấm — lưu qua localStorage
     seasonNow: false
@@ -6124,6 +6124,24 @@ function setupSubPopupEvents() {
     if (wrap) wrap.scrollTop = wrap.scrollHeight;
   }
 
+  // Cuộn lên gần đầu vùng tin → tự nạp thêm 20 tin cũ (không cần bấm nút).
+  // Giữ neo vị trí đọc bằng delta scrollHeight (logic trong renderGlobalChat) nên không bị nhảy.
+  let _chatScrollBound = false;
+  function bindChatInfiniteScroll() {
+    if (_chatScrollBound) return;
+    const wrap = $('#chatMessages') || $('#chatDockBody');
+    if (!wrap) return;
+    _chatScrollBound = true;
+    wrap.addEventListener('scroll', () => {
+      if (!State.chatExpanded) return;
+      if (wrap.scrollTop > 120) return; // chỉ nạp khi đã lên gần đầu
+      const total = (State.chatAll || []).length;
+      if (State.chatVisible >= total) return; // hết tin cũ
+      State.chatVisible = Math.min(total, State.chatVisible + 20);
+      renderGlobalChat();
+    }, { passive: true });
+  }
+
   /* ──────────────────────────────────────────────────────
      REALTIME — Postgres Changes
      Chat All (anime_id = null) & bình luận anime (anime_id = X)
@@ -8685,6 +8703,7 @@ function setupSubPopupEvents() {
       State.chatVisible += 20;
       renderGlobalChat();
     });
+    bindChatInfiniteScroll(); // cuộn lên đầu vùng tin → tự nạp thêm, khỏi bấm nút
     // Bật/tắt panel chat từ nút bong bóng (FAB)
     const chatFab = $('#chatFab');
     const chatClose = $('#chatCloseBtn');
