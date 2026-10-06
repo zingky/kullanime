@@ -35,7 +35,7 @@
   <!-- File cấu hình (đọc .env.local / fallback) -->
   <script src="./config.js"></script>
 
-  <link rel="stylesheet" href="./styles.css?v=104" />
+  <link rel="stylesheet" href="./styles.css?v=105" />
 </head>
 <body>
   <!-- Nền đêm sao + cánh hoa anh đào (night sky + sakura) — JS sinh sao tĩnh, CSS animation transform/opacity -->
@@ -102,7 +102,8 @@
         <select id="sortFilter" class="input filter-select" aria-label="Sắp xếp">
           <option value="recent" title="Mới thêm hoặc vừa cập nhật (trạng thái xem / điểm ♥ / thông tin) lên đầu">Gần đây</option>
           <option value="release" title="Sắp xếp theo ngày phát hành đầu tiên (start_date)">Phát hành</option>
-          <option value="rating">Đánh giá</option>
+          <option value="myRating" title="Sắp xếp theo điểm ♥ của tôi (my_rating)">Đánh giá ♥</option>
+          <option value="rating" title="Sắp xếp theo điểm cộng đồng (AniDB)">Đánh giá ★</option>
           <option value="title">Tên A-Z</option>
         </select>
         <button type="button" class="sort-dir-btn" id="sortDirBtn"
@@ -764,7 +765,7 @@
   <div class="mini-pop hidden" id="epPop"></div>
   <div class="mini-pop hidden" id="heartPop"></div>
 
-  <script src="./app.js?v=97"></script>
+  <script src="./app.js?v=98"></script>
 </body>
 </html>
 

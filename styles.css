@@ -393,7 +393,12 @@ body.bg-paused .bg-aurora * { animation-play-state: paused !important; }
   from { opacity: 0; transform: translateY(-4px); }
   to   { opacity: 1; transform: translateY(0); }
 }
-.filter-select { flex: 0 1 auto; width: auto; min-width: 140px; cursor: pointer; }
+.filter-select { flex: 0 0 auto; width: auto; min-width: 0; cursor: pointer; }
+/* Ô SẮP XẾP (#sortFilter) bám sát chữ của option đang chọn (Gần đây / Đánh giá ♥ / …):
+   select mặc định rộng theo option DÀI NHẤT nên "Gần đây" bị thừa khoảng trống.
+   Dùng JS đo chữ option hiện tại rồi set width inline; CSS chỉ dọn đường (không ép
+   min-width, cho phép co). Fallback khi chưa có JS: fit-content bám nội dung. */
+#sortFilter { width: fit-content; max-width: 100%; }
 select.input { appearance: none; -webkit-appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23aab3d0' stroke-width='2' fill='none' stroke-linecap='round'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 14px center; padding-right: 34px; }
 
 /* ============ ANIME GRID ============ */

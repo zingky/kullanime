@@ -81,7 +81,7 @@
     animeRowH: 0,          // chiều cao 1 hàng card (px) đo được lần gần nhất
     animeRowsUsed: 0,      // số hàng đang dùng ở lần render gần nhất (đối chiếu sau khi đo)
     // Sắp xếp tab Anime: chế độ + chiều (desc/asc) để bấm lại nút sắp xếp đảo chiều
-    animeSortMode: 'recent',   // recent (Gần đây) | release (Phát hành) | rating (Đánh giá) | title (Tên A-Z)
+    animeSortMode: 'recent',   // recent (Gần đây) | release (Phát hành) | myRating (Đánh giá ♥ của tôi) | rating (Đánh giá ★ cộng đồng) | title (Tên A-Z)
     animeSortDir: 'desc',      // desc = ▼ (giảm dần), asc = ▲ (tăng dần)
     songVisible: 15,       // số bài hát render mỗi lượt
     commentAll: [],        // toàn bộ bình luận của anime đang mở
@@ -4655,7 +4655,12 @@ function setupSubPopupEvents() {
     // Sắp xếp — theo mode trong State (đồng bộ với select #sortFilter)
     const mode = State.animeSortMode;
     // Sort tăng dần theo tiêu chí, sau đó đảo list nếu chiều mong muốn là giảm dần
-    if (mode === 'rating') {
+    if (mode === 'myRating') {
+      // Điểm ♥ của tôi (my_rating) — bằng điểm thì cộng đồng (rating) rồi tên A-Z lên trước
+      list.sort((a, b) => (Number(a.my_rating) || 0) - (Number(b.my_rating) || 0)
+        || (Number(a.rating) || 0) - (Number(b.rating) || 0)
+        || String(a.title || '').localeCompare(String(b.title || ''), 'vi'));
+    } else if (mode === 'rating') {
       list.sort((a, b) => (Number(a.rating) || 0) - (Number(b.rating) || 0));
     } else if (mode === 'release') {
       // Phát hành: NGÀY PHÁT HÀNH ĐẦU TIÊN (start_date) mới nhất lên trước.
@@ -8408,13 +8413,34 @@ function setupSubPopupEvents() {
     const stf = $('#statusFilter');
     if (stf) stf.addEventListener('change', resetAnimePageAndRender);
     const srt = $('#sortFilter');
+    // Ô SẮP XẾP bám sát chữ option đang chọn: select native rộng theo option DÀI NHẤT
+    // ("Đánh giá ♥") nên khi chọn "Gần đây" bị thừa khoảng trống. Đo text option hiện
+    // tại bằng canvas rồi set width inline = chữ + padding + icon ▼.
+    function fitSortFilter() {
+      try {
+        if (!srt) return;
+        const opt = srt.options[srt.selectedIndex];
+        const label = opt ? opt.textContent : '';
+        const cs = getComputedStyle(srt);
+        const probe = document.createElement('canvas').getContext('2d');
+        probe.font = cs.fontStyle + ' ' + cs.fontVariant + ' ' + cs.fontWeight + ' ' +
+          cs.fontSize + '/' + cs.lineHeight + ' ' + cs.fontFamily;
+        const textW = Math.ceil(probe.measureText(label).width);
+        const padL = parseFloat(cs.paddingLeft) || 0;
+        const padR = parseFloat(cs.paddingRight) || 34; // chừa chỗ icon ▼ native
+        const bord = (parseFloat(cs.borderLeftWidth) || 0) + (parseFloat(cs.borderRightWidth) || 0);
+        srt.style.width = Math.ceil(textW + padL + padR + bord + 2) + 'px';
+      } catch (_e) { /* ignore */ }
+    }
     if (srt) srt.addEventListener('change', () => {
       // Chọn chế độ sắp xếp khác → đặt lại chiều mặc định (tên A-Z tăng dần, còn lại giảm dần)
       State.animeSortMode = srt.value;
       State.animeSortDir = srt.value === 'title' ? 'asc' : 'desc';
       updateSortDirBtn();
+      fitSortFilter();
       resetAnimePageAndRender();
     });
+    fitSortFilter();
     // Nút đảo chiều sắp xếp (▼/▲): bấm lại → đảo ngược thứ tự hiện tại
     const sdb = $('#sortDirBtn');
     if (sdb) sdb.addEventListener('click', () => {
