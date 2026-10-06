@@ -8413,9 +8413,8 @@ function setupSubPopupEvents() {
     const stf = $('#statusFilter');
     if (stf) stf.addEventListener('change', resetAnimePageAndRender);
     const srt = $('#sortFilter');
-    // Ô SẮP XẾP bám sát chữ option đang chọn: select native rộng theo option DÀI NHẤT
-    // ("Đánh giá ♥") nên khi chọn "Gần đây" bị thừa khoảng trống. Đo text option hiện
-    // tại bằng canvas rồi set width inline = chữ + padding + icon ▼.
+    // Ô SẮP XẾP bám sát chữ: khung .sort-wrap vẽ mũi tên ▾ RIÊNG bên phải, select bên
+    // trong đo đúng chữ option đang chọn rồi set width inline → không bao giờ đè.
     function fitSortFilter() {
       try {
         if (!srt) return;
@@ -8423,15 +8422,12 @@ function setupSubPopupEvents() {
         const label = opt ? opt.textContent : '';
         const cs = getComputedStyle(srt);
         const probe = document.createElement('canvas').getContext('2d');
-        // Canvas font KHÔNG hiểu cú pháp "13px/1.35 family" (rớt về font 10px mặc định
-        // → đo thiếu ~30% → width quá chật → chữ đè lên icon ▼). Chỉ dùng "weight size family".
+        // Canvas font KHÔNG hiểu "13px/1.35 family" → chỉ dùng "weight size family".
         probe.font = [cs.fontStyle, cs.fontVariant, cs.fontWeight, cs.fontSize, cs.fontFamily]
           .filter(Boolean).join(' ');
         const textW = Math.ceil(probe.measureText(label).width);
-        const padL = parseFloat(cs.paddingLeft) || 0;
-        const padR = parseFloat(cs.paddingRight) || 34; // chừa chỗ icon ▼ native
-        const bord = (parseFloat(cs.borderLeftWidth) || 0) + (parseFloat(cs.borderRightWidth) || 0);
-        srt.style.width = Math.ceil(textW + padL + padR + bord + 6) + 'px';
+        // Select đã bỏ padding/border (khung .sort-wrap giữ) → width = chữ + 2px thoáng.
+        srt.style.width = Math.ceil(textW + 2) + 'px';
       } catch (_e) { /* ignore */ }
     }
     if (srt) srt.addEventListener('change', () => {

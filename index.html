@@ -35,7 +35,7 @@
   <!-- File cấu hình (đọc .env.local / fallback) -->
   <script src="./config.js"></script>
 
-  <link rel="stylesheet" href="./styles.css?v=105" />
+  <link rel="stylesheet" href="./styles.css?v=106" />
 </head>
 <body>
   <!-- Nền đêm sao + cánh hoa anh đào (night sky + sakura) — JS sinh sao tĩnh, CSS animation transform/opacity -->
@@ -99,13 +99,15 @@
              Đặt TRƯỚC ô Sắp xếp (Now → Gần đây → ▼ → 🔽). -->
         <button type="button" class="season-now-btn" id="seasonNowBtn" aria-pressed="false"
                 title="Lọc anime MÙA HIỆN TẠI (theo thời gian bấm) — bấm để bật">Now</button>
-        <select id="sortFilter" class="input filter-select" aria-label="Sắp xếp">
-          <option value="recent" title="Mới thêm hoặc vừa cập nhật (trạng thái xem / điểm ♥ / thông tin) lên đầu">Gần đây</option>
-          <option value="release" title="Sắp xếp theo ngày phát hành đầu tiên (start_date)">Phát hành</option>
-          <option value="myRating" title="Sắp xếp theo điểm ♥ của tôi (my_rating)">Đánh giá ♥</option>
-          <option value="rating" title="Sắp xếp theo điểm cộng đồng (AniDB)">Đánh giá ★</option>
-          <option value="title">Tên A-Z</option>
-        </select>
+        <span class="sort-wrap" id="sortWrap">
+          <select id="sortFilter" class="input filter-select" aria-label="Sắp xếp">
+            <option value="recent" title="Mới thêm hoặc vừa cập nhật (trạng thái xem / điểm ♥ / thông tin) lên đầu">Gần đây</option>
+            <option value="release" title="Sắp xếp theo ngày phát hành đầu tiên (start_date)">Phát hành</option>
+            <option value="myRating" title="Sắp xếp theo điểm ♥ của tôi (my_rating)">Đánh giá ♥</option>
+            <option value="rating" title="Sắp xếp theo điểm cộng đồng (AniDB)">Đánh giá ★</option>
+            <option value="title">Tên A-Z</option>
+          </select>
+        </span>
         <button type="button" class="sort-dir-btn" id="sortDirBtn"
                 title="Đảo chiều sắp xếp (bấm để đảo ngược thứ tự)" aria-label="Đảo chiều sắp xếp">▼</button>
         <button type="button" class="filter-toggle-btn" id="filterToggleBtn"
@@ -765,7 +767,7 @@
   <div class="mini-pop hidden" id="epPop"></div>
   <div class="mini-pop hidden" id="heartPop"></div>
 
-  <script src="./app.js?v=99"></script>
+  <script src="./app.js?v=100"></script>
 </body>
 </html>
 
