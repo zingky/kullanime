@@ -1641,6 +1641,9 @@ select.input { appearance: none; -webkit-appearance: none; background-image: url
 
 /* ============ LOAD MORE (Xem thêm) ============ */
 .load-more-wrap { text-align: center; padding: 20px 0 8px; }
+/* Ẩn hẳn (không chiếm chỗ) khi không còn gì để xem thêm — tránh hở khoảng trống
+   trong khung chat khi mới mở (nút "Xem thêm tin cũ" bị ẩn nhưng padding vẫn giữ). */
+.load-more-wrap.hidden { display: none !important; padding: 0 !important; margin: 0 !important; }
 .load-more-btn { min-width: 180px; }
 
 /* ============ FOOTER (gọn, bám sát text) ============ */
@@ -1741,7 +1744,7 @@ body.fx-mode-stars #fireworksCanvas { opacity: 0; }
   transition: all 0.15s ease; flex-shrink: 0;
 }
 .chat-panel-close:hover { color: var(--danger); border-color: rgba(239, 68, 68, 0.45); }
-.chat-panel-body { padding: 10px 10px 12px; overflow: hidden; display: flex; flex-direction: column; gap: 8px; }
+.chat-panel-body { padding: 10px 10px 12px; overflow: hidden; display: flex; flex-direction: column; gap: 8px; flex: 1 1 auto; min-height: 0; }
 .chat-panel-body .chat-messages { overflow-y: auto; min-height: 0; flex: 1 1 auto; }
 .chat-panel-body .chat-layout { width: 100%; max-width: 100%; flex-shrink: 0; }
 .chat-panel-body .chat-layout .composer { margin-bottom: 0; }
@@ -1777,7 +1780,7 @@ body.fx-mode-stars #fireworksCanvas { opacity: 0; }
 .chat-panel-body .chat-layout .composer-input {
   display: block;
   width: 100%; box-sizing: border-box;
-  min-height: 22px; max-height: 88px; resize: none;
+  min-height: 22px; max-height: 88px; height: auto; resize: none;
   padding: 0 2px; font-size: 14px; line-height: 20px;
   overflow: hidden;
 }

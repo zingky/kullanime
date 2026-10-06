@@ -6259,7 +6259,10 @@ function setupSubPopupEvents() {
   // - Ô nhập chat (#chatBox): tối đa 4 dòng gọn rồi cuộn nội bộ
   // - Ô nhập bình luận anime (#commentBox): tối đa 11 dòng rồi cuộn nội bộ
   function autoResizeComposer(box) {
-    if (!box || !box.getClientRects || !box.getClientRects().length) return; // đang ẩn (display:none) → bỏ qua
+    if (!box) return;
+    // Panel đang display:none (chưa mở): getClientRects rỗng — xoá chiều cao inline để
+    // lần mở sau không giữ chiều cao cũ gây hở khoảng trống dưới ô nhập.
+    if (!box.getClientRects || !box.getClientRects().length) { box.style.height = 'auto'; return; }
     const cs = getComputedStyle(box);
     const lineH = parseFloat(cs.lineHeight) || 21;          // px mỗi dòng
     const maxLines = box.id === 'chatBox' ? 4 : 11;          // chat: 4 dòng gọn; bình luận: 11 dòng
@@ -8690,12 +8693,19 @@ function setupSubPopupEvents() {
       const panel = $('#chatDock');
       if (panel) panel.classList.toggle('hidden', !State.chatExpanded);
       if (chatFab) chatFab.setAttribute('aria-expanded', String(State.chatExpanded));
+      const chatBox = $('#chatBox');
       if (State.chatExpanded) {
         renderGlobalChat();
         newChatCaptcha();
-        autoResizeComposer($('#chatBox'));
+        // Mở panel: ô nhập về đúng 1 dòng rồi mới đo lại (tránh giữ chiều cao inline
+        // từ lần gõ trước → lộ khoảng trống dưới ô nhập khi chưa focus).
+        if (chatBox) { chatBox.style.height = 'auto'; if (document.activeElement === chatBox) chatBox.blur(); }
+        autoResizeComposer(chatBox);
         scrollChatToBottom();
         // KHÔNG tự focus ô nhập → tránh bàn phím ảo tự bật trên điện thoại
+      } else if (chatBox) {
+        // Đóng panel: thu ô nhập về 1 dòng để lần mở sau không hở khoảng trống.
+        chatBox.style.height = 'auto';
       }
     };
     if (chatFab) {
