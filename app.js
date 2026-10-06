@@ -7424,14 +7424,60 @@ function setupSubPopupEvents() {
     const checkboxes = document.querySelectorAll((kind === 'anime' ? '#adminAnimeList' : '#adminCommentList') + ' .admin-cb');
     const total = checkboxes.length;
     const delBtn = $(kind === 'anime' ? 'animeBulkDelBtn' : 'commentBulkDelBtn');
+    const clearBtn = $(kind === 'anime' ? 'animeClearSelBtn' : 'commentClearSelBtn');
     // Luôn hiển thị count + trạng thái nút xóa
     if (countEl) countEl.textContent = (total ? 'Tổng ' + total + ' · ' : '') + 'Chọn ' + n + ' mục';
     if (delBtn) delBtn.disabled = n === 0;
+    if (clearBtn) clearBtn.disabled = n === 0;
     if (selAll) {
       selAll.disabled = total === 0;
       selAll.checked = n > 0 && n === total;
       selAll.indeterminate = n > 0 && n < total;
     }
+  }
+
+  // Huỷ toàn bộ tick chọn (anime / bình luận): bỏ Set + bỏ tick + bỏ highlight dòng
+  function clearAdminSelection(kind) {
+    const isAnime = kind === 'anime';
+    const set = isAnime ? State.adminSelectedAnime : State.adminSelectedComments;
+    set.clear();
+    document.querySelectorAll((isAnime ? '#adminAnimeList' : '#adminCommentList') + ' .admin-cb')
+      .forEach((cb) => { cb.checked = false; });
+    document.querySelectorAll((isAnime ? '#adminAnimeList' : '#adminCommentList') + ' .admin-row')
+      .forEach((r) => r.classList.remove('selected'));
+    syncAdminBulkBar(kind);
+  }
+
+  // Tick chọn 1 dòng + đồng bộ highlight (dùng chung cho click / shift-click)
+  function setAdminRowChecked(kind, cb, checked) {
+    const isAnime = kind === 'anime';
+    const set = isAnime ? State.adminSelectedAnime : State.adminSelectedComments;
+    const id = String(cb.dataset.cbid);
+    cb.checked = checked;
+    if (checked) set.add(id);
+    else set.delete(id);
+    const row = cb.closest('.admin-row');
+    if (row) row.classList.toggle('selected', checked);
+  }
+
+  // Shift-click chọn theo DẢI (desktop): nhớ mốc (anchor) lần click không-shift gần nhất,
+  // shift+click dòng khác → chọn/bỏ chọn toàn bộ dòng giữa anchor và dòng hiện tại.
+  const _shiftAnchor = { anime: null, comments: null };
+  function handleAdminShiftRange(kind, cb, listSel) {
+    const cbs = Array.from(document.querySelectorAll(listSel + ' .admin-cb'));
+    const idx = cbs.indexOf(cb);
+    const anchorId = _shiftAnchor[kind];
+    const anchorIdx = anchorId != null ? cbs.findIndex((c) => String(c.dataset.cbid) === String(anchorId)) : -1;
+    if (anchorIdx === -1 || idx === -1) {
+      _shiftAnchor[kind] = String(cb.dataset.cbid);
+      setAdminRowChecked(kind, cb, cb.checked);
+      syncAdminBulkBar(kind);
+      return;
+    }
+    const checked = cb.checked;
+    const [from, to] = anchorIdx < idx ? [anchorIdx, idx] : [idx, anchorIdx];
+    for (let i = from; i <= to; i++) setAdminRowChecked(kind, cbs[i], checked);
+    syncAdminBulkBar(kind);
   }
 
   /* ──────────────────────────────────────────────────────
@@ -7880,13 +7926,15 @@ function setupSubPopupEvents() {
     return (m && m[0] && m[0].id) || null;
   }
 
-  // Nút "Lấy ảnh nhân vật": bổ sung ảnh nhân vật (character art) cho anime cũ theo tên từ AniList
+  // Nút "Lấy ảnh nhân vật": bổ sung ảnh nhân vật (character art) cho anime đã chọn
   async function backfillCharacterImages() {
     if (!State.isAdmin) { toast('Bạn không có quyền.', 'error'); return; }
     const btn = $('#backfillCharsBtn');
     if (!btn || btn.disabled) return;
     btn.disabled = true;
-    const list = State.animes.slice();
+    const ids = Array.from(State.adminSelectedAnime);
+    if (!ids.length) { toast('Hãy chọn ít nhất 1 anime trước.', 'warning', 4000); btn.disabled = false; return; }
+    const list = ids.map((id) => State.animes.find((a) => String(a.id) === id)).filter(Boolean);
     let updated = 0;
     let skipped = 0;
     for (let i = 0; i < list.length; i++) {
@@ -8809,16 +8857,40 @@ function setupSubPopupEvents() {
         if (cb) cb.click();
       }
     });
-    // Tick chọn anime (bulk delete)
+    // Tick chọn anime (bulk delete) — hỗ trợ Shift-click chọn theo dải (desktop)
+    // change event của checkbox KHÔNG mang shiftKey → theo dõi Shift bằng keydown/keyup.
+    let _animeShiftDown = false;
+    window.addEventListener('keydown', (e) => { if (e.key === 'Shift') _animeShiftDown = true; });
+    window.addEventListener('keyup', (e) => { if (e.key === 'Shift') _animeShiftDown = false; });
+    window.addEventListener('blur', () => { _animeShiftDown = false; });
+    $('#adminAnimeList').addEventListener('click', (e) => {
+      // Nhấp bất kỳ đâu trên dòng (không phải nút Sửa/Xóa) → bật/tắt chọn
+      if (e.target.closest('[data-apact]')) return;
+      const row = e.target.closest('.admin-row');
+      if (!row) return;
+      const cb = row.querySelector('.admin-cb');
+      if (!cb || e.target === cb) return; // bấm thẳng checkbox → để change xử lý
+      const want = !cb.checked;
+      if (e.shiftKey || _animeShiftDown) {
+        cb.checked = want;
+        handleAdminShiftRange('anime', cb, '#adminAnimeList');
+      } else {
+        _shiftAnchor.anime = String(cb.dataset.cbid);
+        setAdminRowChecked('anime', cb, want);
+        syncAdminBulkBar('anime');
+      }
+    });
     $('#adminAnimeList').addEventListener('change', (e) => {
       const cb = e.target.closest('.admin-cb');
       if (!cb) return;
-      const id = String(cb.dataset.cbid);
-      const row = cb.closest('.admin-row');
-      if (cb.checked) State.adminSelectedAnime.add(id);
-      else State.adminSelectedAnime.delete(id);
-      if (row) row.classList.toggle('selected', cb.checked);
-      syncAdminBulkBar('anime');
+      // change không mang shiftKey → bắt shiftKey từ click gần nhất
+      if (_lastAnimeClickShift) {
+        handleAdminShiftRange('anime', cb, '#adminAnimeList');
+      } else {
+        _shiftAnchor.anime = String(cb.dataset.cbid);
+        setAdminRowChecked('anime', cb, cb.checked);
+        syncAdminBulkBar('anime');
+      }
     });
     // Chọn tất cả + Xóa hàng loạt anime
     const animeSelAll = $('#animeSelectAll');
@@ -8835,6 +8907,8 @@ function setupSubPopupEvents() {
     }
     const animeBulkDel = $('#animeBulkDelBtn');
     if (animeBulkDel) animeBulkDel.addEventListener('click', () => bulkDeleteAnime());
+    const animeClearSel = $('#animeClearSelBtn');
+    if (animeClearSel) animeClearSel.addEventListener('click', () => clearAdminSelection('anime'));
 
     // Admin song list actions (delegate)
     $('#adminSongList').addEventListener('click', (e) => {
@@ -8847,33 +8921,46 @@ function setupSubPopupEvents() {
       } else if (btn.dataset.spact === 'del') deleteSong(id);
     });
 
-    // Admin comment list actions (delegate)
+    // Admin comment list actions (delegate) — nhớ shiftKey của click để change dùng
+    let _lastCommentClickShift = false;
     $('#adminCommentList').addEventListener('click', (e) => {
+      _lastCommentClickShift = !!e.shiftKey;
       // Nút hành động (Ghim / Xóa)
       const btn = e.target.closest('[data-cact]');
       if (btn) {
         adminCommentAction(btn.dataset.cact, btn.dataset.id);
         return;
       }
-      // Nhấp checkbox → để change event cập nhật trạng thái chọn
+      // Nhấp thẳng checkbox → để change event cập nhật (có hỗ trợ Shift theo dải)
       if (e.target.closest('.admin-cb')) return;
       // Nhấp bất kỳ đâu trên dòng (không phải nút) → bật/tắt chọn
       const row = e.target.closest('.admin-row');
       if (row) {
         const cb = row.querySelector('.admin-cb');
-        if (cb) cb.click();
+        if (!cb) return;
+        const want = !cb.checked;
+        if (e.shiftKey) {
+          cb.checked = want;
+          handleAdminShiftRange('comments', cb, '#adminCommentList');
+        } else {
+          _shiftAnchor.comments = String(cb.dataset.cbid);
+          setAdminRowChecked('comments', cb, want);
+          syncAdminBulkBar('comments');
+        }
       }
     });
-    // Tick chọn bình luận (bulk delete)
+    // Tick chọn bình luận (bulk delete) — Shift-click checkbox chọn theo dải
     $('#adminCommentList').addEventListener('change', (e) => {
       const cb = e.target.closest('.admin-cb');
       if (!cb) return;
-      const id = String(cb.dataset.cbid);
-      const row = cb.closest('.admin-row');
-      if (cb.checked) State.adminSelectedComments.add(id);
-      else State.adminSelectedComments.delete(id);
-      if (row) row.classList.toggle('selected', cb.checked);
-      syncAdminBulkBar('comments');
+      // change không mang shiftKey → bắt shiftKey tại thời điểm click gần nhất
+      if (_lastCommentClickShift) {
+        handleAdminShiftRange('comments', cb, '#adminCommentList');
+      } else {
+        _shiftAnchor.comments = String(cb.dataset.cbid);
+        setAdminRowChecked('comments', cb, cb.checked);
+        syncAdminBulkBar('comments');
+      }
     });
     // Chọn tất cả + Xóa hàng loạt bình luận
     const commentSelAll = $('#commentSelectAll');
@@ -8890,6 +8977,8 @@ function setupSubPopupEvents() {
     }
     const commentBulkDel = $('#commentBulkDelBtn');
     if (commentBulkDel) commentBulkDel.addEventListener('click', () => bulkDeleteComments());
+    const commentClearSel = $('#commentClearSelBtn');
+    if (commentClearSel) commentClearSel.addEventListener('click', () => clearAdminSelection('comments'));
 
     // ── ASS Cache: upload file ──
     const assCacheFile = $('#assCacheFile');
@@ -9332,7 +9421,12 @@ function setupSubPopupEvents() {
       });
     }
 
-    // Lấy ảnh nhân vật cho toàn bộ anime cũ (admin)
+    // Nút "Lấy ảnh nhân vật" / "Cập nhật dữ liệu AniList" / "Lấy liên kết":
+    // chỉ reflex khi có anime đã chọn (shift-click / chọn tất cả / không chọn thì disabled)
+    const selAnime = State.adminSelectedAnime.size > 0;
+    $('#backfillCharsBtn').disabled = !selAnime;
+    $('#backfillDataBtn').disabled = !selAnime;
+    $('#backfillLinksBtn').disabled = !selAnime;
     $('#backfillCharsBtn').addEventListener('click', () => backfillCharacterImages());
     $('#backfillDataBtn').addEventListener('click', () => backfillAnimeData());
     $('#backfillLinksBtn').addEventListener('click', () => backfillExternalLinks());

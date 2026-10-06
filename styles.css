@@ -1523,7 +1523,8 @@ select.input { appearance: none; -webkit-appearance: none; background-image: url
 .admin-select-all { display: flex; align-items: center; gap: 6px; cursor: pointer; user-select: none; white-space: nowrap; }
 .admin-select-all:has(.admin-cb-toggle:disabled) { cursor: not-allowed; opacity: 0.55; }
 .admin-selected-count { color: var(--text-dim); font-size: 12px; white-space: nowrap; }
-.admin-bulk-bar .btn-danger:disabled { opacity: 0.4; cursor: not-allowed; filter: grayscale(80%); }
+.admin-bulk-bar .admin-bulk-del { margin-left: auto; }
+.admin-bulk-bar .btn-danger:disabled, .admin-bulk-bar .btn-ghost:disabled { opacity: 0.4; cursor: not-allowed; filter: grayscale(80%); }
 .btn-sm { padding: 5px 12px; font-size: 12px; border-radius: 7px; }
 
 /* ── Custom checkbox ── */
