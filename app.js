@@ -8423,13 +8423,15 @@ function setupSubPopupEvents() {
         const label = opt ? opt.textContent : '';
         const cs = getComputedStyle(srt);
         const probe = document.createElement('canvas').getContext('2d');
-        probe.font = cs.fontStyle + ' ' + cs.fontVariant + ' ' + cs.fontWeight + ' ' +
-          cs.fontSize + '/' + cs.lineHeight + ' ' + cs.fontFamily;
+        // Canvas font KHÔNG hiểu cú pháp "13px/1.35 family" (rớt về font 10px mặc định
+        // → đo thiếu ~30% → width quá chật → chữ đè lên icon ▼). Chỉ dùng "weight size family".
+        probe.font = [cs.fontStyle, cs.fontVariant, cs.fontWeight, cs.fontSize, cs.fontFamily]
+          .filter(Boolean).join(' ');
         const textW = Math.ceil(probe.measureText(label).width);
         const padL = parseFloat(cs.paddingLeft) || 0;
         const padR = parseFloat(cs.paddingRight) || 34; // chừa chỗ icon ▼ native
         const bord = (parseFloat(cs.borderLeftWidth) || 0) + (parseFloat(cs.borderRightWidth) || 0);
-        srt.style.width = Math.ceil(textW + padL + padR + bord + 2) + 'px';
+        srt.style.width = Math.ceil(textW + padL + padR + bord + 6) + 'px';
       } catch (_e) { /* ignore */ }
     }
     if (srt) srt.addEventListener('change', () => {
