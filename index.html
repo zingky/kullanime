@@ -35,7 +35,7 @@
   <!-- File cấu hình (đọc .env.local / fallback) -->
   <script src="./config.js"></script>
 
-  <link rel="stylesheet" href="./styles.css?v=102" />
+  <link rel="stylesheet" href="./styles.css?v=103" />
 </head>
 <body>
   <!-- Nền đêm sao + cánh hoa anh đào (night sky + sakura) — JS sinh sao tĩnh, CSS animation transform/opacity -->
@@ -94,6 +94,11 @@
           <button type="button" class="filter-clear-btn" id="clearFiltersBtn"
                   title="Xoá toàn bộ bộ lọc tìm kiếm" aria-label="Xoá toàn bộ bộ lọc">✕</button>
         </div>
+        <!-- Nút "Now": lọc anime MÙA HIỆN TẠI theo thời gian bấm — bấm lần nữa để bỏ lọc.
+             Trạng thái bật/tắt được lưu qua localStorage nên lần sau quay lại vẫn giữ.
+             Đặt TRƯỚC ô Sắp xếp (Now → Gần đây → ▼ → 🔽). -->
+        <button type="button" class="season-now-btn" id="seasonNowBtn" aria-pressed="false"
+                title="Lọc anime MÙA HIỆN TẠI (theo thời gian bấm) — bấm để bật">Now</button>
         <select id="sortFilter" class="input filter-select" aria-label="Sắp xếp">
           <option value="recent" title="Mới thêm hoặc vừa cập nhật (trạng thái xem / điểm ♥ / thông tin) lên đầu">Gần đây</option>
           <option value="release" title="Sắp xếp theo ngày phát hành đầu tiên (start_date)">Phát hành</option>
@@ -102,10 +107,6 @@
         </select>
         <button type="button" class="sort-dir-btn" id="sortDirBtn"
                 title="Đảo chiều sắp xếp (bấm để đảo ngược thứ tự)" aria-label="Đảo chiều sắp xếp">▼</button>
-        <!-- Nút "Now": lọc anime MÙA HIỆN TẠI theo thời gian bấm — bấm lần nữa để bỏ lọc.
-             Trạng thái bật/tắt được lưu qua localStorage nên lần sau quay lại vẫn giữ. -->
-        <button type="button" class="season-now-btn" id="seasonNowBtn" aria-pressed="false"
-                title="Lọc anime MÙA HIỆN TẠI (theo thời gian bấm) — bấm để bật">Now</button>
         <button type="button" class="filter-toggle-btn" id="filterToggleBtn"
                 title="Bộ lọc nâng cao (Thể loại, Mùa, Năm, Trạng thái...)" aria-label="Mở bộ lọc nâng cao">
           <span aria-hidden="true">🔽</span><span class="filter-badge hidden" id="filterBadge">0</span>

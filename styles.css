@@ -280,6 +280,19 @@ body.bg-paused .bg-aurora * { animation-play-state: paused !important; }
 .filter-bar { position: relative; z-index: 30; display: flex; flex-wrap: wrap; gap: 8px; margin: 2px 0 2px; padding: 4px 8px; border-radius: var(--radius); background: var(--bg-soft); backdrop-filter: blur(14px) saturate(150%); -webkit-backdrop-filter: blur(14px) saturate(150%); border: var(--glass-border); box-shadow: var(--shadow-soft); }
 /* Input trong thanh lọc mỏng, bám sát text → thanh search gọn theo chiều cao */
 .filter-bar .input { padding: 4px 10px; font-size: 13px; line-height: 1.35; }
+/* CHIỀU CAO CHUNG cho mọi ô/nút trong thanh lọc → thẳng hàng tuyệt đối.
+   Trước đây input/select có padding 4px (~27.6px) còn các nút 5px + chữ to hơn
+   (~29.6px) → lệch nhau. height + box-sizing:border-box (toàn cục) chốt bằng nhau.
+   Không đặt display flex vào <input>/<select> (có thể phá render native) —
+   mình chung padding:0 theo trục dọc nên text tự căn giữa. */
+.filter-bar .input,
+.filter-bar .sort-dir-btn,
+.filter-bar .season-now-btn,
+.filter-bar .filter-toggle-btn {
+  height: 34px;
+  padding-top: 0;
+  padding-bottom: 0;
+}
 .input { width: 100%; padding: 11px 14px; background: rgba(255, 255, 255, 0.07); border: var(--glass-border); border-radius: var(--radius-sm); color: var(--text); font-size: 14px; outline: none; transition: border 0.15s ease, box-shadow 0.15s ease; backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); }
 .input::placeholder { color: var(--text-faint); }
 .input:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(168, 85, 247, 0.2); }
@@ -292,11 +305,13 @@ body.bg-paused .bg-aurora * { animation-play-state: paused !important; }
   transition: flex-basis 0.18s ease;
 }
 .filter-search-wrap .filter-input { flex: 1 1 auto; min-width: 0; width: 100%; padding-right: 42px; }
-/* Desktop: ô tìm kiếm tối đa 480px; đẩy cụm Sắp xếp + nút ra sát mép phải
-   → thanh lọc giãn đều 2 bên trái/phải thay vì dồn hết về trái */
+/* Desktop: ô tìm kiếm tối đa 480px; đẩy cụm Now + Sắp xếp + nút ra sát mép phải
+   → thanh lọc giãn đều 2 bên trái/phải thay vì dồn hết về trái.
+   Gắn margin-left:auto vào #seasonNowBtn (nay đặt TRƯỚC #sortFilter) để cụm
+   "Now → Gần đây → ▼ → 🔽" bị đẩy phải NGUYÊN KHỐI, không bị tách đôi. */
 @media (min-width: 641px) {
   .filter-search-wrap { flex: 1 1 auto; max-width: 480px; }
-  .filter-bar #sortFilter { margin-left: auto; }
+  .filter-bar #seasonNowBtn { margin-left: auto; }
 }
 /* ——— Mobile (< 640px): 4 phần tử (tìm kiếm / Sắp xếp / đảo chiều / lọc) luôn cùng 1 dòng.
        Ô tìm kiếm co nhỏ để nhường chỗ; bấm vào ô tìm kiếm → kéo dài hết thanh lọc,
@@ -337,12 +352,13 @@ body.bg-paused .bg-aurora * { animation-play-state: paused !important; }
 .filter-toggle-btn:hover { background: rgba(255, 255, 255, 0.12); border-color: var(--primary); }
 .filter-toggle-btn.open { background: rgba(168, 85, 247, 0.16); border-color: var(--primary); }
 .filter-toggle-btn:active { transform: translateY(1px); }
-/* Nút "Now" — lọc anime MÙA HIỆN TẠI theo thời gian bấm (kế bên ô Sắp xếp).
-   Tắt: viền/xám như các nút kề bên · Bật: viền xanh lá sáng để thấy đang lọc. */
+/* Nút "Now" — lọc anime MÙA HIỆN TẠI theo thời gian bấm (TRƯỚC ô Sắp xếp).
+   Tắt: viền/xám như các nút kề bên · Bật: viền xanh lá sáng để thấy đang lọc.
+   Cỡ chữ 13px để khớp cỡ "Gần đây" bên cạnh (trước đây là 11.5px → chữ nhỏ hơn). */
 .season-now-btn {
   flex: 0 0 auto; min-width: auto; padding: 5px 10px;
   background: rgba(255, 255, 255, 0.07); border: var(--glass-border); border-radius: var(--radius-sm);
-  color: var(--text-dim); font-size: 11.5px; font-weight: 800; letter-spacing: 0.02em;
+  color: var(--text-dim); font-size: 13px; font-weight: 700; letter-spacing: 0.02em;
   cursor: pointer;
   transition: border 0.15s ease, box-shadow 0.15s ease, background 0.15s ease, color 0.15s ease;
 }
@@ -1976,9 +1992,14 @@ body.fx-mode-stars #fireworksCanvas { opacity: 0; }
   .nav-tab .tab-icon { font-size: 18px; }
   .btn .btn-label { display: none; }
   .app-header .btn { padding: 7px 10px; }
-  /* Thanh lọc trên mobile: thu nút đảo chiều + nút 🔽 để 1 dòng vừa khít (nút Now cũng được bấm to đủ ngón) */
-  .sort-dir-btn, .filter-toggle-btn { min-width: 36px; padding: 10px 9px; }
-  .season-now-btn { padding: 10px 9px; }
+  /* Thanh lọc trên mobile: thu nút đảo chiều + nút 🔽 để 1 dòng vừa khít.
+   40px đủ ngón tay bấm (chung height → vẫn thẳng hàng, không lệch cao). */
+  .filter-bar .input,
+  .filter-bar .sort-dir-btn,
+  .filter-bar .season-now-btn,
+  .filter-bar .filter-toggle-btn { height: 40px; }
+  .sort-dir-btn, .filter-toggle-btn { min-width: 36px; padding-left: 9px; padding-right: 9px; }
+  .season-now-btn { padding-left: 11px; padding-right: 11px; }
   .modal { padding: 18px 14px; margin-top: 2vh; }
   .composer-footer { flex-direction: column; align-items: stretch; }
   .composer-footer .btn { width: 100%; }
