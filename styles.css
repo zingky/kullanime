@@ -301,10 +301,10 @@ body.bg-paused .bg-aurora * { animation-play-state: paused !important; }
    để luôn nằm 1 dòng với Sắp xếp + đảo chiều + nút lọc; desktop hiển thị rộng sẵn */
 .filter-search-wrap {
   position: relative; flex: 2 1 180px; min-width: 0;
-  display: flex; align-items: center;
+  display: flex; align-items: center; height: 34px; box-sizing: border-box;
   transition: flex-basis 0.18s ease;
 }
-.filter-search-wrap .filter-input { flex: 1 1 auto; min-width: 0; width: 100%; padding-right: 42px; }
+.filter-search-wrap .filter-input { flex: 1 1 auto; min-width: 0; width: 100%; height: 100%; padding-right: 42px; }
 /* Desktop: ô tìm kiếm tối đa 480px; đẩy cụm Now + Sắp xếp + nút ra sát mép phải
    → thanh lọc giãn đều 2 bên trái/phải thay vì dồn hết về trái.
    Gắn margin-left:auto vào #seasonNowBtn (nay đặt TRƯỚC #sortFilter) để cụm
