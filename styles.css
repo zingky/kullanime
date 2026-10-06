@@ -337,6 +337,23 @@ body.bg-paused .bg-aurora * { animation-play-state: paused !important; }
 .filter-toggle-btn:hover { background: rgba(255, 255, 255, 0.12); border-color: var(--primary); }
 .filter-toggle-btn.open { background: rgba(168, 85, 247, 0.16); border-color: var(--primary); }
 .filter-toggle-btn:active { transform: translateY(1px); }
+/* Nút "Now" — lọc anime MÙA HIỆN TẠI theo thời gian bấm (kế bên ô Sắp xếp).
+   Tắt: viền/xám như các nút kề bên · Bật: viền xanh lá sáng để thấy đang lọc. */
+.season-now-btn {
+  flex: 0 0 auto; min-width: auto; padding: 5px 10px;
+  background: rgba(255, 255, 255, 0.07); border: var(--glass-border); border-radius: var(--radius-sm);
+  color: var(--text-dim); font-size: 11.5px; font-weight: 800; letter-spacing: 0.02em;
+  cursor: pointer;
+  transition: border 0.15s ease, box-shadow 0.15s ease, background 0.15s ease, color 0.15s ease;
+}
+.season-now-btn:hover { background: rgba(255, 255, 255, 0.12); border-color: var(--success); color: var(--text); }
+.season-now-btn:active { transform: translateY(1px); }
+.season-now-btn.on {
+  background: rgba(52, 211, 153, 0.18);
+  border-color: rgba(52, 211, 153, 0.75);
+  color: var(--success);
+  box-shadow: 0 0 10px rgba(52, 211, 153, 0.35);
+}
 .filter-badge {
   position: absolute; top: -7px; right: -7px; min-width: 17px; height: 17px;
   padding: 0 4px; border-radius: 9px; background: var(--danger, #ef4444); color: #fff;
@@ -1959,8 +1976,9 @@ body.fx-mode-stars #fireworksCanvas { opacity: 0; }
   .nav-tab .tab-icon { font-size: 18px; }
   .btn .btn-label { display: none; }
   .app-header .btn { padding: 7px 10px; }
-  /* Thanh lọc trên mobile: thu nút đảo chiều + nút 🔽 để 1 dòng vừa khít */
+  /* Thanh lọc trên mobile: thu nút đảo chiều + nút 🔽 để 1 dòng vừa khít (nút Now cũng được bấm to đủ ngón) */
   .sort-dir-btn, .filter-toggle-btn { min-width: 36px; padding: 10px 9px; }
+  .season-now-btn { padding: 10px 9px; }
   .modal { padding: 18px 14px; margin-top: 2vh; }
   .composer-footer { flex-direction: column; align-items: stretch; }
   .composer-footer .btn { width: 100%; }

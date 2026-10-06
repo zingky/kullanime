@@ -93,8 +93,17 @@
     adminSelectedComments: new Set(), // IDs bình luận đang tick chọn (admin bulk delete)
     chatAll: [],           // toàn bộ tin chat chung
     chatVisible: 3,        // số tin chat hiển thị (thu gọn = 3)
-    chatExpanded: false    // trạng thái mở rộng sticky chat
+    chatExpanded: false,   // trạng thái mở rộng sticky chat
+    // Nút "Now": lọc anime MÙA HIỆN TẠI theo thời gian bấm — lưu qua localStorage
+    seasonNow: false
   };
+
+  // Khôi phục trạng thái nút "Now" NGAY lúc khởi tạo (trước lần renderAnimeGrid đầu)
+  // để người dùng quay lại vẫn thấy bộ lọc đang bật.
+  const SEASON_NOW_KEY = 'kullanime_season_now';
+  try {
+    State.seasonNow = localStorage.getItem(SEASON_NOW_KEY) === '1';
+  } catch (_e) { /* ignore */ }
 
   /* ──────────────────────────────────────────────────────
      2. TIỆN ÍCH (helpers)
@@ -4604,6 +4613,14 @@ function setupSubPopupEvents() {
         return haystack.includes(search);
       });
     }
+    // Nút "Now" — lọc anime của MÙA HIỆN TẠI theo thời gian bấm (season + năm hiện tại).
+    // Lọc RIÊNG, không đụng tới #seasonFilter / #yearFilter để chọn lọc tay của người dùng
+    // khác không bị ghi đè.
+    if (State.seasonNow) {
+      const cs = nowSeasonKey();
+      const cy = new Date().getFullYear();
+      list = list.filter((a) => seasonKey(a.season) === cs && Number(a.year) === cy);
+    }
     // Sắp xếp — theo mode trong State (đồng bộ với select #sortFilter)
     const mode = State.animeSortMode;
     // Sort tăng dần theo tiêu chí, sau đó đảo list nếu chiều mong muốn là giảm dần
@@ -4820,6 +4837,10 @@ function setupSubPopupEvents() {
     State.animeSortMode = 'recent';
     State.animeSortDir = 'desc';
     State.animePage = 1;
+    // ✕ "Xoá toàn bộ bộ lọc" = bỏ cả lọc "Now"
+    State.seasonNow = false;
+    try { localStorage.setItem(SEASON_NOW_KEY, '0'); } catch (_e) { /* ignore */ }
+    renderSeasonNowBtn();
     updateSortDirBtn();
     updateFilterBadge();
     renderAnimeGrid();
@@ -4837,6 +4858,28 @@ function setupSubPopupEvents() {
       badge.textContent = count;
       badge.classList.toggle('hidden', count === 0);
     }
+  }
+
+  // Mùa hiện tại (spring/summer/fall/winter) theo tháng HIỆN TẠI của máy người dùng:
+  // 3-5 → Xuân · 6-8 → Hạ · 9-11 → Thu · 12,1,2 → Đông
+  function nowSeasonKey() {
+    const m = new Date().getMonth() + 1;
+    if (m >= 3 && m <= 5) return 'spring';
+    if (m >= 6 && m <= 8) return 'summer';
+    if (m >= 9 && m <= 11) return 'fall';
+    return 'winter';
+  }
+
+  // Đồng bộ giao diện nút "Now" (viền sáng + aria-pressed) theo State.seasonNow
+  function renderSeasonNowBtn() {
+    const btn = $('#seasonNowBtn');
+    if (!btn) return;
+    const on = !!State.seasonNow;
+    btn.classList.toggle('on', on);
+    btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+    btn.title = on
+      ? 'Đang lọc anime MÙA HIỆN TẠI — bấm lại để bỏ lọc'
+      : 'Lọc anime MÙA HIỆN TẠI (theo thời gian bấm) — bấm để bật';
   }
 
   // Chuẩn hoá tên mùa từ dữ liệu về khoá chuẩn spring/summer/fall/winter
@@ -8308,6 +8351,16 @@ function setupSubPopupEvents() {
       updateSortDirBtn();
       resetAnimePageAndRender();
     });
+    // Nút "Now": lọc anime MÙA HIỆN TẠI — bấm 1 lần để bật, bấm lại để bỏ lọc.
+    // Trạng thái lưu localStorage nên lần sau quay lại web vẫn giữ lựa chọn.
+    const nowBtn = $('#seasonNowBtn');
+    if (nowBtn) nowBtn.addEventListener('click', () => {
+      State.seasonNow = !State.seasonNow;
+      try { localStorage.setItem(SEASON_NOW_KEY, State.seasonNow ? '1' : '0'); } catch (_e) { /* ignore */ }
+      renderSeasonNowBtn();
+      resetAnimePageAndRender();
+    });
+    renderSeasonNowBtn(); // đồng bộ giao diện với trạng thái đã lưu từ lần truy cập trước
     // Nút ✕ xoá toàn bộ bộ lọc (kế bên ô tìm kiếm)
     const cfb = $('#clearFiltersBtn');
     if (cfb) cfb.addEventListener('click', resetAnimeFilters);

@@ -35,7 +35,7 @@
   <!-- File cấu hình (đọc .env.local / fallback) -->
   <script src="./config.js"></script>
 
-  <link rel="stylesheet" href="./styles.css?v=101" />
+  <link rel="stylesheet" href="./styles.css?v=102" />
 </head>
 <body>
   <!-- Nền đêm sao + cánh hoa anh đào (night sky + sakura) — JS sinh sao tĩnh, CSS animation transform/opacity -->
@@ -102,6 +102,10 @@
         </select>
         <button type="button" class="sort-dir-btn" id="sortDirBtn"
                 title="Đảo chiều sắp xếp (bấm để đảo ngược thứ tự)" aria-label="Đảo chiều sắp xếp">▼</button>
+        <!-- Nút "Now": lọc anime MÙA HIỆN TẠI theo thời gian bấm — bấm lần nữa để bỏ lọc.
+             Trạng thái bật/tắt được lưu qua localStorage nên lần sau quay lại vẫn giữ. -->
+        <button type="button" class="season-now-btn" id="seasonNowBtn" aria-pressed="false"
+                title="Lọc anime MÙA HIỆN TẠI (theo thời gian bấm) — bấm để bật">Now</button>
         <button type="button" class="filter-toggle-btn" id="filterToggleBtn"
                 title="Bộ lọc nâng cao (Thể loại, Mùa, Năm, Trạng thái...)" aria-label="Mở bộ lọc nâng cao">
           <span aria-hidden="true">🔽</span><span class="filter-badge hidden" id="filterBadge">0</span>
@@ -759,7 +763,7 @@
   <div class="mini-pop hidden" id="epPop"></div>
   <div class="mini-pop hidden" id="heartPop"></div>
 
-  <script src="./app.js?v=95"></script>
+  <script src="./app.js?v=96"></script>
 </body>
 </html>
 
