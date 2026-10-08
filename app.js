@@ -4867,7 +4867,27 @@ function setupSubPopupEvents() {
     }
   }
 
-  // Thanh phân trang anime — ‹ › cố định 2 đầu + số trang giữa + ô nhập nhảy trang cuối
+  // Dãy số trang quanh trang hiện tại theo quy tắc: trước = {1, cur−2, cur−1},
+  // sau = {cur+1, cur+2, trang cuối}; hở ≥2 thì chèn '…'. Dùng chung cho lưới anime + bình luận.
+  function buildPagerPages(page, total) {
+    const toSeq = (list) => {
+      const sorted = [...new Set(list)].filter((p) => p >= 1 && p <= total && p !== page).sort((a, b) => a - b);
+      const out = [];
+      let prev = 0;
+      sorted.forEach((p) => {
+        if (prev && p - prev > 1) out.push('…');
+        out.push(p);
+        prev = p;
+      });
+      return out;
+    };
+    return {
+      before: toSeq([1, page - 2, page - 1]),
+      after: toSeq([page + 1, page + 2, total])
+    };
+  }
+
+  // Thanh phân trang anime — cụm ‹ trang hiện tại › cố định giữa thanh, số trang 2 bên
   function renderAnimePagination(totalPages) {
     const wrap = $('#animePagination');
     if (!wrap) return;
@@ -4877,30 +4897,24 @@ function setupSubPopupEvents() {
       return;
     }
     const page = State.animePage;
-    // Dãy số trang thông minh: luôn có 1, trang cuối, và trang hiện tại ±1
-    const pages = new Set([1, totalPages, page - 1, page, page + 1]);
-    const sorted = [...pages].filter((p) => p >= 1 && p <= totalPages).sort((a, b) => a - b);
-    const nums = [];
-    let prev = 0;
-    sorted.forEach((p) => {
-      if (prev && p - prev > 1) nums.push('<span class="anime-page-ellipsis">…</span>');
-      if (p === page) {
-        // Trang hiện tại = ô nhập luôn: bấm vào gõ số rồi Enter để nhảy thẳng (không nút riêng, không nhãn)
-        nums.push(
-          '<input type="number" class="anime-page-input" inputmode="numeric" min="1" max="' + totalPages + '" value="' + page + '" data-total="' + totalPages + '" title="Trang hiện tại — gõ số trang rồi bấm Enter để chuyển" aria-label="Trang hiện tại — gõ số trang rồi bấm Enter để chuyển" />'
-        );
-      } else {
-        nums.push('<button type="button" class="anime-page-btn" data-apage="' + p + '">' + p + '</button>');
-      }
-      prev = p;
-    });
+    const seq = buildPagerPages(page, totalPages);
+    const numBtn = (p) => '<button type="button" class="anime-page-btn" data-apage="' + p + '">' + p + '</button>';
+    const cell = (arr) => arr.map((t) => (t === '…'
+      ? '<span class="anime-page-ellipsis">…</span>'
+      : numBtn(t))).join('');
     const atStart = page <= 1;
     const atEnd = page >= totalPages;
     wrap.innerHTML =
-      // Mũi tên ‹ › nằm ở 2 cột grid cố định → luôn cùng 1 tọa độ, bấm lặp nhiều lần không bị dồn
-      '<button type="button" class="anime-page-btn anime-page-arrow' + (atStart ? ' disabled' : '') + '" data-apage="' + (page - 1) + '" title="Trang trước" ' + (atStart ? 'disabled ' : '') + '>‹</button>' +
-      '<div class="anime-page-nums">' + nums.join('') + '</div>' +
-      '<button type="button" class="anime-page-btn anime-page-arrow' + (atEnd ? ' disabled' : '') + '" data-apage="' + (page + 1) + '" title="Trang sau" ' + (atEnd ? 'disabled ' : '') + '>›</button>';
+      // Trước: dồn về bên phải (sát cụm); sau: dàn từ bên trái (sát cụm) — 2 cột chia đều
+      // nên cụm ‹ input › luôn cùng 1 tọa độ giữa thanh dù dãy số đổi độ rộng.
+      '<div class="anime-page-before">' + cell(seq.before) + '</div>' +
+      '<div class="anime-page-cluster">' +
+        '<button type="button" class="anime-page-btn anime-page-arrow' + (atStart ? ' disabled' : '') + '" data-apage="' + (page - 1) + '" title="Trang trước" ' + (atStart ? 'disabled ' : '') + '>‹</button>' +
+        // Trang hiện tại = ô nhập luôn: bấm vào gõ số rồi Enter để nhảy thẳng (không nút riêng, không nhãn)
+        '<input type="number" class="anime-page-input" inputmode="numeric" min="1" max="' + totalPages + '" value="' + page + '" data-total="' + totalPages + '" title="Trang hiện tại — gõ số trang rồi bấm Enter để chuyển" aria-label="Trang hiện tại — gõ số trang rồi bấm Enter để chuyển" />' +
+        '<button type="button" class="anime-page-btn anime-page-arrow' + (atEnd ? ' disabled' : '') + '" data-apage="' + (page + 1) + '" title="Trang sau" ' + (atEnd ? 'disabled ' : '') + '>›</button>' +
+      '</div>' +
+      '<div class="anime-page-after">' + cell(seq.after) + '</div>';
     wrap.classList.remove('hidden');
   }
 
@@ -5982,7 +5996,7 @@ function setupSubPopupEvents() {
     }
   }
 
-  // Thanh phân trang bình luận — ‹ › cố định 2 đầu + số trang giữa + ô nhập nhảy trang cuối
+  // Thanh phân trang bình luận — cụm ‹ trang hiện tại › cố định giữa thanh, số trang 2 bên
   function renderCommentPagination() {
     const wrap = $('#commentPagination');
     if (!wrap) return;
@@ -5997,30 +6011,24 @@ function setupSubPopupEvents() {
     }
     wrap.classList.remove('hidden');
     const page = State.commentPage;
-    // Tạo dãy số trang thông minh: luôn có 1, trang cuối, và trang hiện tại ±1
-    const pages = new Set([1, totalPages, page - 1, page, page + 1]);
-    const arr = Array.from(pages).filter((p) => p >= 1 && p <= totalPages).sort((a, b) => a - b);
-    const nums = [];
-    let prev = 0;
-    arr.forEach((p) => {
-      if (prev && p - prev > 1) nums.push('<span class="comment-page-ellipsis">…</span>');
-      if (p === page) {
-        // Trang hiện tại = ô nhập luôn: bấm vào gõ số rồi Enter để nhảy thẳng (không nút riêng, không nhãn)
-        nums.push(
-          '<input type="number" class="comment-page-input" inputmode="numeric" min="1" max="' + totalPages + '" value="' + page + '" data-total="' + totalPages + '" title="Trang hiện tại — gõ số trang rồi bấm Enter để chuyển" aria-label="Trang hiện tại — gõ số trang rồi bấm Enter để chuyển" />'
-        );
-      } else {
-        nums.push('<button type="button" class="comment-page-btn" data-cpage="' + p + '">' + p + '</button>');
-      }
-      prev = p;
-    });
+    const seq = buildPagerPages(page, totalPages);
+    const numBtn = (p) => '<button type="button" class="comment-page-btn" data-cpage="' + p + '">' + p + '</button>';
+    const cell = (arr) => arr.map((t) => (t === '…'
+      ? '<span class="comment-page-ellipsis">…</span>'
+      : numBtn(t))).join('');
     const atStart = page <= 1;
     const atEnd = page >= totalPages;
     wrap.innerHTML =
-      // Mũi tên ‹ › ở 2 cột grid cố định → không bao giờ di chuyển khi đổi trang
-      '<button type="button" class="comment-page-btn comment-page-arrow' + (atStart ? ' disabled' : '') + '" data-cpage="' + (page - 1) + '" title="Trang trước" ' + (atStart ? 'disabled ' : '') + '>‹</button>' +
-      '<div class="comment-page-nums">' + nums.join('') + '</div>' +
-      '<button type="button" class="comment-page-btn comment-page-arrow' + (atEnd ? ' disabled' : '') + '" data-cpage="' + (page + 1) + '" title="Trang sau" ' + (atEnd ? 'disabled ' : '') + '>›</button>';
+      // Trước dồn sát cụm (từ trái sang), sau dàn từ cụm (sang phải) — 2 cột chia đều
+      // nên cụm ‹ input › luôn cùng 1 tọa độ giữa thanh dù dãy số đổi độ rộng.
+      '<div class="comment-page-before">' + cell(seq.before) + '</div>' +
+      '<div class="comment-page-cluster">' +
+        '<button type="button" class="comment-page-btn comment-page-arrow' + (atStart ? ' disabled' : '') + '" data-cpage="' + (page - 1) + '" title="Trang trước" ' + (atStart ? 'disabled ' : '') + '>‹</button>' +
+        // Trang hiện tại = ô nhập luôn: bấm vào gõ số rồi Enter để nhảy thẳng (không nút riêng, không nhãn)
+        '<input type="number" class="comment-page-input" inputmode="numeric" min="1" max="' + totalPages + '" value="' + page + '" data-total="' + totalPages + '" title="Trang hiện tại — gõ số trang rồi bấm Enter để chuyển" aria-label="Trang hiện tại — gõ số trang rồi bấm Enter để chuyển" />' +
+        '<button type="button" class="comment-page-btn comment-page-arrow' + (atEnd ? ' disabled' : '') + '" data-cpage="' + (page + 1) + '" title="Trang sau" ' + (atEnd ? 'disabled ' : '') + '>›</button>' +
+      '</div>' +
+      '<div class="comment-page-after">' + cell(seq.after) + '</div>';
   }
 
   function commentHTML(c, cmap) {

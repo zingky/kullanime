@@ -2528,17 +2528,17 @@ select.input option { background: #141a2d; color: var(--text); }
 /* ── Chip hashtag ── */
 .chip-hashtag { color: var(--text-dim); border-color: var(--border); background: rgba(255,255,255,0.03); }
 
-/* ── Thanh phân trang — ‹ › CỐ ĐỊNH 2 đầu, ô TRANG HIỆN TẠI gõ số + Enter ──
-   Grid 3 cột [‹][dãy số 1fr][›] + width cố định → 2 mũi tên luôn nằm đúng 1 tọa độ
-   (không bị dồn khi dãy số đổi độ rộng 9→10→100…). position:sticky đáy → thanh dính
-   đáy vùng cuộn, bấm chuyển trang nhiều lần vẫn trúng 1 chỗ. Ô số trang hiện tại
-   chính là ô nhập: bấm vào gõ số rồi Enter để nhảy thẳng — không nút riêng, không nhãn. */
+/* ── Thanh phân trang — cụm ‹ [TRANG HIỆN TẠI] › CỐ ĐỊNH giữa thanh, gõ số + Enter ──
+   Grid 3 cột [trước 1fr][cụm auto][sau 1fr]: 2 cột chia đều → cụm ‹ input › LUÔN đứng yên
+   đúng 1 tọa độ, bấm lướt tiến/lùi nhiều lần vẫn trúng 1 chỗ. Dãy số quanh cụm theo quy tắc:
+   trước = {1, cur−2, cur−1}, sau = {cur+1, cur+2, cuối}, hở thì …. sticky đáy → thanh dính
+   đáy vùng cuộn. Ô trang hiện tại = ô nhập: bấm vào gõ số rồi Enter để nhảy thẳng. */
 .comment-pagination, .anime-pagination {
   position: sticky;
   bottom: 8px;
   z-index: 6;
   display: grid;
-  grid-template-columns: 32px minmax(0, 1fr) 32px;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
   align-items: center;
   gap: 6px;
   width: min(440px, 100%);
@@ -2562,16 +2562,19 @@ select.input option { background: #141a2d; color: var(--text); }
 .anime-page-btn:hover:not(.disabled) { border-color: var(--accent); background: rgba(99,102,241,0.18); }
 .comment-page-btn.disabled, .anime-page-btn.disabled { opacity: 0.4; cursor: not-allowed; }
 .comment-page-ellipsis, .anime-page-ellipsis { color: var(--text-dim); padding: 0 2px; }
-/* Mũi tên 2 đầu: chiếm trọn cột cố định của grid → không bao giờ di chuyển */
-.comment-page-arrow, .anime-page-arrow { width: 100%; padding: 0; font-size: 16px; }
-/* Dãy số trang: căn giữa khoảng trống còn lại; nếu tràn → giữ đầu (trang 1) thay vì cắt đều 2 bên */
-.comment-page-nums, .anime-page-nums {
+/* Mũi tên kẹp 2 bên ô trang hiện tại, nằm trong cụm cố định giữa thanh */
+.comment-page-arrow, .anime-page-arrow { padding: 0 6px; font-size: 15px; }
+/* Cụm điều khiển ‹ [trang] › — cố định giữa thanh, không di chuyển khi đổi trang */
+.comment-page-cluster, .anime-page-cluster { display: flex; align-items: center; gap: 4px; }
+/* Dãy số trước/sau: 2 cột chia đều → bên ngắn dồn sát cụm, bên dài tràn ra ngoài rồi bị cắt */
+.comment-page-before, .anime-page-before,
+.comment-page-after, .anime-page-after {
   min-width: 0;
   overflow: hidden;
   display: flex; align-items: center; gap: 4px;
-  justify-content: center;
-  justify-content: safe center;
 }
+.comment-page-before, .anime-page-before { justify-content: flex-end; justify-content: safe flex-end; }
+.comment-page-after, .anime-page-after { justify-content: flex-start; }
 /* Ô TRANG HIỆN TẠI = ô nhập luôn (nhìn như nút current): bấm vào gõ số rồi Enter để nhảy */
 .comment-page-input, .anime-page-input {
   width: 46px; height: 26px; padding: 0 4px;
@@ -2586,11 +2589,11 @@ select.input option { background: #141a2d; color: var(--text); }
 }
 .comment-page-input::-webkit-outer-spin-button,
 .comment-page-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
-/* Mobile hẹp: mũi tên gọn lại, chừa chỗ cho dãy số */
+/* Mobile hẹp: giãn nhỏ lại, chừa maximum chỗ cho dãy số 2 bên cụm */
 @media (max-width: 480px) {
   .comment-pagination, .anime-pagination {
-    grid-template-columns: 28px minmax(0, 1fr) 28px;
     gap: 4px; padding: 6px 8px;
   }
-  .comment-page-nums, .anime-page-nums { gap: 3px; }
+  .comment-page-before, .anime-page-before,
+  .comment-page-after, .anime-page-after { gap: 3px; }
 }
