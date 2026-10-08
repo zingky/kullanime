@@ -2530,9 +2530,10 @@ select.input option { background: #141a2d; color: var(--text); }
 
 /* ── Thanh phân trang — cụm ‹ [TRANG HIỆN TẠI] › CỐ ĐỊNH giữa thanh, gõ số + Enter ──
    Grid 3 cột [trước 1fr][cụm auto][sau 1fr]: 2 cột chia đều → cụm ‹ input › LUÔN đứng yên
-   đúng 1 tọa độ, bấm lướt tiến/lùi nhiều lần vẫn trúng 1 chỗ. Dãy số quanh cụm theo quy tắc:
-   trước = {1, cur−2, cur−1}, sau = {cur+1, cur+2, cuối}, hở thì …. sticky đáy → thanh dính
-   đáy vùng cuộn. Ô trang hiện tại = ô nhập: bấm vào gõ số rồi Enter để nhảy thẳng. */
+   đúng 1 tọa độ, bấm lướt tiến/lùi nhiều lần vẫn trúng 1 chỗ. Dãy số quanh cụm: chỉ 1 trang
+   liền kề mỗi bên — trước = {1, cur−1}, sau = {cur+1, cuối}, KHÔNG dấu …; trang ĐẦU và trang
+   CUỐI tô màu mờ + cỡ nhỏ để phân biệt. sticky đáy → thanh dính đáy vùng cuộn. Ô trang hiện
+   tại = ô nhập: bấm vào gõ số rồi Enter để nhảy thẳng. */
 .comment-pagination, .anime-pagination {
   position: sticky;
   bottom: 8px;
@@ -2561,7 +2562,13 @@ select.input option { background: #141a2d; color: var(--text); }
 .comment-page-btn:hover:not(.disabled),
 .anime-page-btn:hover:not(.disabled) { border-color: var(--accent); background: rgba(99,102,241,0.18); }
 .comment-page-btn.disabled, .anime-page-btn.disabled { opacity: 0.4; cursor: not-allowed; }
-.comment-page-ellipsis, .anime-page-ellipsis { color: var(--text-dim); padding: 0 2px; }
+/* Trang ĐẦU & trang CUỐI: cỡ chữ nhỏ + màu mờ hơn → phân biệt được thay cho dấu … */
+.comment-page-btn.edge, .anime-page-btn.edge {
+  min-width: 22px; padding: 0 5px;
+  font-size: 10.5px; color: var(--text-dim);
+}
+.comment-page-btn.edge:hover:not(.disabled),
+.anime-page-btn.edge:hover:not(.disabled) { color: var(--text); }
 /* Mũi tên kẹp 2 bên ô trang hiện tại, nằm trong cụm cố định giữa thanh */
 .comment-page-arrow, .anime-page-arrow { padding: 0 6px; font-size: 15px; }
 /* Cụm điều khiển ‹ [trang] › — cố định giữa thanh, không di chuyển khi đổi trang */

@@ -4867,23 +4867,16 @@ function setupSubPopupEvents() {
     }
   }
 
-  // Dãy số trang quanh trang hiện tại theo quy tắc: trước = {1, cur−2, cur−1},
-  // sau = {cur+1, cur+2, trang cuối}; hở ≥2 thì chèn '…'. Dùng chung cho lưới anime + bình luận.
+  // Dãy số trang quanh trang hiện tại — KHÔNG dùng dấu …: chỉ 1 trang liền kề mỗi bên
+  // (trước = {1, cur−1}, sau = {cur+1, trang cuối}); trang 1 & cuối render nhỏ/mờ (class edge).
+  // Dùng chung cho lưới anime + bình luận.
   function buildPagerPages(page, total) {
-    const toSeq = (list) => {
-      const sorted = [...new Set(list)].filter((p) => p >= 1 && p <= total && p !== page).sort((a, b) => a - b);
-      const out = [];
-      let prev = 0;
-      sorted.forEach((p) => {
-        if (prev && p - prev > 1) out.push('…');
-        out.push(p);
-        prev = p;
-      });
-      return out;
-    };
+    const uniq = (list) => [...new Set(list)]
+      .filter((p) => p >= 1 && p <= total && p !== page)
+      .sort((a, b) => a - b);
     return {
-      before: toSeq([1, page - 2, page - 1]),
-      after: toSeq([page + 1, page + 2, total])
+      before: uniq([1, page - 1]),
+      after: uniq([page + 1, total])
     };
   }
 
@@ -4898,10 +4891,9 @@ function setupSubPopupEvents() {
     }
     const page = State.animePage;
     const seq = buildPagerPages(page, totalPages);
-    const numBtn = (p) => '<button type="button" class="anime-page-btn" data-apage="' + p + '">' + p + '</button>';
-    const cell = (arr) => arr.map((t) => (t === '…'
-      ? '<span class="anime-page-ellipsis">…</span>'
-      : numBtn(t))).join('');
+    // Trang 1 & trang cuối → thêm class edge (cỡ nhỏ, màu mờ) để phân biệt thay cho dấu …
+    const numBtn = (p) => '<button type="button" class="anime-page-btn' + (p === 1 || p === totalPages ? ' edge' : '') + '" data-apage="' + p + '">' + p + '</button>';
+    const cell = (arr) => arr.map(numBtn).join('');
     const atStart = page <= 1;
     const atEnd = page >= totalPages;
     wrap.innerHTML =
@@ -6012,10 +6004,9 @@ function setupSubPopupEvents() {
     wrap.classList.remove('hidden');
     const page = State.commentPage;
     const seq = buildPagerPages(page, totalPages);
-    const numBtn = (p) => '<button type="button" class="comment-page-btn" data-cpage="' + p + '">' + p + '</button>';
-    const cell = (arr) => arr.map((t) => (t === '…'
-      ? '<span class="comment-page-ellipsis">…</span>'
-      : numBtn(t))).join('');
+    // Trang 1 & trang cuối → thêm class edge (cỡ nhỏ, màu mờ) để phân biệt thay cho dấu …
+    const numBtn = (p) => '<button type="button" class="comment-page-btn' + (p === 1 || p === totalPages ? ' edge' : '') + '" data-cpage="' + p + '">' + p + '</button>';
+    const cell = (arr) => arr.map(numBtn).join('');
     const atStart = page <= 1;
     const atEnd = page >= totalPages;
     wrap.innerHTML =
