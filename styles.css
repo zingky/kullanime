@@ -962,8 +962,9 @@ select.input { appearance: none; -webkit-appearance: none; background-image: url
 .anime-close-fab:active { transform: scale(0.92); }
 /* ── Cụm nút nổi form Thêm/Sửa anime: Huỷ + Lưu cố định đáy màn hình (CẢ PC + mobile) ──
    Học theo .anime-close-fab: con trực tiếp của <body> nên position:fixed bám viewport,
-   không bị .modal-overlay (có backdrop-filter) "nhốt" lại. Chỉ hiện khi #animeFormModal
-   đang mở (dùng sibling selector, cùng cấp body như .anime-close-fab). */
+   không bị .modal-overlay (có backdrop-filter) "nhốt" lại. Hiện/ẩn bằng class .show
+   do JS toggle theo modal (selector ~ chỉ ăn XUÔI nên không dùng được khi fab đặt
+   TRƯỚC modal). */
 .anime-form-fab {
   display: none;
   position: fixed;
@@ -975,7 +976,7 @@ select.input { appearance: none; -webkit-appearance: none; background-image: url
   gap: 10px;
   pointer-events: none;
 }
-#animeFormModal.open ~ .anime-form-fab { display: inline-flex; }
+.anime-form-fab.show { display: inline-flex; }
 .form-fab-btn {
   pointer-events: auto;
   display: inline-flex; align-items: center; justify-content: center; gap: 6px;

@@ -254,6 +254,11 @@
     if (!m) return;
     m.classList.add('open');
     m.setAttribute('aria-hidden', 'false');
+    // Form anime: hiện cụm nút nổi Huỷ/Lưu đáy màn hình (CSS .show, vì selector ~ không ăn ngược)
+    if (id === 'animeFormModal') {
+      const fab = $('#animeFormFab');
+      if (fab) { fab.classList.add('show'); fab.setAttribute('aria-hidden', 'false'); }
+    }
     // Luôn cuộn về đầu khi mở: .modal-overlay là vùng cuộn (overflow-y:auto) nên
     // scrollTop được giữ lại giữa các lần mở. Không reset thì mở lại form sau khi
     // lưu (đang ở cuối trang, cạnh nút "Lưu") vẫn hiện đúng chỗ cuộn cũ.
@@ -266,6 +271,8 @@
     if (!m) return;
     m.classList.remove('open');
     m.setAttribute('aria-hidden', 'true');
+    // Form anime: ẩn cụm nút nổi Huỷ/Lưu
+    if (id === 'animeFormModal') hideAnimeFormFab();
     // Đóng modal quản trị → xoá trạng thái tick chọn hàng loạt (admin)
     if (id === 'adminModal') {
       State.adminSelectedAnime.clear();
@@ -278,6 +285,12 @@
     }
   }
 
+  // Ẩn cụm nút nổi form anime (dùng chung cho Esc / click nền / closeModal lẻ)
+  function hideAnimeFormFab() {
+    const fab = $('#animeFormFab');
+    if (fab) { fab.classList.remove('show'); fab.setAttribute('aria-hidden', 'true'); }
+  }
+
   // Chặn cuộn nền khi mở modal
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') {
@@ -286,6 +299,7 @@
         m.classList.remove('open');
         m.setAttribute('aria-hidden', 'true');
       });
+      if (openModals.some((m) => m.id === 'animeFormModal')) hideAnimeFormFab();
       if (openModals.some((m) => m.id === 'animeModal')) {
         teardownAnimeCommentsRealtime();
         cancelReply(); // composer inline → đưa về vị trí gốc
@@ -297,6 +311,7 @@
       if (e.target === overlay) {
         overlay.classList.remove('open');
         overlay.setAttribute('aria-hidden', 'true');
+        if (overlay.id === 'animeFormModal') hideAnimeFormFab();
         if (overlay.id === 'animeModal') {
           teardownAnimeCommentsRealtime();
           cancelReply(); // composer inline → đưa về vị trí gốc
