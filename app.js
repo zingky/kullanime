@@ -4968,6 +4968,17 @@ function setupSubPopupEvents() {
     return v;
   }
 
+  // Icon mùa cho nút trạng thái trên card: Xuân 🌸 · Hạ 🌻 · Thu 🍁 · Đông ❄️.
+  // Không rõ mùa → giữ 🌸 cho quen mắt.
+  function seasonIcon(v) {
+    const k = seasonKey(v);
+    if (k === 'spring') return '🌸';
+    if (k === 'summer') return '🌻';
+    if (k === 'fall') return '🍁';
+    if (k === 'winter') return '❄️';
+    return '🌸';
+  }
+
   // Đổ danh sách năm vào select lọc Năm — tự liệt kê các năm đã lưu (năm mới nhất trước)
   function syncYearFilter() {
     const sel = $('#yearFilter');
@@ -5153,10 +5164,11 @@ function setupSubPopupEvents() {
       ? '<img src="' + esc(a.poster_url) + '" alt="' + esc(a.title) + '" loading="lazy" data-title="' + esc(a.title) + '" onerror="window.__posterFallback(this, this.dataset.title)" />'
       : posterFallback(a);
 
-    // Nút 🌸 (góc trên-phải) mở menu trạng thái — LUÔN hiển thị để sửa trạng thái nhanh + badge trạng thái (góc dưới-phải)
+    // Nút mùa (góc trên-phải) mở menu trạng thái — LUÔN hiển thị để sửa trạng thái nhanh + badge trạng thái (góc dưới-phải).
+    // Icon theo mùa của anime: Xuân 🌸 · Hạ 🌻 · Thu 🍁 · Đông ❄️ (không rõ mùa → 🌸).
     const badgeText = myStatusBadgeText(a);
     const statusUI =
-      '<button type="button" class="card-sakura" data-quick="menu" title="Đặt trạng thái xem">🌸</button>' +
+      '<button type="button" class="card-sakura" data-quick="menu" title="Đặt trạng thái xem">' + seasonIcon(a.season) + '</button>' +
       '<span class="card-status-badge ' + mySt.cls + '">' + esc(badgeText) + '</span>';
 
     // Meta: ★ điểm cộng đồng (AniDB) | nút điểm của tôi (bấm để mở popup chấm ♥; hiển thị trái tim trước, số sau) | tổng số tập đã phát hành
