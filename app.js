@@ -9337,6 +9337,16 @@ function setupSubPopupEvents() {
     $('#loginForm').addEventListener('submit', handleLogin);
     $('#animeForm').addEventListener('submit', saveAnime);
     $('#songForm').addEventListener('submit', saveSong);
+    // Nút 💾 Lưu nổi (cố định đáy màn hình, ngoài <form>) → submit form anime,
+    // vẫn chạy validate required như nút gốc trong .form-actions.
+    const animeFabSave = $('#animeFormFabSave');
+    if (animeFabSave) animeFabSave.addEventListener('click', () => {
+      const form = $('#animeForm');
+      if (!form) return;
+      if (form.requestSubmit) form.requestSubmit();
+      else if (form.reportValidity && !form.reportValidity()) return;
+      else form.dispatchEvent(new Event('submit', { cancelable: true }));
+    });
 
     // Seiyuu thêm dòng
     $('#addSeiyuuBtn').addEventListener('click', () => {

@@ -35,7 +35,7 @@
   <!-- File cấu hình (đọc .env.local / fallback) -->
   <script src="./config.js"></script>
 
-  <link rel="stylesheet" href="./styles.css?v=108" />
+  <link rel="stylesheet" href="./styles.css?v=109" />
 </head>
 <body>
   <!-- Nền đêm sao + cánh hoa anh đào (night sky + sakura) — JS sinh sao tĩnh, CSS animation transform/opacity -->
@@ -547,6 +547,15 @@
   </div>
 
 
+  <!-- Cụm nút nổi form Thêm/Sửa anime: Huỷ (trái) + Lưu (phải), cố định đáy màn hình
+       cả PC lẫn mobile. Đặt TRƯỚC modal để selector #animeFormModal.open ~ .anime-form-fab
+       ăn (cùng cấp body). Nút Lưu submit form qua requestSubmit nên validate required
+       vẫn chạy như nút gốc. -->
+  <div class="anime-form-fab" id="animeFormFab" aria-hidden="true">
+    <button type="button" class="form-fab-btn form-fab-cancel" data-close="animeFormModal" aria-label="Huỷ, đóng form anime" title="Huỷ">✕ Huỷ</button>
+    <button type="button" class="form-fab-btn form-fab-save" id="animeFormFabSave" aria-label="Lưu anime" title="Lưu anime">💾 Lưu</button>
+  </div>
+
   <!-- ═══════════════ MODAL: THÊM/SỬA ANIME ═══════════════ -->
   <div class="modal-overlay" id="animeFormModal" role="dialog" aria-modal="true" aria-hidden="true">
     <div class="modal modal-xl animate-form-modal" role="document">
@@ -767,7 +776,7 @@
   <div class="mini-pop hidden" id="epPop"></div>
   <div class="mini-pop hidden" id="heartPop"></div>
 
-  <script src="./app.js?v=105"></script>
+  <script src="./app.js?v=106"></script>
 </body>
 </html>
 

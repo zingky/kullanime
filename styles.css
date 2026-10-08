@@ -960,6 +960,47 @@ select.input { appearance: none; -webkit-appearance: none; background-image: url
   transition: transform 0.12s ease;
 }
 .anime-close-fab:active { transform: scale(0.92); }
+/* ── Cụm nút nổi form Thêm/Sửa anime: Huỷ + Lưu cố định đáy màn hình (CẢ PC + mobile) ──
+   Học theo .anime-close-fab: con trực tiếp của <body> nên position:fixed bám viewport,
+   không bị .modal-overlay (có backdrop-filter) "nhốt" lại. Chỉ hiện khi #animeFormModal
+   đang mở (dùng sibling selector, cùng cấp body như .anime-close-fab). */
+.anime-form-fab {
+  display: none;
+  position: fixed;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+  z-index: 130;
+  align-items: center;
+  gap: 10px;
+  pointer-events: none;
+}
+#animeFormModal.open ~ .anime-form-fab { display: inline-flex; }
+.form-fab-btn {
+  pointer-events: auto;
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  min-height: 46px; padding: 0 22px;
+  border-radius: 999px;
+  font-size: 14px; font-weight: 700; font-family: inherit;
+  cursor: pointer;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+  -webkit-tap-highlight-color: transparent;
+  transition: transform 0.12s ease, filter 0.15s ease;
+}
+.form-fab-btn:active { transform: scale(0.94); }
+.form-fab-cancel {
+  background: rgba(20, 26, 44, 0.55);
+  color: var(--text-dim);
+}
+.form-fab-cancel:hover { color: var(--text); filter: brightness(1.15); }
+.form-fab-save {
+  background: linear-gradient(135deg, var(--primary), var(--accent));
+  border-color: transparent;
+  color: #fff;
+}
+.form-fab-save:hover { filter: brightness(1.1); }
 @media (max-width: 640px) {
   #animeModal.open ~ .anime-close-fab { display: inline-flex; }
   /* Mobile: ẩn nút ✕ góc trên-phải để không trùng với nút đáy */
@@ -1574,6 +1615,8 @@ select.input { appearance: none; -webkit-appearance: none; background-image: url
 .field label { font-size: 13px; font-weight: 600; color: var(--text-dim); }
 .field textarea.input { resize: vertical; }
 .form-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 18px; }
+/* Chừa đáy form anime (~78px) để cụm nút nổi Huỷ/Lưu không che nút gốc .form-actions */
+#animeFormModal .animate-form-modal { padding-bottom: 96px; }
 .poster-preview { margin-top: 8px; }
 .poster-preview img { max-width: 120px; border-radius: 8px; border: 1px solid var(--border); }
 /* Danh sách seiyuu trong form admin có thể rất dài → giới hạn chiều cao + thanh cuộn riêng */
