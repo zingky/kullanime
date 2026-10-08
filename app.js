@@ -4815,7 +4815,7 @@ function setupSubPopupEvents() {
     const grid = $('#animeGrid');
     const rect = grid.getBoundingClientRect();
     const docTop = rect.top + (window.scrollY || window.pageYOffset || 0);
-    const PAGINATION_RESERVE = 36; // chừa chỗ thanh phân trang gọn (nút 26px + padding 6/2)
+    const PAGINATION_RESERVE = 48; // chừa chỗ thanh phân trang pill nổi đáy (cao ~40px + lệch sticky 8px)
     const available = window.innerHeight - docTop - PAGINATION_RESERVE - 8;
     const rows = available <= rowH ? 1 : Math.min(4, Math.max(1, Math.floor(available / rowH)));
     State.animeRowsUsed = rows;
@@ -4867,7 +4867,7 @@ function setupSubPopupEvents() {
     }
   }
 
-  // Thanh phân trang anime ‹ 1 2 3 … › — cùng kiểu với thanh phân trang bình luận
+  // Thanh phân trang anime — ‹ › cố định 2 đầu + số trang giữa + ô nhập nhảy trang cuối
   function renderAnimePagination(totalPages) {
     const wrap = $('#animePagination');
     if (!wrap) return;
@@ -4880,25 +4880,30 @@ function setupSubPopupEvents() {
     // Dãy số trang thông minh: luôn có 1, trang cuối, và trang hiện tại ±1
     const pages = new Set([1, totalPages, page - 1, page, page + 1]);
     const sorted = [...pages].filter((p) => p >= 1 && p <= totalPages).sort((a, b) => a - b);
-    const btns = [];
-    // Nút trang trước
-    btns.push(
-      '<button type="button" class="anime-page-btn' + (page <= 1 ? ' disabled' : '') + '" data-apage="' + (page - 1) + '" title="Trang trước" ' + (page <= 1 ? 'disabled' : '') + '>‹</button>'
-    );
-    // Dãy số trang (chèn '…' khi có khoảng trống)
+    const nums = [];
     let prev = 0;
     sorted.forEach((p) => {
-      if (prev && p - prev > 1) btns.push('<span class="anime-page-ellipsis">…</span>');
-      btns.push(
-        '<button type="button" class="anime-page-btn' + (p === page ? ' current' : '') + '" data-apage="' + p + '">' + p + '</button>'
+      if (prev && p - prev > 1) nums.push('<span class="anime-page-ellipsis">…</span>');
+      nums.push(
+        '<button type="button" class="anime-page-btn' + (p === page ? ' current' : '') + '" data-apage="' + p + '"' +
+        (p === page ? ' aria-current="page"' : '') + '>' + p + '</button>'
       );
       prev = p;
     });
-    // Nút trang sau
-    btns.push(
-      '<button type="button" class="anime-page-btn' + (page >= totalPages ? ' disabled' : '') + '" data-apage="' + (page + 1) + '" title="Trang sau" ' + (page >= totalPages ? 'disabled' : '') + '>›</button>'
-    );
-    wrap.innerHTML = btns.join('');
+    const atStart = page <= 1;
+    const atEnd = page >= totalPages;
+    wrap.innerHTML =
+      // Mũi tên ‹ › nằm ở 2 cột grid cố định → luôn cùng 1 tọa độ, bấm lặp nhiều lần không bị dồn
+      '<button type="button" class="anime-page-btn anime-page-arrow' + (atStart ? ' disabled' : '') + '" data-apage="' + (page - 1) + '" title="Trang trước" ' + (atStart ? 'disabled ' : '') + '>‹</button>' +
+      '<div class="anime-page-nums">' + nums.join('') + '</div>' +
+      '<button type="button" class="anime-page-btn anime-page-arrow' + (atEnd ? ' disabled' : '') + '" data-apage="' + (page + 1) + '" title="Trang sau" ' + (atEnd ? 'disabled ' : '') + '>›</button>' +
+      // Ô nhập nhảy thẳng tới trang: gõ số rồi Enter hoặc bấm →
+      '<div class="anime-page-jump">' +
+        '<span class="anime-page-jump-label">Trang</span>' +
+        '<input type="number" class="anime-page-input" inputmode="numeric" min="1" max="' + totalPages + '" value="' + page + '" data-total="' + totalPages + '" aria-label="Nhập số trang rồi bấm Enter để tới trang đó" />' +
+        '<span class="anime-page-total">/' + totalPages + '</span>' +
+        '<button type="button" class="anime-page-btn anime-page-go" data-apago="1" title="Tới trang đã nhập" aria-label="Tới trang đã nhập">→</button>' +
+      '</div>';
     wrap.classList.remove('hidden');
   }
 
@@ -5980,7 +5985,7 @@ function setupSubPopupEvents() {
     }
   }
 
-  // Thanh phân trang bình luận: ‹ 1 2 3 … › — 5 bình luận/trang
+  // Thanh phân trang bình luận — ‹ › cố định 2 đầu + số trang giữa + ô nhập nhảy trang cuối
   function renderCommentPagination() {
     const wrap = $('#commentPagination');
     if (!wrap) return;
@@ -5998,25 +6003,30 @@ function setupSubPopupEvents() {
     // Tạo dãy số trang thông minh: luôn có 1, trang cuối, và trang hiện tại ±1
     const pages = new Set([1, totalPages, page - 1, page, page + 1]);
     const arr = Array.from(pages).filter((p) => p >= 1 && p <= totalPages).sort((a, b) => a - b);
-    const btns = [];
-    // Nút trang trước
-    btns.push(
-      '<button type="button" class="comment-page-btn' + (page <= 1 ? ' disabled' : '') + '" data-cpage="' + (page - 1) + '" title="Trang trước" ' + (page <= 1 ? 'disabled' : '') + '>‹</button>'
-    );
-    // Dãy số trang (chèn '…' khi có khoảng trống)
+    const nums = [];
     let prev = 0;
     arr.forEach((p) => {
-      if (prev && p - prev > 1) btns.push('<span class="comment-page-ellipsis">…</span>');
-      btns.push(
-        '<button type="button" class="comment-page-btn' + (p === page ? ' current' : '') + '" data-cpage="' + p + '">' + p + '</button>'
+      if (prev && p - prev > 1) nums.push('<span class="comment-page-ellipsis">…</span>');
+      nums.push(
+        '<button type="button" class="comment-page-btn' + (p === page ? ' current' : '') + '" data-cpage="' + p + '"' +
+        (p === page ? ' aria-current="page"' : '') + '>' + p + '</button>'
       );
       prev = p;
     });
-    // Nút trang sau
-    btns.push(
-      '<button type="button" class="comment-page-btn' + (page >= totalPages ? ' disabled' : '') + '" data-cpage="' + (page + 1) + '" title="Trang sau" ' + (page >= totalPages ? 'disabled' : '') + '>›</button>'
-    );
-    wrap.innerHTML = btns.join('');
+    const atStart = page <= 1;
+    const atEnd = page >= totalPages;
+    wrap.innerHTML =
+      // Mũi tên ‹ › ở 2 cột grid cố định → không bao giờ di chuyển khi đổi trang
+      '<button type="button" class="comment-page-btn comment-page-arrow' + (atStart ? ' disabled' : '') + '" data-cpage="' + (page - 1) + '" title="Trang trước" ' + (atStart ? 'disabled ' : '') + '>‹</button>' +
+      '<div class="comment-page-nums">' + nums.join('') + '</div>' +
+      '<button type="button" class="comment-page-btn comment-page-arrow' + (atEnd ? ' disabled' : '') + '" data-cpage="' + (page + 1) + '" title="Trang sau" ' + (atEnd ? 'disabled ' : '') + '>›</button>' +
+      // Ô nhập nhảy thẳng tới trang: gõ số rồi Enter hoặc bấm →
+      '<div class="comment-page-jump">' +
+        '<span class="comment-page-jump-label">Trang</span>' +
+        '<input type="number" class="comment-page-input" inputmode="numeric" min="1" max="' + totalPages + '" value="' + page + '" data-total="' + totalPages + '" aria-label="Nhập số trang rồi bấm Enter để tới trang đó" />' +
+        '<span class="comment-page-total">/' + totalPages + '</span>' +
+        '<button type="button" class="comment-page-btn comment-page-go" data-cgo="1" title="Tới trang đã nhập" aria-label="Tới trang đã nhập">→</button>' +
+      '</div>';
   }
 
   function commentHTML(c, cmap) {
@@ -8619,9 +8629,23 @@ function setupSubPopupEvents() {
         updateFilterBadge();
       });
     }
-    // Thanh phân trang anime ‹ 1 2 3 … › (thay cho nút "Xem thêm") — delegate trên wrap
+    // Thanh phân trang anime (delegate trên wrap): số trang / mũi tên ‹ › / nút → nhảy trang
     const apWrap = $('#animePagination');
+    const jumpAnimeToInput = () => {
+      const input = apWrap && apWrap.querySelector('.anime-page-input');
+      if (!input) return;
+      const total = parseInt(input.dataset.total, 10) || 1;
+      let p = parseInt(input.value, 10);
+      if (!Number.isFinite(p)) { input.value = State.animePage; return; } // ô rỗng/sai → giữ nguyên
+      p = Math.min(Math.max(1, p), total); // kẹp về [1, tổng số trang]
+      if (p === State.animePage) { input.value = p; return; }
+      State.animePage = p;
+      renderAnimeGrid();
+      const gridEl = $('#animeGrid');
+      if (gridEl && gridEl.scrollIntoView) gridEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    };
     if (apWrap) apWrap.addEventListener('click', (e) => {
+      if (e.target.closest('[data-apago]')) { jumpAnimeToInput(); return; }
       const btn = e.target.closest('[data-apage]');
       if (!btn || btn.disabled) return;
       const p = parseInt(btn.dataset.apage, 10) || 1;
@@ -8632,6 +8656,19 @@ function setupSubPopupEvents() {
       const gridEl = $('#animeGrid');
       if (gridEl && gridEl.scrollIntoView) gridEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
     });
+    if (apWrap) {
+      // Enter trong ô nhập → nhảy tới trang đã gõ (chặn submit nếu lỡ nằm trong form)
+      apWrap.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' && e.target.classList && e.target.classList.contains('anime-page-input')) {
+          e.preventDefault();
+          jumpAnimeToInput();
+        }
+      });
+      // Focus ô nhập → bôi sáng số sẵn để gõ đè ngay
+      apWrap.addEventListener('focusin', (e) => {
+        if (e.target.classList && e.target.classList.contains('anime-page-input')) e.target.select();
+      });
+    }
     // Thay đổi kích thước cửa sổ → số cột lưới đổi theo → tính lại số anime/trang (debounce).
     // Chỉ render khi tab Anime đang mở (lưới ẩn thì không đo được số cột; switchTab sẽ render lại khi quay về).
     let animeResizeTimer = null;
@@ -8768,13 +8805,46 @@ function setupSubPopupEvents() {
     if (_oldCommentLoadMore) _oldCommentLoadMore.remove();
     // Thanh phân trang bình luận (5/trang) — delegate trên modal
     const cpWrap = $('#commentPagination');
-    if (cpWrap && cpWrap._bound) cpWrap.removeEventListener('click', cpWrap._bound);
-    if (cpWrap) cpWrap.addEventListener('click', (e) => {
-      const btn = e.target.closest('[data-cpage]');
-      if (!btn || btn.disabled) return;
-      State.commentPage = parseInt(btn.dataset.cpage, 10) || 1;
+    const jumpCommentToInput = () => {
+      const input = cpWrap && cpWrap.querySelector('.comment-page-input');
+      if (!input) return;
+      const total = parseInt(input.dataset.total, 10) || 1;
+      let p = parseInt(input.value, 10);
+      if (!Number.isFinite(p)) { input.value = State.commentPage; return; } // ô rỗng/sai → giữ nguyên
+      p = Math.min(Math.max(1, p), total); // kẹp về [1, tổng số trang]
+      if (p === State.commentPage) { input.value = p; return; }
+      State.commentPage = p;
       renderCommentList();
-    });
+    };
+    if (cpWrap && cpWrap._bound) cpWrap.removeEventListener('click', cpWrap._bound);
+    if (cpWrap) {
+      const onCommentPageClick = (e) => {
+        if (e.target.closest('[data-cgo]')) { jumpCommentToInput(); return; }
+        const btn = e.target.closest('[data-cpage]');
+        if (!btn || btn.disabled) return;
+        State.commentPage = parseInt(btn.dataset.cpage, 10) || 1;
+        renderCommentList();
+      };
+      cpWrap.addEventListener('click', onCommentPageClick);
+      cpWrap._bound = onCommentPageClick;
+      // Enter trong ô nhập → nhảy tới trang đã gõ (chặn submit nếu lỡ nằm trong form)
+      if (cpWrap._boundKey) cpWrap.removeEventListener('keydown', cpWrap._boundKey);
+      const onCommentPageKey = (e) => {
+        if (e.key === 'Enter' && e.target.classList && e.target.classList.contains('comment-page-input')) {
+          e.preventDefault();
+          jumpCommentToInput();
+        }
+      };
+      cpWrap.addEventListener('keydown', onCommentPageKey);
+      cpWrap._boundKey = onCommentPageKey;
+      // Focus ô nhập → bôi sáng số sẵn để gõ đè ngay
+      if (!cpWrap._focusWired) {
+        cpWrap.addEventListener('focusin', (e) => {
+          if (e.target.classList && e.target.classList.contains('comment-page-input')) e.target.select();
+        });
+        cpWrap._focusWired = true;
+      }
+    }
 
     // Chat chung (sticky dock): gửi & captcha & toolbar & paste & click nhãn anime & mở rộng
     $('#chatSendBtn').addEventListener('click', submitChat);

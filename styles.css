@@ -2528,10 +2528,26 @@ select.input option { background: #141a2d; color: var(--text); }
 /* ── Chip hashtag ── */
 .chip-hashtag { color: var(--text-dim); border-color: var(--border); background: rgba(255,255,255,0.03); }
 
-/* ── Thanh phân trang ‹ 1 2 3 … › (bình luận + lưới tab Anime) — gọn, bám sát text ── */
+/* ── Thanh phân trang MỚI — ‹ › CỐ ĐỊNH 2 đầu + dãy số + ô nhập nhảy trang ──
+   Grid 4 cột [‹][số trang 1fr][›][ô nhập] + width cố định → 2 mũi tên luôn nằm
+   đúng 1 tọa độ (không bị dồn khi dãy số đổi độ rộng 9→10→100…). position:sticky
+   đáy → thanh dính đáy vùng cuộn, bấm chuyển trang nhiều lần vẫn trúng 1 chỗ. */
 .comment-pagination, .anime-pagination {
-  display: flex; align-items: center; justify-content: center; gap: 4px;
-  padding: 6px 0 0; margin-bottom: 0; flex-wrap: wrap;
+  position: sticky;
+  bottom: 8px;
+  z-index: 6;
+  display: grid;
+  grid-template-columns: 32px minmax(0, 1fr) 32px auto;
+  align-items: center;
+  gap: 6px;
+  width: min(560px, 100%);
+  margin: 8px auto 0;
+  padding: 6px 12px;
+  border: var(--glass-border);
+  border-radius: 999px;
+  background: rgba(10, 14, 26, 0.78);
+  backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
 }
 .comment-pagination.hidden, .anime-pagination.hidden { display: none; }
 .comment-page-btn, .anime-page-btn {
@@ -2546,3 +2562,42 @@ select.input option { background: #141a2d; color: var(--text); }
 .comment-page-btn.current, .anime-page-btn.current { background: var(--accent); border-color: var(--accent); color: #fff; }
 .comment-page-btn.disabled, .anime-page-btn.disabled { opacity: 0.4; cursor: not-allowed; }
 .comment-page-ellipsis, .anime-page-ellipsis { color: var(--text-dim); padding: 0 2px; }
+/* Mũi tên 2 đầu: chiếm trọn cột cố định của grid → không bao giờ di chuyển */
+.comment-page-arrow, .anime-page-arrow { width: 100%; padding: 0; font-size: 16px; }
+/* Dãy số trang: căn giữa khoảng trống còn lại; nếu tràn → giữ đầu (trang 1) thay vì cắt đều 2 bên */
+.comment-page-nums, .anime-page-nums {
+  min-width: 0;
+  overflow: hidden;
+  display: flex; align-items: center; gap: 4px;
+  justify-content: center;
+  justify-content: safe center;
+}
+/* Ô nhập nhảy trang: cố định độ rộng → không đẩy mũi tên khi số digit đổi */
+.comment-page-jump, .anime-page-jump { display: flex; align-items: center; gap: 5px; }
+.comment-page-jump-label, .anime-page-jump-label,
+.comment-page-total, .anime-page-total {
+  color: var(--text-dim); font-size: 11.5px; font-weight: 700; white-space: nowrap;
+}
+.comment-page-input, .anime-page-input {
+  width: 46px; height: 26px; padding: 0 4px;
+  text-align: center; font-size: 12.5px; font-weight: 700; font-family: inherit; line-height: 1;
+  color: var(--text); border: var(--glass-border); background: rgba(255,255,255,0.06);
+  border-radius: 6px; outline: none;
+  -moz-appearance: textfield; appearance: textfield;
+  transition: border-color .15s ease, box-shadow .15s ease;
+}
+.comment-page-input:focus, .anime-page-input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.28);
+}
+.comment-page-input::-webkit-outer-spin-button,
+.comment-page-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+/* Mobile hẹp: bỏ nhãn "Trang", mũi tên gọn lại, chừa chỗ cho dãy số */
+@media (max-width: 480px) {
+  .comment-pagination, .anime-pagination {
+    grid-template-columns: 28px minmax(0, 1fr) 28px auto;
+    gap: 4px; padding: 6px 8px;
+  }
+  .comment-page-jump-label, .anime-page-jump-label { display: none; }
+  .comment-page-nums, .anime-page-nums { gap: 3px; }
+}
