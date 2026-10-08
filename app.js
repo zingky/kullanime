@@ -7413,36 +7413,48 @@ function setupSubPopupEvents() {
     if (State.currentAnime) loadComments(State.currentAnime.id);
   }
 
-  // Đồng bộ thanh bulk-select: đếm số mục đã chọn + trạng thái nút xóa / select-all
-  // Gọi luôn khi phải tái tính toàn bộ UI (thay vì chỉ có sự kiện individual)
+  // Đồng bộ thanh bulk-select: đếm số mục đã chọn + trạng thái nút xóa / select-all.
+  // NGUỒN SỰ THẬT DUY NHẤT là State.adminSelectedAnime/Comments — hàm này CHỈ ĐỌC,
+  // không bao giờ clear Set (bản cũ clear ở đây nên tick chọn nào cũng mất ngay).
   function syncAdminBulkBar(kind) {
-    const key = kind === 'anime' ? 'adminSelectedAnime' : 'adminSelectedComments';
-    const bar = $(kind === 'anime' ? 'animeBulkBar' : 'commentBulkBar');
-    const countEl = $(kind === 'anime' ? 'animeSelectedCount' : 'commentSelectedCount');
-    const selAll = $(kind === 'anime' ? 'animeSelectAll' : 'commentSelectAll');
-    if (!bar) return;
-    // 1) Luôn clear state trước để tránh lỗi giữ chân khi tải lại/lọc
-    State[key].clear();
-    const n = State[key].size; // vẫn bằng 0 → chỉ dùng chiều rộng để hiển thị
-    const checkboxes = document.querySelectorAll((kind === 'anime' ? '#adminAnimeList' : '#adminCommentList') + ' .admin-cb');
-    const total = checkboxes.length;
-    const delBtn = $(kind === 'anime' ? 'animeBulkDelBtn' : 'commentBulkDelBtn');
-    const clearBtn = $(kind === 'anime' ? 'animeClearSelBtn' : 'commentClearSelBtn');
+    const isAnime = kind === 'anime';
+    const set = isAnime ? State.adminSelectedAnime : State.adminSelectedComments;
+    const listSel = isAnime ? '#adminAnimeList' : '#adminCommentList';
+    const countEl = $(isAnime ? 'animeSelectedCount' : 'commentSelectedCount');
+    const selAll = $(isAnime ? 'animeSelectAll' : 'commentSelectAll');
+    const delBtn = $(isAnime ? 'animeBulkDelBtn' : 'commentBulkDelBtn');
+    const clearBtn = $(isAnime ? 'animeClearSelBtn' : 'commentClearSelBtn');
+    // Quét DOM: checkbox nào tick mà Set chưa có → thêm; highlight theo checkbox.
+    // KHÔNG xoá id khỏi Set khi DOM không còn dòng đó (lọc/tìm kiếm ẩn dòng đi nhưng
+    // lựa chọn vẫn giữ — render lại sau sẽ tick lại đúng).
+    const cbs = Array.from(document.querySelectorAll(listSel + ' .admin-cb'));
+    cbs.forEach((cb) => {
+      const id = String(cb.dataset.cbid);
+      if (cb.checked) set.add(id);
+      else set.delete(id);
+      const row = cb.closest('.admin-row');
+      if (row) row.classList.toggle('selected', cb.checked);
+    });
+    const n = set.size;
+    const total = cbs.length;
     const checkedAll = total > 0 && n === total;
-    // 2) Hiển thị count + nút
+    // Hiển thị count + nút
     if (countEl) countEl.textContent = (total ? 'Tổng ' + total + ' · ' : '') + 'Chọn ' + n + ' mục';
     if (delBtn) delBtn.disabled = n === 0;
     if (clearBtn) clearBtn.disabled = n === 0;
-    // 3) Select-all chỉ true khi chọn hết; indeterminate khi partial
+    // Select-all chỉ true khi chọn hết; indeterminate khi chọn một phần
     if (selAll) {
       selAll.disabled = total === 0;
       selAll.checked = checkedAll;
       selAll.indeterminate = !checkedAll && n > 0 && n < total;
     }
-    // 4) Nếu UI có state không khớp (do client-side), auto-sync toàn bộ checkbox + highlight
-    if (n === 0) {
-      document.querySelectorAll((kind === 'anime' ? '#adminAnimeList' : '#adminCommentList') + ' .admin-cb').forEach((cb) => { cb.checked = false; });
-      document.querySelectorAll((kind === 'anime' ? '#adminAnimeList' : '#adminCommentList') + ' .admin-row').forEach((r) => r.classList.remove('selected'));
+    // Nút backfill (ảnh NV / dữ liệu AniList / liên kết) chỉ bật khi có anime được chọn
+    if (isAnime) {
+      const has = n > 0;
+      ['backfillCharsBtn', 'backfillDataBtn', 'backfillLinksBtn'].forEach((bid) => {
+        const b = document.getElementById(bid);
+        if (b) b.disabled = !has;
+      });
     }
   }
 
@@ -7470,23 +7482,26 @@ function setupSubPopupEvents() {
     if (row) row.classList.toggle('selected', checked);
   }
 
-  // Shift-click chọn theo DẢI (desktop): nhớ mốc (anchor) lần click không-shift gần nhất,
-  // shift+click dòng khác → chọn/bỏ chọn toàn bộ dòng giữa anchor và dòng hiện tại.
-  const _shiftAnchor = { anime: null, comments: null };
+  // Shift-click chọn theo DẢI (desktop): click thường đặt mốc (anchor),
+  // shift+click dòng khác → tick/bỏ tick toàn bộ dòng giữa anchor và dòng hiện tại.
+  // Anchor LƯU THEO VỊ TRÍ INDEX (không lưu id) nên lọc/tìm kiếm render lại vẫn đúng dải.
+  const _shiftAnchorIdx = { anime: -1, comments: -1 };
   function handleAdminShiftRange(kind, cb, listSel) {
     const cbs = Array.from(document.querySelectorAll(listSel + ' .admin-cb'));
     const idx = cbs.indexOf(cb);
-    const anchorId = _shiftAnchor[kind];
-    const anchorIdx = anchorId != null ? cbs.findIndex((c) => String(c.dataset.cbid) === String(anchorId)) : -1;
-    if (anchorIdx === -1 || idx === -1) {
-      _shiftAnchor[kind] = String(cb.dataset.cbid);
+    if (idx === -1) return;
+    const anchorIdx = _shiftAnchorIdx[kind];
+    if (anchorIdx < 0 || anchorIdx >= cbs.length) {
+      _shiftAnchorIdx[kind] = idx;
       setAdminRowChecked(kind, cb, cb.checked);
       syncAdminBulkBar(kind);
       return;
     }
     const checked = cb.checked;
-    const [from, to] = anchorIdx < idx ? [anchorIdx, idx] : [idx, anchorIdx];
+    const from = Math.min(anchorIdx, idx);
+    const to = Math.max(anchorIdx, idx);
     for (let i = from; i <= to; i++) setAdminRowChecked(kind, cbs[i], checked);
+    _shiftAnchorIdx[kind] = idx; // dải tiếp theo nối từ đây (kiểu Gmail/Explorer)
     syncAdminBulkBar(kind);
   }
 
@@ -7944,7 +7959,8 @@ function setupSubPopupEvents() {
     btn.disabled = true;
     const ids = Array.from(State.adminSelectedAnime);
     if (!ids.length) { toast('Hãy chọn ít nhất 1 anime trước.', 'warning', 4000); btn.disabled = false; return; }
-    const list = ids.map((id) => State.animes.find((a) => String(a.id) === id)).filter(Boolean);
+    const list = ids.map((id) => State.animes.find((a) => String(a.id) === String(id))).filter(Boolean);
+    if (!list.length) { toast('Anime đã chọn không còn trong danh sách.', 'warning'); btn.disabled = false; return; }
     let updated = 0;
     let skipped = 0;
     for (let i = 0; i < list.length; i++) {
@@ -7986,15 +8002,18 @@ function setupSubPopupEvents() {
     toast('Xong! Đã bổ sung ảnh nhân vật cho ' + updated + ' anime' + (skipped ? ' (bỏ qua ' + skipped + ' đã có/không có nhân vật)' : '') + '.', 'success', 6000);
   }
 
-  // Nút "Lấy liên kết": làm mới liên kết cho toàn bộ anime —
+  // Nút "Lấy liên kết": CHỈ chạy trên anime ĐANG ĐƯỢC CHỌN (tick checkbox) —
   // nhóm "ext" (Official Site, Wikipedia...) bị ghi đè bằng data mới (AniList → fallback Jikan/MAL),
   // nhóm "link khác" (streaming...) được giữ nguyên; lưu vào cột links (jsonb) để khách xem instant.
   async function backfillExternalLinks() {
     if (!State.isAdmin) { toast('Bạn không có quyền.', 'error'); return; }
     const btn = $('#backfillLinksBtn');
     if (!btn || btn.disabled) return;
+    const ids = Array.from(State.adminSelectedAnime);
+    if (!ids.length) { toast('Hãy chọn ít nhất 1 anime trước.', 'warning', 4000); return; }
+    const list = ids.map((id) => State.animes.find((a) => String(a.id) === String(id))).filter(Boolean);
+    if (!list.length) { toast('Anime đã chọn không còn trong danh sách.', 'warning'); return; }
     btn.disabled = true;
-    const list = State.animes.slice();
     let updated = 0;
     for (let i = 0; i < list.length; i++) {
       const a = list[i];
@@ -8032,14 +8051,17 @@ function setupSubPopupEvents() {
     toast('Xong! Đã cập nhật liên kết cho ' + updated + ' anime (giữ nguyên nhóm "link khác").', 'success', 6000);
   }
 
-  // Lấy toàn bộ thông tin bổ sung từ AniList cho anime cũ (tên Romaji/Native, synonyms,
-  // ngày phát hành, mùa, nguồn, hashtag, producers) — chạy từ từ tránh rate-limit.
+  // Lấy toàn bộ thông tin bổ sung từ AniList — CHỈ chạy trên anime ĐANG ĐƯỢC CHỌN
+  // (tên Romaji/Native, synonyms, ngày phát hành, mùa, nguồn, hashtag, producers) — chạy từ từ tránh rate-limit.
   async function backfillAnimeData() {
     if (!State.isAdmin) { toast('Bạn không có quyền.', 'error'); return; }
     const btn = $('#backfillDataBtn');
     if (!btn || btn.disabled) return;
+    const ids = Array.from(State.adminSelectedAnime);
+    if (!ids.length) { toast('Hãy chọn ít nhất 1 anime trước.', 'warning', 4000); return; }
+    const list = ids.map((id) => State.animes.find((a) => String(a.id) === String(id))).filter(Boolean);
+    if (!list.length) { toast('Anime đã chọn không còn trong danh sách.', 'warning'); return; }
     btn.disabled = true;
-    const list = State.animes.slice();
     let updated = 0;
     let skipped = 0;
     for (let i = 0; i < list.length; i++) {
@@ -8848,7 +8870,9 @@ function setupSubPopupEvents() {
       });
     });
 
-    // Admin anime list actions (delegate)
+    // Admin anime list: 1 handler click DUY NHẤT (Sửa/Xóa + tick chọn dòng + checkbox + shift).
+    // (Bản cũ có 2 handler cùng gắn vào #adminAnimeList: cái cũ cb.click() rồi cái mới
+    // toggle tay nữa → click 1 lần mà đảo trạng thái 2 lần = như không chọn.)
     $('#adminAnimeList').addEventListener('click', (e) => {
       // Nút hành động (Sửa / Xóa)
       const btn = e.target.closest('[data-apact]');
@@ -8858,47 +8882,18 @@ function setupSubPopupEvents() {
         else if (btn.dataset.apact === 'del') deleteAnime(id);
         return;
       }
-      // Nhấp checkbox → để change event cập nhật trạng thái chọn
-      if (e.target.closest('.admin-cb')) return;
-      // Nhấp bất kỳ đâu trên dòng (không phải nút) → bật/tắt chọn
-      const row = e.target.closest('.admin-row');
-      if (row) {
-        const cb = row.querySelector('.admin-cb');
-        if (cb) cb.click();
-      }
-    });
-    // Tick chọn anime (bulk delete) — hỗ trợ Shift-click chọn theo dải (desktop)
-    // change event của checkbox KHÔNG mang shiftKey → theo dõi Shift bằng keydown/keyup.
-    let _animeShiftDown = false;
-    window.addEventListener('keydown', (e) => { if (e.key === 'Shift') _animeShiftDown = true; });
-    window.addEventListener('keyup', (e) => { if (e.key === 'Shift') _animeShiftDown = false; });
-    window.addEventListener('blur', () => { _animeShiftDown = false; });
-    $('#adminAnimeList').addEventListener('click', (e) => {
-      // Nhấp bất kỳ đâu trên dòng (không phải nút Sửa/Xóa) → bật/tắt chọn
-      if (e.target.closest('[data-apact]')) return;
       const row = e.target.closest('.admin-row');
       if (!row) return;
       const cb = row.querySelector('.admin-cb');
-      if (!cb || e.target === cb) return; // bấm thẳng checkbox → để change xử lý
-      const want = !cb.checked;
-      if (e.shiftKey || _animeShiftDown) {
-        cb.checked = want;
-        handleAdminShiftRange('anime', cb, '#adminAnimeList');
-      } else {
-        _shiftAnchor.anime = String(cb.dataset.cbid);
-        setAdminRowChecked('anime', cb, want);
-        syncAdminBulkBar('anime');
-      }
-    });
-    $('#adminAnimeList').addEventListener('change', (e) => {
-      const cb = e.target.closest('.admin-cb');
       if (!cb) return;
-      // change không mang shiftKey → bắt shiftKey từ click gần nhất
-      if (_lastAnimeClickShift) {
-        handleAdminShiftRange('anime', cb, '#adminAnimeList');
-      } else {
-        _shiftAnchor.anime = String(cb.dataset.cbid);
-        setAdminRowChecked('anime', cb, cb.checked);
+      const onBox = e.target === cb; // bấm thẳng checkbox: browser đã tự toggle
+      const want = onBox ? cb.checked : !cb.checked;
+      if (!onBox) cb.checked = want;
+      if (e.shiftKey) handleAdminShiftRange('anime', cb, '#adminAnimeList');
+      else {
+        const cbs = Array.from(document.querySelectorAll('#adminAnimeList .admin-cb'));
+        _shiftAnchorIdx.anime = cbs.indexOf(cb);
+        setAdminRowChecked('anime', cb, want);
         syncAdminBulkBar('anime');
       }
     });
@@ -8934,43 +8929,25 @@ function setupSubPopupEvents() {
       } else if (btn.dataset.spact === 'del') deleteSong(id);
     });
 
-    // Admin comment list actions (delegate) — nhớ shiftKey của click để change dùng
-    let _lastCommentClickShift = false;
+    // Tick chọn bình luận — 1 handler click DUY NHẤT (Ghim/Xóa + tick + shift).
     $('#adminCommentList').addEventListener('click', (e) => {
-      _lastCommentClickShift = !!e.shiftKey;
-      // Nút hành động (Ghim / Xóa)
       const btn = e.target.closest('[data-cact]');
       if (btn) {
         adminCommentAction(btn.dataset.cact, btn.dataset.id);
         return;
       }
-      // Nhấp thẳng checkbox → để change event cập nhật (có hỗ trợ Shift theo dải)
-      if (e.target.closest('.admin-cb')) return;
-      // Nhấp bất kỳ đâu trên dòng (không phải nút) → bật/tắt chọn
       const row = e.target.closest('.admin-row');
-      if (row) {
-        const cb = row.querySelector('.admin-cb');
-        if (!cb) return;
-        const want = !cb.checked;
-        if (e.shiftKey) {
-          cb.checked = want;
-          handleAdminShiftRange('comments', cb, '#adminCommentList');
-        } else {
-          _shiftAnchor.comments = String(cb.dataset.cbid);
-          setAdminRowChecked('comments', cb, want);
-        }
-      }
-    });
-    // Tick chọn bình luận (bulk delete) — Shift-click checkbox chọn theo dải
-    $('#adminCommentList').addEventListener('change', (e) => {
-      const cb = e.target.closest('.admin-cb');
+      if (!row) return;
+      const cb = row.querySelector('.admin-cb');
       if (!cb) return;
-      // change không mang shiftKey → bắt shiftKey tại thời điểm click gần nhất
-      if (_lastCommentClickShift) {
-        handleAdminShiftRange('comments', cb, '#adminCommentList');
-      } else {
-        _shiftAnchor.comments = String(cb.dataset.cbid);
-        setAdminRowChecked('comments', cb, cb.checked);
+      const onBox = e.target === cb;
+      const want = onBox ? cb.checked : !cb.checked;
+      if (!onBox) cb.checked = want;
+      if (e.shiftKey) handleAdminShiftRange('comments', cb, '#adminCommentList');
+      else {
+        const cbs = Array.from(document.querySelectorAll('#adminCommentList .admin-cb'));
+        _shiftAnchorIdx.comments = cbs.indexOf(cb);
+        setAdminRowChecked('comments', cb, want);
         syncAdminBulkBar('comments');
       }
     });
