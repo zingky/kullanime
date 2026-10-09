@@ -74,8 +74,9 @@
         <button class="btn btn-login" id="loginBtn" title="Đăng nhập / Tài khoản" aria-label="Đăng nhập / Tài khoản">
           <span id="loginBtnIcon">👤</span>
         </button>
-        <!-- Nút Tải lại dữ liệu mới nhất — tạm ẩn (mỗi lần vào web là tải mới) -->
-        <button class="btn btn-refresh" id="refreshBtn" title="Tải lại dữ liệu mới nhất" aria-label="Tải lại dữ liệu mới nhất" style="display: none;">
+        <!-- Nút Tải lại dữ liệu mới nhất — đi qua version-check: đã mới nhất thì báo
+             ngay không fetch thừa, có mới thì chỉ tải delta (record đổi sau mốc cache) -->
+        <button class="btn btn-refresh" id="refreshBtn" title="Tải lại dữ liệu mới nhất" aria-label="Tải lại dữ liệu mới nhất">
           <span>🔄</span>
         </button>
       </div>
@@ -777,7 +778,7 @@
   <div class="mini-pop hidden" id="epPop"></div>
   <div class="mini-pop hidden" id="heartPop"></div>
 
-  <script src="./app.js?v=115"></script>
+  <script src="./app.js?v=116"></script>
 </body>
 </html>
 
