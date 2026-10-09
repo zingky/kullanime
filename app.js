@@ -3415,9 +3415,12 @@
   }
 
   // ===================== PHÁO HOA CANVAS =====================
+  // Hệ số thời gian 0.7 = hiệu ứng chậm hơn 30% (vận tốc ×0.7, gia tốc ×0.7² →
+  // vẫn nổ đúng độ cao/hình dạng cũ nhưng đi chậm hơn, decay ×0.7 → tàn chậm hơn)
+  const FW_SLOW = 0.7;
   const _fw = {
     canvas: null, ctx: null, raf: 0, rockets: [], particles: [],
-    running: false, w: 0, h: 0, lastLaunch: 0
+    running: false, w: 0, h: 0, nextLaunch: 0
   };
   function initFireworksCanvas() {
     _fw.canvas = $('#fireworksCanvas');
@@ -3430,46 +3433,160 @@
     resize();
     window.addEventListener('resize', resize);
   }
+  // ---- Sinh điểm outline cho từng hình nổ (toạ độ đơn vị, bán kính ≤ 1) ----
+  function fwCirclePts(cx, cy, r, n) {
+    const pts = [];
+    for (let i = 0; i < n; i++) {
+      const a = (Math.PI * 2 * i) / n;
+      pts.push({ x: cx + Math.cos(a) * r, y: cy + Math.sin(a) * r });
+    }
+    return pts;
+  }
+  function fwEllipsePts(cx, cy, rx, ry, rot, n) {
+    const c = Math.cos(rot), s = Math.sin(rot), pts = [];
+    for (let i = 0; i < n; i++) {
+      const a = (Math.PI * 2 * i) / n;
+      const ex = Math.cos(a) * rx, ey = Math.sin(a) * ry;
+      pts.push({ x: cx + ex * c - ey * s, y: cy + ex * s + ey * c });
+    }
+    return pts;
+  }
+  function fwEllipseHit(cx, cy, rx, ry, rot) {
+    const c = Math.cos(rot), s = Math.sin(rot);
+    return (x, y) => {
+      const dx = x - cx, dy = y - cy;
+      const lx = dx * c + dy * s, ly = -dx * s + dy * c;
+      return (lx * lx) / (rx * rx) + (ly * ly) / (ry * ry) < 1;
+    };
+  }
+  // Đều theo cung trên đường gấp khúc đóng → giữ nguyên góc nhọn (tai mèo, cánh sao)
+  function fwPolyPts(verts, n) {
+    const segs = []; let total = 0;
+    for (let i = 0; i < verts.length; i++) {
+      const a = verts[i], b = verts[(i + 1) % verts.length];
+      const len = Math.hypot(b.x - a.x, b.y - a.y);
+      segs.push({ a, b, len }); total += len;
+    }
+    const pts = [];
+    for (let i = 0; i < n; i++) {
+      let d = (total * i) / n;
+      for (const sg of segs) {
+        if (d <= sg.len) {
+          const t = sg.len ? d / sg.len : 0;
+          pts.push({ x: sg.a.x + (sg.b.x - sg.a.x) * t, y: sg.a.y + (sg.b.y - sg.a.y) * t });
+          break;
+        }
+        d -= sg.len;
+      }
+    }
+    return pts;
+  }
+  function fwPolyHit(verts) {
+    return (x, y) => {
+      let inside = false;
+      for (let i = 0, j = verts.length - 1; i < verts.length; j = i++) {
+        const xi = verts[i].x, yi = verts[i].y, xj = verts[j].x, yj = verts[j].y;
+        if ((yi > y) !== (yj > y) && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi) inside = !inside;
+      }
+      return inside;
+    };
+  }
+  // Viền hợp nhất nhiều thành phần: bỏ điểm nằm TRONG thành phần khác
+  // → tai mèo/thỏ không lộ dots vào trong đầu, chỉ hiện silhouette ngoài cùng
+  function fwUnion(components) {
+    let out = [];
+    components.forEach((c, i) => {
+      const others = components.filter((_, j) => j !== i);
+      out = out.concat(c.pts.filter((p) => !others.some((o) => o.hit(p.x, p.y))));
+    });
+    return out;
+  }
+  // Cửa sổ chọn hình — trộn đều để màn hình luôn có tròn, vành, sao, mèo, thỏ
+  function fwPickShape() {
+    const r = Math.random();
+    if (r < 0.36) return 'circle';  // tròn đầy đặn 2 lớp (nền)
+    if (r < 0.50) return 'ring';    // vành mảnh sắc nét
+    if (r < 0.70) return 'star5';   // ngôi sao 5 cánh
+    if (r < 0.85) return 'cat';     // mèo — tai nhọn
+    return 'rabbit';                // thỏ — tai dài tròn
+  }
+  function fwShapePts(kind, n) {
+    if (kind === 'circle') {
+      // Vành đều + 30% lớp trong so le đều → nổ đầy, giữa không rỗng, vẫn tròn
+      const pts = [];
+      for (let i = 0; i < n; i++) {
+        const a = (Math.PI * 2 * i) / n;
+        const s = i % 10 < 3 ? 0.52 : 1;
+        pts.push({ x: Math.cos(a) * s, y: Math.sin(a) * s });
+      }
+      return pts;
+    }
+    if (kind === 'ring') return fwCirclePts(0, 0, 1, n);
+    if (kind === 'star5') {
+      const verts = [];
+      for (let k = 0; k < 10; k++) {
+        const a = -Math.PI / 2 + (Math.PI * k) / 5; // cánh đỉnh hướng lên
+        const rad = k % 2 === 0 ? 1 : 0.45;
+        verts.push({ x: Math.cos(a) * rad, y: Math.sin(a) * rad });
+      }
+      return fwPolyPts(verts, n);
+    }
+    if (kind === 'rabbit') {
+      const head = {
+        pts: fwCirclePts(0, 0.20, 0.60, Math.round(n * 0.66)),
+        hit: (x, y) => Math.hypot(x, y - 0.20) < 0.60
+      };
+      const mkEar = (sign) => {
+        const cx = 0.30 * sign, cy = -0.62, rot = 0.16 * sign;
+        return {
+          pts: fwEllipsePts(cx, cy, 0.13, 0.30, rot, Math.round(n * 0.30)),
+          hit: fwEllipseHit(cx, cy, 0.13, 0.30, rot)
+        };
+      };
+      return fwUnion([head, mkEar(-1), mkEar(1)]);
+    }
+    if (kind === 'cat') {
+      const head = {
+        pts: fwCirclePts(0, 0.22, 0.62, Math.round(n * 0.68)),
+        hit: (x, y) => Math.hypot(x, y - 0.22) < 0.62
+      };
+      const mkEar = (sign) => {
+        const verts = [
+          { x: 0.54 * sign, y: -0.09 }, // chân tai 1 (trên vòng đầu)
+          { x: 0.60 * sign, y: -0.80 }, // chóp tai nhọn
+          { x: 0.16 * sign, y: -0.38 }  // chân tai 2
+        ];
+        return { pts: fwPolyPts(verts, Math.round(n * 0.30)), hit: fwPolyHit(verts) };
+      };
+      return fwUnion([head, mkEar(-1), mkEar(1)]);
+    }
+    return fwCirclePts(0, 0, 1, n);
+  }
   function spawnRocket() {
-    const x = _fw.w * (0.15 + Math.random() * 0.7);
-    const targetY = _fw.h * (0.1 + Math.random() * 0.35);
+    const x = _fw.w * (0.10 + Math.random() * 0.80);
+    const targetY = _fw.h * (0.10 + Math.random() * 0.35);
     const hue = Math.floor(Math.random() * 360);
     _fw.rockets.push({
-      x, y: _fw.h, targetY, vx: (Math.random() - 0.5) * 0.45,
-      vy: -(3 + Math.random() * 1.5), hue, trail: []
+      x, y: _fw.h, targetY, vx: (Math.random() - 0.5) * 0.32,
+      vy: -(3 + Math.random() * 1.5) * FW_SLOW, hue, trail: []
     });
   }
   function explode(x, y, hue) {
-    const count = 60 + Math.floor(Math.random() * 50);
-    const type = Math.floor(Math.random() * 4);
-    const baseSpeed = 2 + Math.random() * 3;
-    for (let i = 0; i < count; i++) {
-      let angle, speed, clr;
-      if (type === 0) {
-        angle = (Math.PI * 2 * i) / count + (Math.random() - 0.5) * 0.1;
-        speed = baseSpeed * (0.7 + Math.random() * 0.6);
-        clr = 'hsl(' + ((hue + Math.random() * 40 - 20 + 360) % 360) + ',100%,' + (60 + Math.random() * 20) + '%)';
-      } else if (type === 1) {
-        const t = (Math.PI * 2 * i) / count;
-        const r = 3 * (1 - Math.sin(t)) * (0.8 + Math.random() * 0.4);
-        angle = t; speed = r;
-        clr = 'hsl(' + ((hue + 330) % 360) + ',100%,' + (65 + Math.random() * 15) + '%)';
-      } else if (type === 2) {
-        const arm = i % 5;
-        const dist = (Math.floor(i / 5) / (count / 5)) * baseSpeed * 2.5;
-        angle = (Math.PI * 2 * arm) / 5 + (Math.random() - 0.5) * 0.3;
-        speed = dist * (0.6 + Math.random() * 0.5);
-        clr = 'hsl(' + ((hue + 60) % 360) + ',100%,' + (60 + Math.random() * 20) + '%)';
-      } else {
-        const ring = i < count / 2 ? 1 : 2;
-        angle = (Math.PI * 2 * i) / (count / 2) + (Math.random() - 0.5) * 0.15;
-        speed = baseSpeed * ring * (0.6 + Math.random() * 0.5);
-        clr = 'hsl(' + ((hue + 180) % 360) + ',100%,' + (55 + Math.random() * 25) + '%)';
-      }
+    const shape = fwPickShape();
+    const n = 90 + Math.floor(Math.random() * 24);
+    const pts = fwShapePts(shape, n);
+    // CÙNG maxSpeed cho mọi hạt (jitter ±3%) → vành nổ SẠCH, ĐỀU, không lởm chởm
+    const maxSpeed = (2.7 + Math.random() * 0.8) * FW_SLOW;
+    for (const p of pts) {
+      const spd = maxSpeed * (0.97 + Math.random() * 0.06);
+      const hj = ((hue + Math.random() * 24 - 12) + 360) % 360; // màu quanh hue rocket ±12°
+      const clr = 'hsl(' + hj + ',100%,' + (62 + Math.random() * 14) + '%)';
       _fw.particles.push({
-        x, y, vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed,
-        life: 1, decay: 0.003 + Math.random() * 0.0045, gravity: 0.015 + Math.random() * 0.01125,
-        size: 1.5 + Math.random() * 2, clr, alpha: 1
+        x, y, vx: p.x * spd, vy: p.y * spd,
+        life: 1,
+        decay: (0.003 + Math.random() * 0.0045) * FW_SLOW,          // tàn chậm hơn 30%
+        gravity: (0.015 + Math.random() * 0.01125) * FW_SLOW * FW_SLOW,
+        size: 1.5 + Math.random() * 1.9, clr, alpha: 1
       });
     }
   }
@@ -3477,29 +3594,29 @@
     if (!_fw.running) return;
     const ctx = _fw.ctx;
     ctx.globalCompositeOperation = 'destination-out';
-    ctx.fillStyle = 'rgba(0,0,0,0.18)';
+    ctx.fillStyle = 'rgba(0,0,0,0.13)'; // mờ dần chậm hơn 30% (0.18×0.7)
     ctx.fillRect(0, 0, _fw.w, _fw.h);
     ctx.globalCompositeOperation = 'lighter';
     for (let i = _fw.rockets.length - 1; i >= 0; i--) {
       const r = _fw.rockets[i];
       r.trail.push({ x: r.x, y: r.y, life: 1 });
-      if (r.trail.length > 8) r.trail.shift();
-      r.x += r.vx; r.y += r.vy; r.vy += 0.045;
+      if (r.trail.length > 11) r.trail.shift(); // đường lên dài hơn do bay chậm
+      r.x += r.vx; r.y += r.vy; r.vy += 0.045 * FW_SLOW * FW_SLOW;
       for (const t of r.trail) {
         ctx.beginPath();
         ctx.arc(t.x, t.y, 1.8, 0, Math.PI * 2);
         ctx.fillStyle = 'hsla(' + r.hue + ',100%,70%,' + (t.life * 0.6) + ')';
         ctx.fill();
-        t.life -= 0.12;
+        t.life -= 0.084; // 0.12×0.7
       }
-      if (r.vy >= -1 || r.y <= r.targetY) {
+      if (r.vy >= -1 * FW_SLOW || r.y <= r.targetY) {
         explode(r.x, r.y, r.hue);
         _fw.rockets.splice(i, 1);
       }
     }
     for (let i = _fw.particles.length - 1; i >= 0; i--) {
       const p = _fw.particles[i];
-      p.x += p.vx; p.y += p.vy; p.vy += p.gravity; p.vx *= 0.99;
+      p.x += p.vx; p.y += p.vy; p.vy += p.gravity; p.vx *= 0.993; // drag theo hệ số chậm
       p.life -= p.decay; p.alpha = Math.max(0, p.life);
       if (p.life <= 0) { _fw.particles.splice(i, 1); continue; }
       ctx.beginPath();
@@ -3509,9 +3626,10 @@
       ctx.fill();
       ctx.globalAlpha = 1;
     }
-    if (ts - _fw.lastLaunch > 1600 + Math.random() * 2134) {
+    // Nhịp bắn theo LỊCH cố định — không random mỗi frame → pháo không bị dồn/hở đều
+    if (ts >= _fw.nextLaunch) {
       spawnRocket();
-      _fw.lastLaunch = ts;
+      _fw.nextLaunch = ts + 2300 + Math.random() * 3050; // (1600+rand*2134)/0.7 → chậm 30%
     }
     _fw.raf = requestAnimationFrame(fwLoop);
   }
@@ -3519,7 +3637,7 @@
     if (_fw.running) return;
     if (!_fw.ctx) initFireworksCanvas();
     _fw.running = true;
-    _fw.lastLaunch = 0;
+    _fw.nextLaunch = 0;
     _fw.raf = requestAnimationFrame(fwLoop);
   }
   function stopFireworks() {
