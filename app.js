@@ -95,8 +95,36 @@
     chatVisible: 7,        // số tin chat hiển thị (mặc định 7 tin gần nhất cho đầy panel)
     chatExpanded: false,   // trạng thái mở rộng sticky chat
     // Nút "Now": lọc anime MÙA HIỆN TẠI theo thời gian bấm — lưu qua localStorage
-    seasonNow: false
+    seasonNow: false,
+    // Ngôn ngữ tên hiển thị ngoài card: 'en' (English, mặc định) | 'romaji'
+    // — nút 🔄️ bên trái nút hiệu ứng nền; lưu localStorage nên F5 vẫn nhớ.
+    titleLang: 'en'
   };
+
+  /* Tên hiển thị ngoài card theo chế độ English ⇄ Romaji (nút 🔄️).
+     - Chế độ 'romaji': anime nào có title_romaji (khác title sau khi trim, so sánh
+       không phân biệt hoa/thường) thì lấy romaji làm tên chính; anime không có
+       romaji (rỗng / trùng title) thì GIỮ NGUYÊN title.
+     - Chế độ 'en' (mặc định): luôn trả title như cũ. */
+  function cardDisplayTitle(a) {
+    if (!a) return '';
+    if (State.titleLang === 'romaji') {
+      const romaji = String(a.title_romaji || '').trim();
+      const base = String(a.title || '').trim();
+      if (romaji && romaji.toLowerCase() !== base.toLowerCase()) return a.title_romaji;
+    }
+    return a.title;
+  }
+  // Đồng bộ giao diện nút 🔄️ (viền tím + aria-pressed/label) theo State.titleLang
+  function renderTitleLangBtn() {
+    const btn = $('#titleLangToggle');
+    if (!btn) return;
+    const isRomaji = State.titleLang === 'romaji';
+    btn.classList.toggle('active', isRomaji);
+    btn.setAttribute('aria-pressed', isRomaji ? 'true' : 'false');
+    btn.setAttribute('aria-label', 'Đổi tên card: English ⇄ Romaji (đang: ' + (isRomaji ? 'Romaji' : 'English') + ')');
+    btn.setAttribute('title', 'Đổi tên card: English ⇄ Romaji (đang: ' + (isRomaji ? 'Romaji — bấm để về English' : 'English — bấm để sang Romaji') + ')');
+  }
 
   // Khôi phục trạng thái nút "Now" NGAY lúc khởi tạo (trước lần renderAnimeGrid đầu)
   // để người dùng quay lại vẫn thấy bộ lọc đang bật.
@@ -104,6 +132,9 @@
   // ưu tiên hơn localStorage để người mới mở link vẫn tự bật Now. Không có param
   // thì giữ hành vi cũ (đọc localStorage).
   const SEASON_NOW_KEY = 'kullanime_season_now';
+  // Key lưu chế độ tên card English ⇄ Romaji (dùng ở khối khôi phục bên dưới +
+  // handler nút 🔄️ trong bindEvents) — khai báo sớm để tránh lỗi TDZ.
+  const TITLELANG_KEY = 'kullanime_titlelang';
   function readSeasonNowParam() {
     try {
       const v = new URLSearchParams(window.location.search || '').get('now');
@@ -135,6 +166,12 @@
       State.seasonNow = localStorage.getItem(SEASON_NOW_KEY) === '1';
     }
   } catch (_e) { /* ignore */ }
+
+  // Khôi phục chế độ tên card (English ⇄ Romaji) NGAY lúc khởi tạo
+  // (trước lần renderAnimeGrid đầu) để quay lại web vẫn thấy đúng chế độ đã chọn.
+  try {
+    State.titleLang = localStorage.getItem(TITLELANG_KEY) === 'romaji' ? 'romaji' : 'en';
+  } catch (_e2) { /* ignore */ }
 
   /* ──────────────────────────────────────────────────────
      2. TIỆN ÍCH (helpers)
@@ -4800,7 +4837,7 @@ function setupSubPopupEvents() {
       // Điểm ♥ của tôi (my_rating) — bằng điểm thì cộng đồng (rating) rồi tên A-Z lên trước
       list.sort((a, b) => (Number(a.my_rating) || 0) - (Number(b.my_rating) || 0)
         || (Number(a.rating) || 0) - (Number(b.rating) || 0)
-        || String(a.title || '').localeCompare(String(b.title || ''), 'vi'));
+        || String(cardDisplayTitle(a) || '').localeCompare(String(cardDisplayTitle(b) || ''), 'vi'));
     } else if (mode === 'rating') {
       list.sort((a, b) => (Number(a.rating) || 0) - (Number(b.rating) || 0));
     } else if (mode === 'release') {
@@ -4808,9 +4845,14 @@ function setupSubPopupEvents() {
       // Trước đây chỉ so sánh `year` nên anime cùng năm bị xếp bừa/bằng tiêu đề,
       // và anime thiếu `year` bị đẩy xuống đáy. Nay dùng ngày thật → chính xác tới ngày.
       list.sort((a, b) => releaseStamp(a) - releaseStamp(b)
-        || String(a.title || '').localeCompare(String(b.title || ''), 'vi'));
+        || String(cardDisplayTitle(a) || '').localeCompare(String(cardDisplayTitle(b) || ''), 'vi'));
     } else if (mode === 'title') {
-      list.sort((a, b) => String(a.title || '').localeCompare(String(b.title || ''), 'vi'));
+      // Sắp Tên A-Z theo TÊN ĐANG NHÌN THẤY (cardDisplayTitle): ở chế độ Romaji thì
+      // sắp theo romaji, mặc định English thì sắp theo title — nhất quán với mắt thấy.
+      // Hòa nhau (anime thiếu romaji / 2 tên giống nhau) thì so tiếp title gốc rồi romaji.
+      list.sort((a, b) => String(cardDisplayTitle(a) || '').localeCompare(String(cardDisplayTitle(b) || ''), 'vi')
+        || String(a.title || '').localeCompare(String(b.title || ''), 'vi')
+        || String(a.title_romaji || '').localeCompare(String(b.title_romaji || ''), 'vi'));
     } else { // recent — mới thêm VỪA mới cập nhật (trạng thái xem, điểm ♥, sửa thông tin…)
       // Mốc thời gian = thời điểm "động" nhất của anime = max(created_at, updated_at).
       // Nhờ vậy vừa thêm anime mới, vừa vừa bấm 🌸/♥ hay sửa thông tin đều lên đầu danh sách.
@@ -5309,8 +5351,11 @@ function setupSubPopupEvents() {
     const mySt = myStatusMeta(a.my_status);
     const myRating = Math.round(Number(a.my_rating) || 0);
     const totalEp = Number(a.total_episodes) || 0;
+    // Tên chính ngoài card theo chế độ English ⇄ Romaji; title EN gốc giữ trong
+    // tooltip + alt ảnh để hover vẫn thấy tên cũ (không tăng chiều cao card).
+    const dispTitle = cardDisplayTitle(a) || '';
     const img = a.poster_url
-      ? '<img src="' + esc(a.poster_url) + '" alt="' + esc(a.title) + '" loading="lazy" data-title="' + esc(a.title) + '" onerror="window.__posterFallback(this, this.dataset.title)" />'
+      ? '<img src="' + esc(a.poster_url) + '" alt="' + esc(dispTitle) + '" loading="lazy" data-title="' + esc(a.title) + '" onerror="window.__posterFallback(this, this.dataset.title)" />'
       : posterFallback(a);
 
     // Nút mùa (góc trên-phải) mở menu trạng thái — LUÔN hiển thị để sửa trạng thái nhanh + badge trạng thái (góc dưới-phải).
@@ -5328,13 +5373,13 @@ function setupSubPopupEvents() {
       '</span>';
 
     return (
-      '<article class="anime-card" data-id="' + esc(a.id) + '" role="button" tabindex="0" aria-label="Xem chi tiết ' + esc(a.title) + '">' +
+      '<article class="anime-card" data-id="' + esc(a.id) + '" role="button" tabindex="0" aria-label="Xem chi tiết ' + esc(dispTitle) + '" title="' + esc(a.title || '') + '">' +
         '<div class="card-poster">' + img +
           '<span class="card-status ' + statusClass(a.status) + '">' + esc(a.status || '') + '</span>' +
           statusUI +
         '</div>' +
         '<div class="card-body">' +
-          '<h3 class="card-title">' + esc(a.title || '') + '</h3>' +
+          '<h3 class="card-title">' + esc(dispTitle) + '</h3>' +
           '<div class="card-meta">' +
             '<span class="card-rating">★ ' + rating.toFixed(1) + '</span>' +
             metaRight +
@@ -8716,6 +8761,18 @@ function setupSubPopupEvents() {
       resetAnimePageAndRender();
     });
     renderSeasonNowBtn(); // đồng bộ giao diện với trạng thái đã lưu từ lần truy cập trước
+    // Nút 🔄️ đổi ngôn ngữ tên card (English ⇄ Romaji) — nằm bên trái nút hiệu ứng nền.
+    // Có romaji (khác title) thì lấy romaji làm tên chính, không có thì giữ nguyên;
+    // bấm lại thì về English. Chỉ render lại TRANG HIỆN TẠI (~10-24 card) nên dù
+    // 1000+ anime vẫn tức thì, KHÔNG reload trang, KHÔNG mất filter/search/sort/page.
+    const titleLangBtn = $('#titleLangToggle');
+    if (titleLangBtn) titleLangBtn.addEventListener('click', () => {
+      State.titleLang = State.titleLang === 'romaji' ? 'en' : 'romaji';
+      try { localStorage.setItem(TITLELANG_KEY, State.titleLang); } catch (_e) { /* ignore */ }
+      renderTitleLangBtn();
+      renderAnimeGrid();
+    });
+    renderTitleLangBtn(); // đồng bộ giao diện với chế độ đã lưu từ lần truy cập trước
     // Nút ✕ xoá toàn bộ bộ lọc (kế bên ô tìm kiếm)
     const cfb = $('#clearFiltersBtn');
     if (cfb) cfb.addEventListener('click', resetAnimeFilters);

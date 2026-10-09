@@ -1717,6 +1717,19 @@ select.input { appearance: none; -webkit-appearance: none; background-image: url
 }
 .bg-fx-toggle:hover { opacity: 1; border-color: var(--accent); color: var(--text); }
 body.fx-mode-off .bg-fx-toggle { opacity: 0.5; }
+/* Nút đổi ngôn ngữ tên card (English ⇄ Romaji) — nằm BÊN TRÁI nút hiệu ứng nền,
+   cùng cụm fixed góc phải-dưới, cùng kiểu pill glass mờ */
+.title-lang-toggle {
+  position: fixed; right: 58px; bottom: 12px;
+  background: transparent; border: var(--glass-border); border-radius: 999px;
+  color: var(--text-faint); font-size: 12px; font-weight: 600; cursor: pointer;
+  padding: 2px 8px; opacity: 0.7; transition: opacity 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+  line-height: 1.5;
+  z-index: 90;
+}
+.title-lang-toggle:hover { opacity: 1; border-color: var(--accent); color: var(--text); }
+/* Đang ở chế độ Romaji: viền tím để phân biệt với mặc định English */
+.title-lang-toggle.active { opacity: 1; border-color: var(--accent); color: var(--text); }
 
 /* ── Pháo hoa canvas ── */
 #fireworksCanvas {
