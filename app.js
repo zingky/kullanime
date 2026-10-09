@@ -3564,11 +3564,19 @@
   }
   function spawnRocket() {
     const x = _fw.w * (0.10 + Math.random() * 0.80);
-    const targetY = _fw.h * (0.10 + Math.random() * 0.35);
+    const g = 0.045 * FW_SLOW * FW_SLOW; // đúng gia tốc rocket đang dùng trong fwLoop
+    // ~40% rocket nổ ở GIỮA màn hình (dải 36–60% chiều cao): tính vy₀ để đúng đỉnh bay
+    // = targetY (vận tốc cũ không đủ với gravity → chỉ nổ được quanh đáy như trước).
+    // Còn lại giữ nguyên kiểu nổ thấp như cũ.
+    let targetY = _fw.h * (0.1 + Math.random() * 0.35);
+    let vy = -(3 + Math.random() * 1.5) * FW_SLOW;
+    if (Math.random() < 0.4) {
+      targetY = _fw.h * (0.36 + Math.random() * 0.24);
+      vy = -Math.sqrt(2 * g * (_fw.h - targetY));
+    }
     const hue = Math.floor(Math.random() * 360);
     _fw.rockets.push({
-      x, y: _fw.h, targetY, vx: (Math.random() - 0.5) * 0.32,
-      vy: -(3 + Math.random() * 1.5) * FW_SLOW, hue, trail: []
+      x, y: _fw.h, targetY, vx: (Math.random() - 0.5) * 0.32, vy, hue, trail: []
     });
   }
   function explode(x, y, hue) {
