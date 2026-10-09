@@ -267,6 +267,9 @@ body.bg-paused .bg-aurora * { animation-play-state: paused !important; }
 .btn-refresh { background: var(--bg-elev); border: var(--glass-border); padding: 7px 10px; min-width: 36px; }
 .btn-refresh:hover { border-color: var(--accent, #8b3df0); color: #fff; }
 .btn-refresh span { font-size: 14px; line-height: 1; }
+/* Đang cooldown chống spam (60s/lần): mờ + không bấm được, chữ đếm ngược "Chờ Ns" */
+.btn-refresh.cooling { opacity: 0.45; cursor: not-allowed; min-width: 64px; font-size: 11px; font-weight: 700; }
+.btn-refresh.cooling:hover { border-color: var(--glass-border); color: inherit; transform: none; box-shadow: none; }
 @media (max-width: 600px) {
   .btn-refresh { padding: 8px 10px; min-width: 36px; }
 }

@@ -61,6 +61,8 @@
     lastCommentAt: 0,
     lastChatAt: 0,
     lastGithubAt: 0,      // rate limit cho GitHub API calls (list refresh + .ass fetch)
+    lastRefreshAt: 0,       // mốc lần bấm nút 🔄 "Tải lại" gần nhất (chống spam click — 60s/lần)
+    refreshing: false,      // đang chạy smartRefreshData → bấm tiếp thì bỏ qua (chống double-click)
     // Quote preview (trích dẫn chỉ đọc — User không sửa được nội dung quote)
     commentQuote: null,   // { author, text } nội dung trích dẫn được chèn vào ô bình luận
     chatQuote: null,      // { author, text } nội dung trích dẫn được chèn vào ô chat
@@ -835,10 +837,78 @@
     return map;
   }
 
+  // ── Chống spam nút 🔄 "Tải lại" (60s/lần) ─────────────────────────────
+  // 3 lớp, cùng pattern với rate-limit comment/chat/GitHub của web:
+  //  1) State.refreshing — đang chạy thì bấm tiếp bỏ qua (chống double-click).
+  //  2) Cooldown 60s tính từ LẦN BẤM HỢP LỆ gần nhất — spam click chỉ thấy toast
+  //     đếm ngược, KHÔNG phát sinh request Supabase nào.
+  //  3) Mốc lưu localStorage (kullanime_refresh_at) — F5/reload không reset được
+  //     cooldown; mở F12 xóa key này thì request kế tiếp vẫn chỉ ~0.5KB version-check
+  //     (không phải fetch full) nên thiệt hại không đáng kể. Chống tuyệt đối phải
+  //     làm ở server (Supabase plan trả phí) — frontend chỉ chặn đường "lười".
+  const REFRESH_COOLDOWN_MS = 60 * 1000;
+  const REFRESH_AT_KEY = 'kullanime_refresh_at';
+  let _refreshCooldownTimer = null;
+  function readRefreshAt() {
+    try {
+      const raw = parseInt(localStorage.getItem(REFRESH_AT_KEY) || '0', 10);
+      return isNaN(raw) ? 0 : raw;
+    } catch (_e) { return State.lastRefreshAt || 0; }
+  }
+  // Vẽ lại nút theo cooldown còn lại (disable + "Chờ Ns"); hết giờ thì mở lại.
+  function paintRefreshCooldown() {
+    const btn = $('#refreshBtn');
+    if (!btn) return;
+    if (_refreshCooldownTimer) { clearInterval(_refreshCooldownTimer); _refreshCooldownTimer = null; }
+    const tick = () => {
+      const remain = Math.ceil((REFRESH_COOLDOWN_MS - (Date.now() - readRefreshAt())) / 1000);
+      if (remain <= 0) {
+        if (_refreshCooldownTimer) { clearInterval(_refreshCooldownTimer); _refreshCooldownTimer = null; }
+        btn.classList.remove('cooling');
+        btn.disabled = false;
+        btn.innerHTML = '<span>🔄</span>';
+        btn.setAttribute('title', 'Tải lại dữ liệu mới nhất');
+        btn.setAttribute('aria-label', 'Tải lại dữ liệu mới nhất');
+        return;
+      }
+      btn.classList.add('cooling');
+      btn.disabled = true;
+      btn.textContent = 'Chờ ' + remain + 's';
+      btn.setAttribute('title', 'Chống spam: thử lại sau ' + remain + ' giây');
+      btn.setAttribute('aria-label', 'Chống spam: thử lại sau ' + remain + ' giây');
+    };
+    tick();
+    const remain0 = REFRESH_COOLDOWN_MS - (Date.now() - readRefreshAt());
+    if (remain0 > 0) _refreshCooldownTimer = setInterval(tick, 1000);
+  }
+  // Cổng vào duy nhất của nút 🔄: chặn double-click + spam click trước khi đụng mạng.
+  // Trả về true nếu được phép chạy tiếp, false nếu đã chặn (kèm toast lý do).
+  function guardRefreshSpam() {
+    if (State.refreshing) { toast('⏳ Đang tải, chờ chút...', 'info', 1500); return false; }
+    const diff = Date.now() - readRefreshAt();
+    if (diff < REFRESH_COOLDOWN_MS) {
+      const remain = Math.ceil((REFRESH_COOLDOWN_MS - diff) / 1000);
+      toast('⏳ Chống spam: thử lại sau ' + remain + ' giây.', 'warning', 2000);
+      paintRefreshCooldown();
+      return false;
+    }
+    return true;
+  }
+  // Ghi mốc lần bấm hợp lệ (memory + localStorage) rồi vẽ cooldown ngay.
+  function stampRefreshAt() {
+    State.lastRefreshAt = Date.now();
+    try { localStorage.setItem(REFRESH_AT_KEY, String(State.lastRefreshAt)); } catch (_e) { /* ignore */ }
+    paintRefreshCooldown();
+  }
   // "Tải lại" thông minh: check version → chỉ fetch phần thay đổi (delta incremental,
   // không fetch full). force=true (bấm nút 🔄) vẫn đi qua version-check: đã mới nhất
   // thì báo ngay, không fetch thừa.
   async function smartRefreshData(force) {
+    // Chặn spam NGAY TRƯỚC khi đụng mạng: double-click hoặc trong 60s cooldown
+    // thì return luôn, không phát sinh request Supabase nào.
+    if (!guardRefreshSpam()) return;
+    stampRefreshAt();
+    State.refreshing = true;
     const cache = readPubDataCache();
     const lastAnime = cache && cache.animeUpdated ? cache.animeUpdated : 0;
     const lastSong  = cache && cache.songUpdated  ? cache.songUpdated  : 0;
@@ -873,6 +943,8 @@
       toast('⚠️ Không kiểm tra được phiên bản — tải lại toàn bộ.', 'warning', 3000);
       await Promise.all([loadAnimes(true), loadSongs(true)]);
       await loadGlobalChat(true);
+    } finally {
+      State.refreshing = false; // mở lại cổng double-click (cooldown 60s vẫn giữ)
     }
   }
   // Bọc syncTableIncremental: sync xong thì nạp kết quả vào State + render.
@@ -7223,12 +7295,15 @@ function setupSubPopupEvents() {
     }
   });
 
-  // Nút "Tải lại" 🔄 — làm mới dữ liệu mới nhất (smart: chỉ fetch phần thay đổi)
+  // Nút "Tải lại" 🔄 — làm mới dữ liệu mới nhất (smart: chỉ fetch phần thay đổi).
+  // Chống spam 60s/lần: guard nằm trong smartRefreshData nên gọi trực tiếp hay
+  // gọi từ console cũng đều qua 1 cổng. Mở web giữa cooldown thì vẽ lại nút ngay.
   const refreshBtn = $('#refreshBtn');
   if (refreshBtn) {
     refreshBtn.addEventListener('click', () => {
       smartRefreshData(true);
     });
+    paintRefreshCooldown(); // F5 giữa cooldown → nút vẫn "Chờ Ns" thay vì mở lại
   }
 
   async function handleLogin(e) {
