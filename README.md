@@ -311,7 +311,7 @@ Dưới đây là các giới hạn chính khi dùng bản free. Hầu hết sit
 - **Rate-limit SERVER-SIDE** (trigger `prevent_comment_spam` trong SQL): tối đa **1 bình luận forum / 30 giây / người**, tính theo `user_id` (server gán qua `auth.uid()`). Kẻ mở F12 gọi thẳng API cũng bị chặn
 - **Validate nội dung server-side** (trigger `validate_comment_content`): chặn bình luận rỗng hoặc quá dài (> 5000 ký tự) ngay tại DB
 - **Auto-block khách spam** (trigger `auto_block_guest_spam`): khách chưa đăng nhập dùng cùng 1 tên gửi ≥ 10 bình luận trong 10 phút thì bị khóa tên đó 12 giờ (bảng `blocked_guest_names` chỉ admin mới đọc được)
-- **Cache dữ liệu công khai** (24h TTL): `localStorage` lưu toàn bộ danh sách anime/songs/chat — lần đầu load đọc từ cache, không gửi request Supabase. Nút **🔄 Tải lại** dùng RPC `get_data_versions()` (1 request nhẹ) để kiểm tra phiên bản trước khi fetch — tránh lãng phí quota khi dữ liệu chưa thay đổi
+- **Cache + đồng bộ incremental** (24h TTL): `localStorage` lưu toàn bộ danh sách anime/songs/chat — mở web render ngay từ cache, rồi hỏi server đúng 1 câu *"có gì mới?"* qua RPC `get_data_versions()` (~0.5KB). Không có gì mới → 0 byte dữ liệu; có mới → chỉ tải record đổi sau mốc cache (`updated_at`, trừ hao 5s) rồi merge vào danh sách. Tổng số anime (100 hay 1000 trang) không ảnh hưởng tốc độ mở web. Phát hiện xóa record qua `total_count` → fetch full 1 lần. Nút **🔄 Tải lại** đi qua cùng luồng version-check
 - **Tắt self-registration** (khuyến dùng): site chỉ có tài khoản do **admin tự tạo** — người ngoài không thể đăng ký, triệt tiêu spam tài khoản. Bật trong Dashboard:
   - `Authentication → Sign In / Up → Profile` → bật **"Disable sign ups"** → **Save**
 - `.env.local` / key riêng tư không commit — chỉ chứa key publishable ở client

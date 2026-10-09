@@ -518,25 +518,30 @@ create policy "animes_admin_delete"
   using (public.is_admin());
 
 -- ============================================================
--- 12) RPC CHECK VERSION DỮ LIỆU (dùng cho nút "Tải lại" thông minh)
---     Trả về thời điểm cập nhật mới nhất của từng bảng — 1 request nhẹ
---     để client biết có cần fetch lại phần nào hay không.
---     Chỉ trả về dấu thời gian (không lộ dữ liệu nhạy cảm).
+-- 12) RPC CHECK VERSION DỮ LIỆU (dùng cho nút "Tải lại" thông minh
+--     + đồng bộ incremental "chỉ tải phần mới" khi mở web)
+--     Trả về thời điểm cập nhật mới nhất + TỔNG SỐ RECORD của từng bảng —
+--     1 request nhẹ (~0.5KB) để client biết có cần fetch delta hay không,
+--     và phát hiện record BỊ XÓA (count server < số client đang giữ).
+--     Chỉ trả về dấu thời gian + con số (không lộ dữ liệu nhạy cảm).
 --     Bạn phải chạy khối này TRƯỚC khi dùng nút "Tải lại" trên web.
+--     Nâng cấp từ bản cũ (chỉ có last_updated): DROP + tạo lại để đổi signature.
+--     (Postgres không cho ALTER đổi kiểu trả về của function.)
 -- ============================================================
+drop function if exists public.get_data_versions();
 create or replace function public.get_data_versions()
-returns table (entity text, last_updated timestamptz)
+returns table (entity text, last_updated timestamptz, total_count bigint)
 language sql
 stable
 security definer set search_path = public
 as $$
-  select 'animes'::text,   coalesce(max(updated_at), now())
+  select 'animes'::text,   coalesce(max(updated_at), now()), count(*)
     from public.animes
   union all
-  select 'songs'::text,    coalesce(max(updated_at), now())
+  select 'songs'::text,    coalesce(max(updated_at), now()), count(*)
     from public.songs
   union all
-  select 'comments'::text, coalesce(max(created_at), now())
+  select 'comments'::text, coalesce(max(created_at), now()), count(*)
     from public.comments;
 $$;
 

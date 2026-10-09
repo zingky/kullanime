@@ -581,6 +581,108 @@
     }
   }
 
+  // ── DELTA-INCREMENTAL SYNC ("chỉ tải phần mới") ──────────────────────
+  // Mỗi lần mở web: hỏi server đúng 1 câu "có gì mới?" qua RPC get_data_versions()
+  // (~0.5KB) → bằng nhau thì 0 byte dữ liệu; lệch thì chỉ fetch record đổi sau mốc
+  // cache (updated_at, trừ hao đồng hồ 5s) rồi merge vào danh sách cũ.
+  // 1000 hay 5000 anime đều như nhau — tổng số record không ảnh hưởng tốc độ mở web.
+  const DELTA_SKEW_MS = 5000; // trừ hao lệch đồng hồ client/server ở ranh giới mốc
+  // Mốc version server trả về có thể là ISO string hoặc ms — chuẩn hoá về ms.
+  function versionToMs(v) {
+    if (v == null) return 0;
+    if (typeof v === 'number') return v;
+    const t = Date.parse(v);
+    return isNaN(t) ? 0 : t;
+  }
+  // Tải delta anime đổi sau mốc sinceMs (server so theo updated_at). Trả về mảng
+  // record FULL (SELECT * như cũ) để merge thẳng vào State.animes — không tách
+  // cột nhẹ vì search haystack + admin list/sort đều đọc đủ trường trên record.
+  async function fetchAnimeDelta(sinceMs) {
+    const sinceISO = new Date(Math.max(0, sinceMs - DELTA_SKEW_MS)).toISOString();
+    const { data, error } = await State.supabase
+      .from('animes')
+      .select('*')
+      .gt('updated_at', sinceISO)
+      .order('created_at', { ascending: false });
+    if (error) throw error;
+    return data || [];
+  }
+  // Tải delta songs đổi sau mốc sinceMs (bảng nhỏ, delta càng rẻ).
+  async function fetchSongDelta(sinceMs) {
+    const sinceISO = new Date(Math.max(0, sinceMs - DELTA_SKEW_MS)).toISOString();
+    const { data, error } = await State.supabase
+      .from('songs')
+      .select('*')
+      .gt('updated_at', sinceISO)
+      .order('sort_order', { ascending: true })
+      .order('created_at', { ascending: true });
+    if (error) throw error;
+    return data || [];
+  }
+  // Gộp delta vào danh sách cache: upsert theo id (mới → thêm, sửa → ghi đè),
+  // rồi sắp lại đúng thứ tự hiển thị (created_at DESC như loadAnimes gốc).
+  // Trả về số record THỰC SỰ mới (id chưa từng có) để toast "có N anime mới".
+  function mergeAnimeDelta(cached, delta) {
+    const map = new Map();
+    (Array.isArray(cached) ? cached : []).forEach((a) => { if (a && a.id != null) map.set(String(a.id), a); });
+    let added = 0;
+    (Array.isArray(delta) ? delta : []).forEach((d) => {
+      if (!d || d.id == null) return;
+      if (!map.has(String(d.id))) added++;
+      map.set(String(d.id), d);
+    });
+    const merged = Array.from(map.values());
+    merged.sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
+    return { list: merged, added: added };
+  }
+  // Gộp delta songs: upsert theo id, giữ thứ tự sort_order → created_at như gốc.
+  function mergeSongDelta(cached, delta) {
+    const map = new Map();
+    (Array.isArray(cached) ? cached : []).forEach((s) => { if (s && s.id != null) map.set(String(s.id), s); });
+    let added = 0;
+    (Array.isArray(delta) ? delta : []).forEach((d) => {
+      if (!d || d.id == null) return;
+      if (!map.has(String(d.id))) added++;
+      map.set(String(d.id), d);
+    });
+    const merged = Array.from(map.values());
+    merged.sort((a, b) => (Number(a.sort_order) || 0) - (Number(b.sort_order) || 0)
+      || (new Date(a.created_at || 0) - new Date(b.created_at || 0)));
+    return { list: merged, added: added };
+  }
+  // Đồng bộ incremental 1 bảng (animes/songs) khi mở web:
+  // version bằng mốc cache → return { fresh:true } (0 byte dữ liệu);
+  // version lệch → tải delta → merge → persist cache → return { fresh:false, added }.
+  // Phát hiện XOÁ record: delta theo updated_at không thấy row đã xóa → so tổng
+  // count server vs cache: lệch thì fetch FULL 1 lần (xóa là hiếm nên chấp nhận).
+  // RPC lỗi (DB chưa chạy khối SQL nâng cấp) → throw để caller fallback fetch full.
+  async function syncTableIncremental(kind) {
+    const isAnime = kind === 'animes';
+    const cache = readPubDataCache() || { animes: [], songs: [], chatAll: [] };
+    const cachedList = isAnime ? (cache.animes || []) : (cache.songs || []);
+    const lastTs = isAnime ? (cache.animeUpdated || 0) : (cache.songUpdated || 0);
+    const versions = await fetchDataVersions();
+    const v = versions[kind] || {};
+    const serverTs = versionToMs(v.last_updated != null ? v.last_updated : v);
+    // Chưa có mốc cache (máy mới/xóa cache) → caller sẽ fetch full, không làm gì ở đây.
+    if (!lastTs || !cachedList.length) return { fresh: false, coldStart: true };
+    if (serverTs && serverTs <= lastTs) return { fresh: true, added: 0 };
+    // Có xóa record? (count server < số đang giữ → có row biến mất khỏi DB)
+    if (v.total_count != null && Number(v.total_count) < cachedList.length) {
+      return { fresh: false, deleted: true };
+    }
+    const delta = isAnime ? await fetchAnimeDelta(lastTs) : await fetchSongDelta(lastTs);
+    if (!delta.length) {
+      // Version lệch nhưng không có record nào đổi (vd chỉ xóa record mà count
+      // không phát hiện do trùng thêm/xóa) → đồng bộ mốc, tránh hỏi lại lần sau.
+      persistPubCachePart(isAnime ? 'animes' : 'songs', cachedList, Math.max(computeMaxUpdated(cachedList), serverTs || Date.now()));
+      return { fresh: true, added: 0 };
+    }
+    const merged = isAnime ? mergeAnimeDelta(cachedList, delta) : mergeSongDelta(cachedList, delta);
+    persistPubCachePart(isAnime ? 'animes' : 'songs', merged.list, computeMaxUpdated(merged.list));
+    return { fresh: false, added: merged.added };
+  }
+
   async function loadAnimes() {
     if (!State.supabase) return;
     // Luôn fetch mới từ Supabase (mỗi lần vào web là tải dữ liệu mới nhất)
@@ -597,6 +699,9 @@
       return;
     }
     State.animes = data || [];
+    // Ghi cache full để lần mở web sau đồng bộ incremental theo mốc này
+    // (localStorage đầy ~5MB thì bỏ qua — lần sau fetch full lại, không crash).
+    try { persistPubCachePart('animes', State.animes, computeMaxUpdated(State.animes)); } catch (_e) {}
     renderAnimeGrid();
   }
 
@@ -619,6 +724,7 @@
       return;
     }
     State.songs = data || [];
+    try { persistPubCachePart('songs', State.songs, computeMaxUpdated(State.songs)); } catch (_e) {}
     renderSongList();
   }
 
@@ -674,17 +780,22 @@
   }
 
   // Gọi RPC get_data_versions() — 1 request nhẹ trả về timestamp mới nhất từng bảng
+  // (+ total_count mỗi bảng nếu DB đã chạy khối SQL nâng cấp — dùng phát hiện xóa).
+  // Giữ nguyên cả object row (không rút gọn về timestamp) để sync incremental đọc thêm count.
   async function fetchDataVersions() {
     const { data, error } = await State.supabase.rpc('get_data_versions');
     if (error) throw error;
     const map = {};
     (data || []).forEach((r) => {
-      map[r.entity] = r.last_updated ? Date.parse(r.last_updated) : 0;
+      if (!r || r.entity == null) return;
+      map[r.entity] = r;
     });
     return map;
   }
 
-  // "Tải lại" thông minh: check version → chỉ fetch phần thay đổi
+  // "Tải lại" thông minh: check version → chỉ fetch phần thay đổi (delta incremental,
+  // không fetch full). force=true (bấm nút 🔄) vẫn đi qua version-check: đã mới nhất
+  // thì báo ngay, không fetch thừa.
   async function smartRefreshData(force) {
     const cache = readPubDataCache();
     const lastAnime = cache && cache.animeUpdated ? cache.animeUpdated : 0;
@@ -692,15 +803,26 @@
     const lastCom   = cache && cache.chatUpdated  ? cache.chatUpdated  : 0;
     try {
       const versions = await fetchDataVersions();
-      const wantsAnime = force || !lastAnime || (versions.animes && versions.animes > lastAnime);
-      const wantsSong  = force || !lastSong  || (versions.songs  && versions.songs  > lastSong);
-      const wantsCom   = force || !lastCom   || (versions.comments && versions.comments > lastCom);
+      const vAnimeTs = versionToMs(versions.animes && versions.animes.last_updated);
+      const vSongTs  = versionToMs(versions.songs && versions.songs.last_updated);
+      const vComTs   = versionToMs(versions.comments && versions.comments.last_updated);
+      const wantsAnime = force || !lastAnime || (vAnimeTs && vAnimeTs > lastAnime);
+      const wantsSong  = force || !lastSong  || (vSongTs  && vSongTs  > lastSong);
+      const wantsCom   = force || !lastCom   || (vComTs   && vComTs   > lastCom);
       if (!wantsAnime && !wantsSong && !wantsCom) {
         toast('✅ Dữ liệu đã mới nhất.', 'success', 2000);
         return;
       }
-      if (wantsAnime) await loadAnimes(true);
-      if (wantsSong)  await loadSongs(true);
+      // Anime/songs: đồng bộ delta incremental (chỉ tải record đổi sau mốc cache);
+      // nếu phát hiện xóa record hoặc chưa có cache thì fetch full 1 lần.
+      if (wantsAnime) {
+        const r = await syncTableIncrementalSafe('animes');
+        if (r === 'full') await loadAnimes(true);
+      }
+      if (wantsSong) {
+        const r = await syncTableIncrementalSafe('songs');
+        if (r === 'full') await loadSongs(true);
+      }
       if (wantsCom)   await loadGlobalChat(true);
       toast('🔄 Đã làm mới dữ liệu.', 'success', 2000);
     } catch (err) {
@@ -709,6 +831,32 @@
       toast('⚠️ Không kiểm tra được phiên bản — tải lại toàn bộ.', 'warning', 3000);
       await Promise.all([loadAnimes(true), loadSongs(true)]);
       await loadGlobalChat(true);
+    }
+  }
+  // Bọc syncTableIncremental: sync xong thì nạp kết quả vào State + render.
+  // Trả về 'ok' (đã nạp State/render xong, KHÔNG cần fetch full),
+  // 'full' (cần fetch full: cold-start / phát hiện xóa), 'error' (RPC lỗi → caller fallback).
+  async function syncTableIncrementalSafe(kind) {
+    const isAnime = kind === 'animes';
+    try {
+      const r = await syncTableIncremental(kind);
+      if (r.coldStart || r.deleted) return 'full';
+      const cache = readPubDataCache() || {};
+      if (isAnime) {
+        State.animes = cache.animes || State.animes || [];
+        try { persistPubCachePart('animes', State.animes, computeMaxUpdated(State.animes)); } catch (_e) {}
+        renderAnimeGrid();
+        if (!r.fresh && r.added > 0) toast('✨ Có ' + r.added + ' anime mới/cập nhật.', 'success', 3000);
+      } else {
+        State.songs = cache.songs || State.songs || [];
+        try { persistPubCachePart('songs', State.songs, computeMaxUpdated(State.songs)); } catch (_e) {}
+        renderSongList();
+        if (!r.fresh && r.added > 0) toast('🎵 Có ' + r.added + ' bài hát mới/cập nhật.', 'success', 3000);
+      }
+      return 'ok';
+    } catch (err) {
+      console.warn('sync incremental ' + kind + ' lỗi:', err);
+      return 'error';
     }
   }
 
@@ -10028,8 +10176,18 @@ function setupSubPopupEvents() {
       if (_pubCache.animes.length) { State.animes = _pubCache.animes; renderAnimeGrid(); }
       if (_pubCache.songs.length)  { State.songs  = _pubCache.songs;  renderSongList(); }
     }
-    // Tải dữ liệu công khai (loadAnimes/loadSongs bỏ qua nếu cache còn fresh)
-    await Promise.all([loadAnimes(), loadSongs()]);
+    // Đồng bộ incremental: hỏi server đúng 1 câu "có gì mới?" (RPC ~0.5KB).
+    // - Không có gì mới → 0 byte dữ liệu (trường hợp phổ biến nhất).
+    // - Có mới → chỉ tải record đổi sau mốc cache (vài KB) rồi merge vào danh sách.
+    // - Lần đầu/mất cache/RPC lỗi/phát hiện xóa → fetch full 1 lần như cũ (không trắng trang).
+    try {
+      const rAnime = await syncTableIncrementalSafe('animes');
+      if (rAnime === 'full' || rAnime === 'error') await loadAnimes();
+      const rSong = await syncTableIncrementalSafe('songs');
+      if (rSong === 'full' || rSong === 'error') await loadSongs();
+    } catch (_e) {
+      await Promise.all([loadAnimes(), loadSongs()]);
+    }
     updateLoginUI();
     refreshAuthState();
     // Khởi động chat chung (sticky bar) + captcha chat
