@@ -35,7 +35,7 @@
   <!-- File cấu hình (đọc .env.local / fallback) -->
   <script src="./config.js"></script>
 
-  <link rel="stylesheet" href="./styles.css?v=121" />
+  <link rel="stylesheet" href="./styles.css?v=122" />
 </head>
 <body>
   <!-- Nền đêm sao + cánh hoa anh đào (night sky + sakura) — JS sinh sao tĩnh, CSS animation transform/opacity -->
@@ -70,6 +70,11 @@
         <!-- Nút xuất hiện khi Admin đã đăng nhập -->
         <button class="btn btn-admin hidden" id="adminBtn">
           <span>🛠️</span><span class="btn-label">Quản trị</span>
+        </button>
+        <!-- Nút Thêm anime cho THÀNH VIÊN (admin có 🛠️ Quản trị riêng) —
+             thêm thẳng kho chung, tự link vào My List của người thêm (RLS member insert) -->
+        <button class="btn btn-add hidden" id="headerAddAnimeBtn" title="Thêm anime mới vào kho" aria-label="Thêm anime">
+          <span>➕</span><span class="btn-label">Thêm anime</span>
         </button>
         <button class="btn btn-login" id="loginBtn" title="Đăng nhập / Tài khoản" aria-label="Đăng nhập / Tài khoản">
           <span id="loginBtnIcon">👤</span>
@@ -456,6 +461,8 @@
 
       <!-- List anime của tôi: chuyển LUÔN LƯỚI CARD chính (không mở trang riêng đè lên) -->
       <button type="button" class="btn btn-primary btn-block" id="accountMyListBtn">📋 List anime của tôi</button>
+      <!-- Ghi chú: member THÊM + chấm điểm + đặt trạng thái trực tiếp trên list admin -->
+      <p class="form-note">💡 Trên list <strong>KullAnime (admin)</strong> bạn có thể <strong>thêm anime</strong> (nút ➕ Thêm anime trên header), <strong>chấm điểm ♥</strong> và <strong>đặt trạng thái xem</strong> (✅ Đã xem / ⬜ Chưa xem...) ngay trên card — điểm &amp; trạng thái lưu <strong>riêng của bạn</strong>, không đụng list admin.</p>
 
       <!-- Tên DUY NHẤT: vừa là tên hiển thị chat/bình luận, vừa là username link ?u= -->
       <div class="field">
@@ -844,7 +851,7 @@
   <div class="mini-pop hidden" id="epPop"></div>
   <div class="mini-pop hidden" id="heartPop"></div>
 
-  <script src="./app.js?v=121"></script>
+  <script src="./app.js?v=122"></script>
 </body>
 </html>
 

@@ -5769,17 +5769,21 @@ function setupSubPopupEvents() {
     if (!grid) return false;
     const card = grid.querySelector('.anime-card[data-id="' + String(animeId) + '"]');
     if (!card) return false;
-    const a = State.animes.find((x) => String(x.id) === String(animeId));
+    const a = findGridAnime(animeId);
     if (!a) return false;
+    // Đọc state qua CÙNG nguồn với animeCardHTML (myViewOf) → patch khớp hệt
+    // render lại (member: state riêng của mình; admin: state xem được).
+    const mine = myViewOf(a);
+    const view = Object.assign({}, a, mine);
 
     const badge = card.querySelector('.card-status-badge');
     if (badge) {
-      badge.className = 'card-status-badge ' + myStatusMeta(a.my_status).cls;
-      badge.textContent = myStatusBadgeText(a);
+      badge.className = 'card-status-badge ' + myStatusMeta(mine.my_status).cls;
+      badge.textContent = myStatusBadgeText(view);
     }
     const heart = card.querySelector('.card-heart-btn');
     if (heart) {
-      const v = Math.round(Number(a.my_rating) || 0);
+      const v = Math.round(Number(mine.my_rating) || 0);
       heart.textContent = '♥' + (v > 0 ? ' ' + v : '');
     }
     return true;
@@ -5841,7 +5845,9 @@ function setupSubPopupEvents() {
 
     // Nút mùa (góc trên-phải) mở menu trạng thái — LUÔN hiển thị để sửa trạng thái nhanh + badge trạng thái (góc dưới-phải).
     // Icon theo mùa của anime: Xuân 🌸 · Hạ 🌻 · Thu 🍁 · Đông ❄️ (không rõ mùa → 🌸).
-    const badgeText = myStatusBadgeText(a);
+    // Badge text phải dùng CÙNG nguồn với badge class (mine) — trước đây lấy
+    // cột chung của record → member hiện chữ trạng thái của ADMIN (lệch màu badge).
+    const badgeText = myStatusBadgeText(Object.assign({}, a, mine));
     const statusUI =
       '<button type="button" class="card-sakura" data-quick="menu" title="Đặt trạng thái xem">' + seasonIcon(a.season) + '</button>' +
       '<span class="card-status-badge ' + mySt.cls + '">' + esc(badgeText) + '</span>';
@@ -6259,7 +6265,12 @@ function setupSubPopupEvents() {
       const r = await saveMyState(animeId, patch);
       if (!r) return false;
       syncListItemState(animeId, patch);
-      renderAnimeGrid(true);
+      // Sửa tại chỗ đúng thẻ vừa bấm (GIỐNG nhánh admin) → KHÔNG vẽ lại cả lưới,
+      // không chạy cardIn, không reload poster → hết "chớp chớp" khi chấm ♥/trạng thái.
+      const stFilter = $('#myStatusFilter');
+      const canPatch = !(stFilter && stFilter.value && stFilter.value !== 'all')
+        && patchAnimeCardMeta(animeId);
+      if (!canPatch) renderAnimeGrid(true);   // fallback: thẻ không nằm trong trang hiện tại / đang lọc trạng thái
       if (State.currentAnime && String(State.currentAnime.id) === String(animeId)) {
         renderAnimeDetail(State.currentAnime);
       }
@@ -6271,6 +6282,9 @@ function setupSubPopupEvents() {
     if (idx > -1) {
       Object.assign(State.animes[idx], patch);
       syncListItemState(animeId, patch); // vá card đang xem ở chế độ mine/user
+      // Admin cũng có row states riêng (migrated từ điểm cũ) — vá luôn trong RAM
+      // để myViewOf không hiện giá trị cũ sau khi admin vừa chấm.
+      if (State.myStates[String(animeId)]) Object.assign(State.myStates[String(animeId)], patch);
       // Trigger DB đã set updated_at = now(), nhưng dữ liệu trong bộ nhớ chưa có
       // → tự set luôn để sắp xếp "Gần đây" đưa anime vừa cập nhật lên đầu ngay.
       State.animes[idx].updated_at = new Date().toISOString();
@@ -6435,11 +6449,14 @@ function setupSubPopupEvents() {
 
   // Đặt trạng thái xem + tự đồng bộ số lần đã xem (dùng khi bấm nút ngoài card)
   async function syncWatchOnStatus(animeId, newStatus, extra) {
-    const a = State.animes.find((x) => String(x.id) === String(animeId));
+    const a = findGridAnime(animeId);
     if (!a) return false;
+    // Trạng thái + ngày xem CŨ phải lấy của CHÍNH người dùng (myViewOf) —
+    // trước đây lấy cột chung → member bị dính watch_dates của admin vào state.
+    const mine = myViewOf(a);
     const patch = Object.assign(
       { my_status: newStatus },
-      watchDatesPatchForStatusChange(a.my_status, a.watch_dates, newStatus)
+      watchDatesPatchForStatusChange(mine.my_status, mine.watch_dates, newStatus)
     );
     if (extra) Object.assign(patch, extra);
     return saveMyTracker(animeId, patch);
@@ -6468,10 +6485,10 @@ function setupSubPopupEvents() {
 
   // Popup chọn tập đã xem (1 → tổng tập), lưu watched_episodes + trạng thái
   function openEpisodePop(anchor, id) {
-    const a = State.animes.find((x) => String(x.id) === String(id));
+    const a = findGridAnime(id);
     if (!a) return;
     const total = Number(a.total_episodes) || 0;
-    const cur = Number(a.watched_episodes) || 0;
+    const cur = Number(myViewOf(a).watched_episodes) || 0; // số tập của CHÍNH user (không phải admin)
     const max = total > 0 ? total : Math.max(cur * 2, 12);
     let opts = '';
     for (let i = 1; i <= max; i++) {
@@ -6487,9 +6504,9 @@ function setupSubPopupEvents() {
 
   // Popup chấm điểm ♥ (10 ♥ + nút xoá)
   function openHeartPop(anchor, id) {
-    const a = State.animes.find((x) => String(x.id) === String(id));
+    const a = findGridAnime(id);
     if (!a) return;
-    const cur = Math.max(0, Math.min(10, Math.round(Number(a.my_rating) || 0)));
+    const cur = Math.max(0, Math.min(10, Math.round(Number(myViewOf(a).my_rating) || 0))); // điểm của CHÍNH user
     let hearts = '<button type="button" class="heart-opt heart-clear" data-val="0" title="Xoá điểm">✕</button>';
     for (let i = 1; i <= 10; i++) {
       hearts += '<button type="button" class="heart-opt' + (i <= cur ? ' on' : '') + '" data-val="' + i + '" title="' + i + '/10">' + (i <= cur ? '♥' : '♡') + '</button>';
@@ -6504,9 +6521,9 @@ function setupSubPopupEvents() {
 
   // Menu trạng thái nhanh trên card: 4 lựa chọn (bấm 🌸 → chọn 1, lưu liền; "Đang xem" mở popup chọn tập)
   function openStatusMenu(anchor, id) {
-    const a = State.animes.find((x) => String(x.id) === String(id));
+    const a = findGridAnime(id);
     if (!a) return;
-    const cur = myStatusMeta(a.my_status).label;
+    const cur = myStatusMeta(myViewOf(a).my_status).label; // trạng thái của CHÍNH user
     const items = [
       { label: 'Muốn xem', icon: '➕', hint: '' },
       { label: 'Đã xem', icon: '✅', hint: '' },
@@ -7514,12 +7531,16 @@ function setupSubPopupEvents() {
   function updateLoginUI() {
     const icon = $('#loginBtnIcon');
     const adminBtn = $('#adminBtn');
+    const addBtn = $('#headerAddAnimeBtn');
     if (State.isLoggedIn) {
       icon.textContent = State.isAdmin ? '🔑' : '👤';
       adminBtn.classList.toggle('hidden', !State.isAdmin);
+      // Nút ➕ Thêm anime: CHỈ thành viên (admin có nút 🛠️ Quản trị riêng)
+      if (addBtn) addBtn.classList.toggle('hidden', State.isAdmin);
     } else {
       icon.textContent = '👤';
       adminBtn.classList.add('hidden');
+      if (addBtn) addBtn.classList.add('hidden');
     }
   }
 
@@ -10336,6 +10357,12 @@ function setupSubPopupEvents() {
 
     // Nút thêm anime, bài hát
     $('#addAnimeBtn').addEventListener('click', openAddAnimeForm);
+    // Nút ➕ Thêm anime trên HEADER cho thành viên (admin dùng nút 🛠️ Quản trị)
+    const _hAdd = $('#headerAddAnimeBtn');
+    if (_hAdd) _hAdd.addEventListener('click', () => {
+      if (!State.isLoggedIn) { openModal('loginModal'); return; }
+      openAddAnimeForm();
+    });
     $('#addSongBtn').addEventListener('click', () => openSongForm(null));
 
     // Forms
@@ -10670,8 +10697,8 @@ function setupSubPopupEvents() {
               epP.style.left = left + 'px';
               epP.style.top = top + 'px';
             }
-            const a = State.animes.find((x) => String(x.id) === String(id));
-            if (a && myStatusMeta(a.my_status).cls !== 'my-watching') saveMyTracker(id, { my_status: 'Đang xem' });
+            const a = findGridAnime(id);
+            if (a && myStatusMeta(myViewOf(a).my_status).cls !== 'my-watching') saveMyTracker(id, { my_status: 'Đang xem' });
           } else {
             closeMiniPop();
             syncWatchOnStatus(id, lbl).then((ok) => {

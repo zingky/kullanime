@@ -269,6 +269,7 @@ body.bg-paused .bg-aurora * { animation-play-state: paused !important; }
 .btn-block { width: 100%; }
 .btn-login { background: var(--bg-elev); border: var(--glass-border); }
 .btn-admin { background: linear-gradient(135deg, #f59e0b, #ef4444); border-color: transparent; color: #fff; }
+.btn-add { background: var(--bg-elev); border: var(--glass-border); }
 .row-flex { display: flex; gap: 8px; align-items: center; }
 .row-flex .input { flex: 1; }
 .check-line { display: flex; gap: 8px; align-items: center; font-size: 13px; color: var(--text-dim); margin-top: 10px; }
