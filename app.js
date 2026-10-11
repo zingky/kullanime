@@ -54,6 +54,9 @@
     myProfile: null,     // row profiles của mình { username, display_name, is_public }
     myStates: {},        // map anime_id -> state RIÊNG của mình (điểm/trạng thái)
     viewingUser: '',     // username đang xem ở chế độ ?u= ('' = trang mặc định/admin)
+    listMode: 'admin',   // chế độ lưới: 'admin' (KullAnime) | 'mine' (list mình) | 'user' (list user khác ?u=)
+    listOwner: '',       // username chủ list đang xem (mine/user)
+    listItems: null,     // card merge state của chủ list — nguồn lưới thay State.animes khi mine/user
     youtubeReady: false,
     ytPlayer: null,
     ytReady: false,        // player da san sang (onReady da chay) - moi load video an toan
@@ -242,6 +245,177 @@
       url.searchParams.set('u', username);
       return url.toString();
     } catch (_e) { return '?u=' + username; }
+  }
+
+  /* ── CHẾ ĐỘ LƯỚI: KullAnime (admin) ⇄ {user}Anime (list user) ──────────
+     List của tôi KHÔNG mở modal riêng — đổi NGUỒN DỮ LIỆU của lưới card
+     chính (State.animes ↔ State.listItems) nên bộ lọc/sắp xếp/phân trang
+     hoạt động hệt như lọc list admin. */
+
+  // Username (slug) = tên hiển thị chat/bình luận = link ?u= — một tên duy nhất.
+  // Bỏ dấu tiếng Việt, chuẩn hoá về regex RLS profiles: ^[a-z0-9_]{3,30}$.
+  function slugifyUsername(s) {
+    return String(s || '')
+      .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+      .replace(/đ/g, 'd').replace(/Đ/g, 'D')
+      .toLowerCase()
+      .replace(/[^a-z0-9_]+/g, '_')
+      .replace(/_+/g, '_')
+      .replace(/^_+|_+$/g, '')
+      .slice(0, 30);
+  }
+
+  // Trang chủ mặc định khi mở web (không có ?u=): 'admin' (KullAnime) | 'mine'
+  // Lưu localStorage — web static không có cột DB, setting áp dụng theo máy.
+  const HOME_DEFAULT_KEY = 'kullanime_home_default_v1';
+  function readHomeDefault() {
+    try { return localStorage.getItem(HOME_DEFAULT_KEY) === 'mine' ? 'mine' : 'admin'; } catch (_e) { return 'admin'; }
+  }
+  function writeHomeDefault(v) {
+    try { localStorage.setItem(HOME_DEFAULT_KEY, v === 'mine' ? 'mine' : 'admin'); } catch (_e) { /* ignore */ }
+  }
+
+  // Đồng bộ ?u= trên thanh địa chỉ: đang xem list user → ?u=username;
+  // về list admin → bỏ ?u= (giữ nguyên các param khác như ?id= ?now=).
+  // Link share chính là URL hiện tại → "ô search/địa chỉ trở thành userlink".
+  function syncViewURL() {
+    try {
+      const url = new URL(window.location.href);
+      if (State.viewingUser) url.searchParams.set('u', State.viewingUser);
+      else url.searchParams.delete('u');
+      window.history.replaceState(null, '', url.toString());
+    } catch (_e) { /* ignore */ }
+  }
+
+  // Text gợi ý khi lưới trống theo chế độ hiện tại
+  function updateEmptyStateText() {
+    const t = document.querySelector('#animeEmpty .empty-title');
+    const d = document.querySelector('#animeEmpty .empty-desc');
+    if (!t || !d) return;
+    if (State.listMode === 'admin') {
+      t.textContent = 'Chưa có anime nào';
+      d.textContent = 'Admin hãy đăng nhập và thêm anime đầu tiên nhé!';
+    } else {
+      t.textContent = 'List chưa có anime nào';
+      d.textContent = State.listMode === 'mine'
+        ? 'Bạn chưa thêm anime vào list — bấm ♥ / trạng thái trên card để thêm.'
+        : 'Chủ list chưa thêm anime nào vào list này.';
+    }
+  }
+
+  // Chuyển sang 1 list: username '' → list admin; còn lại → RPC get_public_list
+  // (owner/admin xem được cả list riêng; khách chỉ khi public — RPC tự chặn).
+  // Lỗi PRIVATE/NOT_FOUND → GIỮ NGUYÊN list hiện tại + toast.
+  async function showListView(username) {
+    const target = String(username || '').trim().toLowerCase();
+    if (!target) {
+      State.listMode = 'admin';
+      State.listOwner = '';
+      State.listItems = null;
+      State.viewingUser = '';
+      State.animePage = 1;
+      updateBrand(); syncViewURL(); updateEmptyStateText();
+      const s0 = $('#animeSearch'); if (s0) s0.placeholder = '🔍 Tìm tất cả...';
+      renderAnimeGrid(true);
+      return true;
+    }
+    if (!State.supabase) return false;
+    try {
+      const res = await State.supabase.rpc('get_public_list', { p_username: target });
+      if (res.error) throw res.error;
+      const d = res.data || {};
+      const items = Array.isArray(d.items) ? d.items : [];
+      const owner = String(d.username || target);
+      const isMine = !!(State.isLoggedIn && State.myUsername && State.myUsername === owner);
+      // Merge state của CHỦ list vào record đầy đủ (State.animes) → card + bộ lọc
+      // (thể loại/mùa/năm/tên...) dùng chung pipeline với list admin.
+      const byId = {};
+      (State.animes || []).forEach((a) => { byId[String(a.id)] = a; });
+      State.listItems = items.map((it) => Object.assign({}, byId[String(it.id)] || {}, {
+        id: it.id,
+        title: it.title, title_romaji: it.title_romaji, title_native: it.title_native,
+        poster_url: it.poster_url, status: it.status, rating: it.rating,
+        genres: it.genres, studio: it.studio, year: it.year, total_episodes: it.total_episodes,
+        watched_episodes: it.watched_episodes, my_rating: it.my_rating, my_status: it.my_status,
+        watch_count: it.watch_count, watch_dates: it.watch_dates, updated_at: it.updated_at,
+        _owner_state: isMine ? 0 : 1
+      }));
+      State.listMode = isMine ? 'mine' : 'user';
+      State.listOwner = owner;
+      State.viewingUser = owner;
+      State.animePage = 1;
+      updateBrand(); syncViewURL(); updateEmptyStateText();
+      const s = $('#animeSearch');
+      if (s) s.placeholder = '🔍 Tìm trong list của ' + owner + '...';
+      renderAnimeGrid(true);
+      if (State.listMode === 'user') toast('Đang xem list của ' + owner + ' — chế độ CHỈ XEM.', 'info', 3500);
+      return true;
+    } catch (err) {
+      const msg = String((err && err.message) || err || '');
+      if (/PRIVATE/i.test(msg)) {
+        toast('List của "' + target + '" đang để RIÊNG TƯ — chủ list phải bật công khai mới xem được.', 'warning', 5000);
+      } else if (/NOT_FOUND/i.test(msg)) {
+        toast('Không tìm thấy username "' + target + '".', 'error', 5000);
+      } else {
+        toast('Không tải được list: ' + msg.slice(0, 160), 'error', 5000);
+      }
+      return false;
+    }
+  }
+
+  // Tên tab đang mở (đổi brand khi chuyển tab)
+  function currentTabName() {
+    const el = document.querySelector('.main-nav .nav-tab.active');
+    return (el && el.dataset.tab) || 'anime';
+  }
+  // Brand trên header + tiêu đề tab: KullAnime / KullSong / {user}Anime
+  function updateBrand(tabName) {
+    const tab = tabName || currentTabName();
+    if (tab !== 'anime') { paintBrand('Kull<em>Song</em>', 'KullSong'); return; }
+    if (State.listMode !== 'admin' && State.listOwner) {
+      paintBrand(esc(State.listOwner) + '<em>Anime</em>', State.listOwner + 'Anime');
+    } else {
+      paintBrand('Kull<em>Anime</em>', 'KullAnime');
+    }
+  }
+  function paintBrand(html, plain) {
+    const brand = document.getElementById('brandName');
+    if (!brand) return;
+    brand.classList.remove('brand-marquee');
+    brand.innerHTML = html;
+    document.title = plain;
+    const btn = document.getElementById('brandBtn');
+    if (btn) {
+      const other = State.myUsername || State.viewingUser || '';
+      btn.title = State.listMode === 'admin'
+        ? (other ? 'Về đầu trang — bấm để mở list ' + other + 'Anime' : 'Về đầu trang')
+        : 'Bấm để về KullAnime (list admin)';
+    }
+    // Tên dài quá khung header → CẮT + chạy chữ liên tục từ trái sang phải
+    requestAnimationFrame(() => {
+      let over = false;
+      try { over = brand.scrollWidth > brand.clientWidth + 1; } catch (_e) { /* ignore */ }
+      if (!over) return;
+      brand.innerHTML = '<span class="brand-track">' + html + '&nbsp;&nbsp;&nbsp;&nbsp;' + html + '&nbsp;&nbsp;&nbsp;&nbsp;</span>';
+      brand.classList.add('brand-marquee');
+    });
+  }
+
+  // Tìm record theo id — ưu tiên card của list đang xem (mine/user) để modal
+  // chi tiết hiển thị đúng state của chủ list, fallback kho admin.
+  function findGridAnime(id) {
+    const sid = String(id);
+    if (State.listMode !== 'admin' && State.listItems) {
+      const li = State.listItems.find((x) => String(x.id) === sid);
+      if (li) return li;
+    }
+    return State.animes.find((x) => String(x.id) === sid) || null;
+  }
+  // Sau khi lưu state → vá luôn card trong listItems (bộ lọc trạng thái/♥ đồng bộ)
+  function syncListItemState(animeId, patch) {
+    if (!State.listItems || !patch) return;
+    const li = State.listItems.find((x) => String(x.id) === String(animeId));
+    if (li) Object.assign(li, patch);
   }
   // Kiểm tra 18+ phía client: cờ isAdult từ AniList/Jikan + từ khóa blocklist
   // (match nguyên từ để tránh false-positive). True = BỊ CHẶN.
@@ -671,6 +845,12 @@
       if (prof) {
         State.myProfile = prof;
         State.myUsername = prof.username || '';
+        // MỘT TÊN DUY NHẤT: tên hiển thị (chat/bình luận) = username/link list
+        const unified = String(prof.display_name || prof.username || '').trim();
+        if (unified && unified !== State.nickname) {
+          State.nickname = unified;
+          applyAuthState();
+        }
       }
       const { data: states } = await State.supabase
         .from('user_anime_states').select('*').eq('user_id', uid);
@@ -682,6 +862,15 @@
   // Điểm/trạng thái HIỂN THỊ của 1 anime: ưu tiên state riêng của mình (đã login),
   // fallback về cột chung trên record (trang mặc định/admin chưa migrate).
   function myViewOf(a) {
+    // Đang xem list của USER KHÁC (chế độ ?u=) → hiển thị state của CHỦ list,
+    // không dùng state của mình (kể cả khi mình đã đăng nhập).
+    if (a && a._owner_state && State.listMode === 'user') {
+      return {
+        my_rating: a.my_rating, my_status: a.my_status,
+        watched_episodes: a.watched_episodes, watch_count: a.watch_count,
+        watch_dates: a.watch_dates
+      };
+    }
     const st = a && State.myStates ? State.myStates[String(a.id)] : null;
     if (st) return {
       my_rating: st.my_rating, my_status: st.my_status,
@@ -5057,6 +5246,9 @@ function setupSubPopupEvents() {
     updateFilterBadge();
 
     let list = State.animes.slice();
+    // Chế độ list user (mine/user): nguồn lưới = card của chính list đó
+    // (đã merge state của chủ list) — bộ lọc/sắp xếp chạy hệt như list admin.
+    if (State.listMode !== 'admin' && State.listItems) list = State.listItems.slice();
 
     // Lọc trạng thái (tình trạng phát hành của anime)
     if (status !== 'all') {
@@ -6061,9 +6253,12 @@ function setupSubPopupEvents() {
   // - Admin: giữ hành vi cũ — ghi thẳng kho chung (trang mặc định hiện điểm admin).
   async function saveMyTracker(animeId, patch) {
     if (!State.isLoggedIn) { toast('Đăng nhập để chấm điểm / lưu trạng thái.', 'warning'); return false; }
+    // Đang xem list của user khác (chế độ ?u=) → CHỈ XEM: không có quyền chỉnh sửa.
+    if (State.listMode === 'user') { toast('Đang xem list của user khác — chỉ xem, không chỉnh sửa được.', 'warning', 4000); return false; }
     if (!State.isAdmin) {
       const r = await saveMyState(animeId, patch);
       if (!r) return false;
+      syncListItemState(animeId, patch);
       renderAnimeGrid(true);
       if (State.currentAnime && String(State.currentAnime.id) === String(animeId)) {
         renderAnimeDetail(State.currentAnime);
@@ -6075,6 +6270,7 @@ function setupSubPopupEvents() {
     const idx = State.animes.findIndex((x) => String(x.id) === String(animeId));
     if (idx > -1) {
       Object.assign(State.animes[idx], patch);
+      syncListItemState(animeId, patch); // vá card đang xem ở chế độ mine/user
       // Trigger DB đã set updated_at = now(), nhưng dữ liệu trong bộ nhớ chưa có
       // → tự set luôn để sắp xếp "Gần đây" đưa anime vừa cập nhật lên đầu ngay.
       State.animes[idx].updated_at = new Date().toISOString();
@@ -7329,15 +7525,10 @@ function setupSubPopupEvents() {
 
   $('#loginBtn').addEventListener('click', () => {
     if (State.isLoggedIn) {
-      openAccountModal(); // đã login → modal Tài khoản (đổi tên/pass + My List)
+      openAccountModal(); // đã login → menu Tài khoản (list của tôi + cài đặt)
     } else {
       openModal('loginModal');
     }
-  });
-  // Quên mật khẩu: KHÔNG gửi mail recovery — chỉ hiện dòng liên hệ admin.
-  const _forgotBtn = $('#forgotBtn');
-  if (_forgotBtn) _forgotBtn.addEventListener('click', () => {
-    $('#forgotNote').classList.remove('hidden');
   });
 
   // (Nút 🔄 "Tải lại" đã ẨN — mỗi lần mở/tải lại trang web tự check phiên bản
@@ -7377,6 +7568,9 @@ function setupSubPopupEvents() {
     applyAuthState();
     await loadMyListData(); // nạp profile + states riêng (?u= + điểm của mình)
     renderAnimeGrid();      // vẽ lại card với điểm riêng của mình
+    // Vừa login mà đang mở ?u= trùng username của mình → chuyển sang "list của tôi"
+    // (được phép chỉnh sửa — trước đó là chỉ-xem vì chưa login).
+    if (State.listOwner && State.listOwner === State.myUsername) await showListView(State.myUsername);
     if (State.isAdmin) {
       toast('Đăng nhập Admin thành công 🎉', 'success');
       renderAdminAnimeList();
@@ -7395,43 +7589,96 @@ function setupSubPopupEvents() {
     State.nickname = '';
     State.myUid = ''; State.myUsername = ''; State.myProfile = null; State.myStates = {};
     applyAuthState();
-    renderAnimeGrid(); // về điểm chung (trang mặc định)
+    // Đang xem list của mình → về list admin; đang xem list user khác (?u=) thì
+    // giữ nguyên (vẫn xem được nếu list đó public).
+    if (State.listMode === 'mine') await showListView('');
+    else renderAnimeGrid();
     if (!silent) toast('Đã đăng xuất.', 'info');
     closeModal('loginModal');
     closeModal('adminModal');
     closeModal('accountModal');
   }
 
-  /* ── MODAL TÀI KHOẢN: đổi nickname + đổi pass + My List ────────────────
-     - Đổi pass: auth.updateUser({password}) — user tự đổi pass admin cấp.
+  /* ── MENU TÀI KHOẢN: list của tôi + đổi TÊN DUY NHẤT + đổi pass + công khai
+     + backup/restore + trang chủ mặc định + đăng xuất ──────────────────────
+     - Đổi pass: auth.updateUser({password}) — user tự đổi pass.
      - Admin reset pass user = làm trong Dashboard (không dùng service_role ở web). */
   function openAccountModal() {
     if (!State.isLoggedIn) { openModal('loginModal'); return; }
     const hello = $('#accountHello');
-    if (hello) hello.textContent = 'Xin chào ' + (State.nickname || State.adminEmail || 'bạn') +
-      (State.isAdmin ? ' (Admin)' : '') + ' — email: ' + (State.adminEmail || '—');
-    const nick = $('#accountNickname');
-    if (nick) nick.value = State.nickname || '';
+    if (hello) hello.textContent = 'Chào ' + (State.myUsername || State.nickname || 'bạn') +
+      ' — ' + (State.adminEmail || '—') + (State.isAdmin ? ' · Admin' : '');
+    const nm = $('#accountName');
+    if (nm) nm.value = State.myUsername || State.nickname || '';
     const link = $('#accountMyLink');
-    if (link) link.value = State.myUsername ? myListShareURL(State.myUsername) : '(chưa có username — admin tạo profiles cho bạn)';
+    if (link) link.value = State.myUsername ? myListShareURL(State.myUsername) : '(chưa có username — nhập tên ở ô trên rồi bấm "Đổi tên")';
     const pub = $('#accountPublic');
     if (pub) pub.checked = !!(State.myProfile && State.myProfile.is_public);
+    const home = $('#accountHome');
+    if (home) home.value = readHomeDefault();
     const perr = $('#accountPassError');
     if (perr) perr.classList.add('hidden');
     const p1 = $('#accountPass1'); if (p1) p1.value = '';
     const p2 = $('#accountPass2'); if (p2) p2.value = '';
     openModal('accountModal');
   }
-  async function handleAccountRename() {
-    const el = $('#accountNickname');
-    const trimmed = String((el && el.value) || '').trim();
-    if (!trimmed) { toast('Tên hiển thị không được để trống.', 'warning'); return; }
-    if (trimmed.length > 60) { toast('Tên hiển thị tối đa 60 ký tự.', 'warning'); return; }
-    const { error } = await State.supabase.auth.updateUser({ data: { nickname: trimmed } });
-    if (error) { toast('Không đổi được tên hiển thị: ' + error.message, 'error', 5000); return; }
-    State.nickname = trimmed;
+  // ĐỔI TÊN DUY NHẤT: một tên vừa là tên hiển thị chat/bình luận (metadata
+  // nickname), vừa là username (slug) của link list ?u= (bảng profiles).
+  async function applyUnifiedRename(rawName) {
+    if (!State.supabase || !State.isLoggedIn || !State.myUid) {
+      toast('Đăng nhập để đổi tên.', 'warning');
+      return false;
+    }
+    const slug = slugifyUsername(rawName);
+    if (slug.length < 3) {
+      toast('Tên phải từ 3 ký tự: chỉ dùng chữ thường a–z, số và dấu _ (vd: nguyen_van).', 'warning', 4500);
+      return false;
+    }
+    if (slug === State.myUsername && slug === State.nickname) {
+      toast('Tên không thay đổi.', 'info');
+      return false;
+    }
+    let err = null;
+    if (State.myProfile) {
+      const res = await State.supabase.from('profiles')
+        .update({ username: slug, display_name: slug, updated_at: new Date().toISOString() })
+        .eq('user_id', State.myUid);
+      err = res.error;
+    } else {
+      // Chưa có profiles → tạo own row (RLS profiles_owner_write cho phép)
+      const res = await State.supabase.from('profiles')
+        .insert({ user_id: State.myUid, username: slug, display_name: slug });
+      err = res.error;
+    }
+    if (err) {
+      const msg = String(err.message || '');
+      if (/duplicate|23505/i.test(msg)) toast('Username "' + slug + '" đã có người dùng — thử tên khác.', 'error', 5000);
+      else toast('Không đổi được tên: ' + msg, 'error', 5000);
+      return false;
+    }
+    // metadata nickname → tên chat/bình luận (lỗi phụ không chặn)
+    const m = await State.supabase.auth.updateUser({ data: { nickname: slug } });
+    if (m.error) console.warn('nickname metadata:', m.error.message);
+    State.nickname = slug;
+    State.myUsername = slug;
+    if (State.myProfile) { State.myProfile.username = slug; State.myProfile.display_name = slug; }
+    else State.myProfile = { user_id: State.myUid, username: slug, display_name: slug, is_public: false };
     applyAuthState();
-    toast('Đã đổi tên hiển thị thành "' + trimmed + '" ✅', 'success');
+    // Đang xem "list của tôi" → cập nhật luôn brand {user}Anime + URL ?u=
+    if (State.listMode === 'mine') {
+      State.listOwner = slug;
+      State.viewingUser = slug;
+      updateBrand(); syncViewURL();
+    }
+    const link = $('#accountMyLink');
+    if (link) link.value = myListShareURL(slug);
+    const nmEl = $('#accountName');
+    if (nmEl && nmEl.value !== slug) nmEl.value = slug;
+    toast('Đã đổi tên thành "' + slug + '" ✅ — link list: ' + myListShareURL(slug), 'success', 5000);
+    return true;
+  }
+  async function handleAccountRename() {
+    await applyUnifiedRename(($('#accountName') || {}).value || '');
   }
   async function handleAccountPass() {
     const p1 = String(($('#accountPass1') || {}).value || '');
@@ -7459,81 +7706,11 @@ function setupSubPopupEvents() {
     toast(v ? 'Đã CÔNG KHAI list.' : 'Đã ẨN list.', 'success');
   }
 
-  /* ── MY LIST MODAL (?u=username): xem + backup/restore + tick công khai ─
-     - Chưa login: hiện dòng liên hệ admin kull@duck.com + ô nhập username.
-     - Backup JSON versioned; restore vào acc ĐANG login (RLS đảm bảo). */
+  /* ── BACKUP / RESTORE MY LIST ────────────────────────────────────────────
+     Backup JSON versioned; restore vào acc ĐANG login (RLS đảm bảo).
+     Xem list: qua showListView() — lưới card chính, không còn modal. */
   const MYLIST_BACKUP_VERSION = 1;
-  function mylistFail(m) {
-    const el = $('#mylistError');
-    if (!el) return;
-    if (!m) { el.classList.add('hidden'); el.textContent = ''; return; }
-    el.textContent = m; el.classList.remove('hidden');
-  }
-  function mylistCardHTML(it) {
-    const title = it.title_romaji && String(it.title_romaji).trim() ? it.title_romaji : it.title;
-    const r = Math.round(Number(it.my_rating) || 0);
-    const we = Number(it.watched_episodes) || 0, te = Number(it.total_episodes) || 0;
-    return '<div class="mylist-card">' +
-      (it.poster_url ? '<img src="' + esc(it.poster_url) + '" alt="" loading="lazy" />' : '') +
-      '<div class="ml-body"><p class="ml-title">' + esc(title || '(khong ten)') + '</p>' +
-      '<div class="ml-meta">♥ ' + (r > 0 ? r : '–') + ' · ' + esc(it.my_status || 'Chua xem') +
-      (te > 0 || we > 0 ? ' · ' + we + '/' + (te || '?') + ' tap' : '') + '</div></div></div>';
-  }
-  function renderMylistGrid(items) {
-    const grid = $('#mylistGrid');
-    const cnt = $('#mylistCount');
-    if (cnt) cnt.textContent = items && items.length ? ('Tong ' + items.length + ' anime') : '';
-    if (!grid) return;
-    grid.innerHTML = (items && items.length)
-      ? items.map(mylistCardHTML).join('')
-      : '<p class="empty-desc">List nay chua co anime nao.</p>';
-  }
-  async function openMylistModal(username) {
-    const guest = $('#mylistGuest');
-    const pubWrap = $('#mylistPublicWrap');
-    mylistFail(null);
-    renderMylistGrid([]);
-    if (guest) guest.classList.toggle('hidden', State.isLoggedIn);
-    const target = String(username || State.myUsername || '').trim().toLowerCase();
-    if (!target) {
-      $('#mylistTitle').textContent = '📋 My List';
-      $('#mylistSub').textContent = State.isLoggedIn
-        ? 'Ban chua co username — nho admin tao profiles.'
-        : 'Nhap username de xem list cong khai.';
-      if (pubWrap) pubWrap.classList.add('hidden');
-      openModal('mylistModal');
-      return;
-    }
-    $('#mylistTitle').textContent = '📋 List cua ' + target;
-    $('#mylistSub').textContent = 'Dang tai...';
-    openModal('mylistModal');
-    try {
-      const res = await State.supabase.rpc('get_public_list', { p_username: target });
-      if (res.error) throw res.error;
-      const d = res.data || {};
-      const items = d.items || [];
-      const isMine = State.isLoggedIn && State.myUsername && State.myUsername === d.username;
-      $('#mylistSub').textContent = (d.display_name || d.username) +
-        ' — ' + (d.total || items.length) + ' anime' +
-        (d.is_public ? ' (cong khai)' : ' (rieng tu)') + ' · link: ' + myListShareURL(d.username);
-      renderMylistGrid(items);
-      if (pubWrap) pubWrap.classList.toggle('hidden', !isMine);
-      const pub = $('#mylistPublic');
-      if (pub && isMine) pub.checked = !!d.is_public;
-    } catch (err) {
-      const msg = String((err && err.message) || err || '');
-      if (/PRIVATE/i.test(msg)) {
-        $('#mylistSub').textContent = 'List nay dang de rieng tu.';
-        mylistFail('User da tat cong khai — khong ai xem duoc du co link.');
-      } else if (/NOT_FOUND/i.test(msg)) {
-        $('#mylistSub').textContent = 'Khong tim thay user.';
-        mylistFail('Username "' + target + '" khong ton tai.');
-      } else {
-        $('#mylistSub').textContent = 'Khong tai duoc list.';
-        mylistFail('Loi: ' + msg.slice(0, 200));
-      }
-    }
-  }
+
   function backupMyList() {
     if (!State.isLoggedIn || !State.myUid) { toast('Dang nhap de backup.', 'warning'); return; }
     const states = Object.values(State.myStates || {});
@@ -7587,28 +7764,19 @@ function setupSubPopupEvents() {
     const res = await State.supabase.from('user_anime_states').upsert(rows, { onConflict: 'user_id,anime_id' });
     if (res.error) { toast('Restore loi: ' + res.error.message, 'error', 5000); return; }
     await loadMyListData();
-    renderAnimeGrid();
+    // Đang xem list của mình → tải lại list; còn không → vẽ lại lưới admin
+    if (State.listMode !== 'admin' && State.listOwner) await showListView(State.listOwner);
+    else renderAnimeGrid();
     toast('Da restore ' + rows.length + ' anime' + (skipped ? ' (bo qua ' + skipped + ').' : '.'), 'success');
-    openMylistModal(State.myUsername);
   }
 
-  // Đổi tên hiển thị (nickname) của tài khoản đã đăng nhập
-  async function changeNickname() {
+  // ✏️ Đổi tên trong composer chat/bình luận → cùng 1 tên duy nhất với link list
+  function changeNickname() {
     if (!State.supabase || !State.isLoggedIn) return;
-    const current = State.nickname || (State.adminEmail ? State.adminEmail.split('@')[0] : '') || '';
-    const name = prompt('Nhập tên hiển thị mới (nickname) cho tài khoản:', current);
+    const current = State.myUsername || State.nickname || '';
+    const name = prompt('Nhập tên hiển thị mới (dùng cho chat, bình luận & link list — a-z, số, _):', current);
     if (name == null) return; // người dùng bấm Hủy
-    const trimmed = name.trim();
-    if (!trimmed) { toast('Tên hiển thị không được để trống.', 'warning'); return; }
-    if (trimmed.length > 60) { toast('Tên hiển thị tối đa 60 ký tự.', 'warning'); return; }
-    const btn = event && event.currentTarget;
-    if (btn) btn.disabled = true;
-    const { error } = await State.supabase.auth.updateUser({ data: { nickname: trimmed } });
-    if (btn) btn.disabled = false;
-    if (error) { toast('Không đổi được tên hiển thị: ' + error.message, 'error', 5000); return; }
-    State.nickname = trimmed;
-    applyAuthState();
-    toast('Đã đổi tên hiển thị thành "' + trimmed + '" ✅', 'success');
+    applyUnifiedRename(name);
   }
   $('#commentRenameBtn').addEventListener('click', changeNickname);
   $('#chatRenameBtn').addEventListener('click', changeNickname);
@@ -9190,11 +9358,26 @@ function setupSubPopupEvents() {
      19. EVENT BINDINGS (delegated handlers)
      ────────────────────────────────────────────────────── */
   function bindEvents() {
-    // Brand (KullAnime): cuộn về đầu trang + xoá toàn bộ bộ lọc anime
+    // Brand: cuộn về đầu trang + xoá bộ lọc + CHUYỂN QUA LẠI giữa 2 list —
+    // KullAnime (admin) ⇄ {user}Anime (list của mình / ?u= đang xem)
     const brandBtn = $('#brandBtn');
-    if (brandBtn) brandBtn.addEventListener('click', () => {
+    if (brandBtn) brandBtn.addEventListener('click', async () => {
       window.scrollTo({ top: 0, behavior: 'smooth' });
+      if (currentTabName() !== 'anime') switchTab('anime'); // list là của tab Anime
       resetAnimeFilters();
+      if (State.listMode === 'admin') {
+        const target = State.myUsername || State.viewingUser || '';
+        if (!target) { toast('Đăng nhập để mở "List anime của tôi" (hoặc mở link ?u=).', 'info', 4000); return; }
+        await showListView(target);
+      } else {
+        await showListView('');
+      }
+    });
+    // Resize: đo lại bề rộng brand (tên dài có thể tràn/không còn tràn → bật/tắt chạy chữ)
+    let _brandResizeT = null;
+    window.addEventListener('resize', () => {
+      clearTimeout(_brandResizeT);
+      _brandResizeT = setTimeout(() => updateBrand(), 250);
     });
 
     // Tab Section (Anime / Music) — work với .main-nav có [data-tab]
@@ -9229,7 +9412,7 @@ function setupSubPopupEvents() {
         handleCardQuick(e, q.dataset.quick, card.dataset.id, q);
         return;
       }
-      const a = State.animes.find((x) => String(x.id) === String(card.dataset.id));
+      const a = findGridAnime(card.dataset.id);
       if (a) openAnimeDetail(a);
     });
 
@@ -10159,39 +10342,41 @@ function setupSubPopupEvents() {
     $('#loginForm').addEventListener('submit', handleLogin);
     $('#animeForm').addEventListener('submit', saveAnime);
     $('#songForm').addEventListener('submit', saveSong);
-    // Modal Tài khoản: đổi tên + đổi pass + copy link + tick công khai + đăng xuất
+    // Menu Tài khoản: list của tôi + đổi tên + đổi pass + copy link + công khai
+    // + backup/restore + trang chủ mặc định + đăng xuất
+    const _ml = $('#accountMyListBtn'); if (_ml) _ml.addEventListener('click', async () => {
+      closeModal('accountModal');
+      if (!State.myUsername) { toast('Chưa có username — dùng ô "Tên hiển thị" rồi bấm "Đổi tên" để tạo.', 'warning', 4500); return; }
+      await showListView(State.myUsername);
+    });
     const _rn = $('#accountRenameBtn'); if (_rn) _rn.addEventListener('click', handleAccountRename);
     const _pw = $('#accountPassBtn'); if (_pw) _pw.addEventListener('click', handleAccountPass);
     const _cp = $('#accountCopyLink'); if (_cp) _cp.addEventListener('click', () => {
       const v = $('#accountMyLink').value || '';
-      if (!v || v.charAt(0) === '(') { toast('Chưa có link — nhờ admin tạo username.', 'warning'); return; }
+      if (!v || v.charAt(0) === '(') { toast('Chưa có link — đổi tên trước để tạo username.', 'warning'); return; }
       copyText(v);
     });
     const _ap = $('#accountPublic'); if (_ap) _ap.addEventListener('change', handleAccountPublic);
     const _lo = $('#accountLogoutBtn'); if (_lo) _lo.addEventListener('click', () => handleLogout());
-    // Nút My List (luôn hiện): đã login → list mình; chưa → panel liên hệ admin + xem ?u=
-    const _ml = $('#mylistBtn'); if (_ml) _ml.addEventListener('click', () => openMylistModal(''));
-    const _mv = $('#mylistViewBtn'); if (_mv) _mv.addEventListener('click', () => {
-      const v = String(($('#mylistUserInput') || {}).value || '').trim().toLowerCase();
-      if (!v) { toast('Nhập username cần xem.', 'warning'); return; }
-      openMylistModal(v);
-    });
-    const _bb = $('#mylistBackupBtn'); if (_bb) _bb.addEventListener('click', backupMyList);
-    const _rb = $('#mylistRestoreBtn'); if (_rb) _rb.addEventListener('click', () => {
+    const _bb = $('#accountBackupBtn'); if (_bb) _bb.addEventListener('click', backupMyList);
+    const _rb = $('#accountRestoreBtn'); if (_rb) _rb.addEventListener('click', () => {
       if (!State.isLoggedIn) { toast('Đăng nhập để restore vào list của bạn.', 'warning'); return; }
-      $('#mylistFile').click();
+      $('#accountRestoreFile').click();
     });
-    const _mf = $('#mylistFile'); if (_mf) _mf.addEventListener('change', () => {
-      if (_mf.files && _mf.files[0]) restoreMyListFile(_mf.files[0]);
-      _mf.value = '';
+    const _rf = $('#accountRestoreFile'); if (_rf) _rf.addEventListener('change', () => {
+      if (_rf.files && _rf.files[0]) restoreMyListFile(_rf.files[0]);
+      _rf.value = '';
     });
-    const _mp = $('#mylistPublic'); if (_mp) _mp.addEventListener('change', async () => {
-      if (!State.myUid) return;
-      const v = _mp.checked;
-      const res = await State.supabase.from('profiles').update({ is_public: v }).eq('user_id', State.myUid);
-      if (res.error) { toast('Không đổi được: ' + res.error.message, 'error', 5000); _mp.checked = !v; return; }
-      if (State.myProfile) State.myProfile.is_public = v;
-      toast(v ? 'Đã CÔNG KHAI list.' : 'Đã ẨN list.', 'success');
+    // Trang chủ mặc định: mở web (không ?u=) → list admin hay list của mình
+    const _hd = $('#accountHome'); if (_hd) _hd.addEventListener('change', () => {
+      const v = _hd.value === 'mine' ? 'mine' : 'admin';
+      if (v === 'mine' && !State.myUsername) {
+        toast('Cần đăng nhập có username mới đặt trang chủ là list của bạn.', 'warning', 4500);
+        _hd.value = readHomeDefault();
+        return;
+      }
+      writeHomeDefault(v);
+      toast(v === 'mine' ? 'Trang chủ mặc định: List anime của bạn.' : 'Trang chủ mặc định: KullAnime (admin).', 'success');
     });
     // Nút 💾 Lưu nổi (cố định đáy màn hình, ngoài <form>) → submit form anime,
     // vẫn chạy validate required như nút gốc trong .form-actions.
@@ -10574,11 +10759,8 @@ function setupSubPopupEvents() {
         else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
       }
     }
-    // Đổi brand theo tab: KullAnime hoặc KullSong
-    const brand = $('#brandName');
-    if (brand) {
-      brand.innerHTML = tabName === 'anime' ? 'Kull<em>Anime</em>' : 'Kull<em>Song</em>';
-    }
+    // Đổi brand theo tab: KullAnime/KullSong (hoặc {user}Anime khi đang xem list)
+    updateBrand(tabName);
     // Di chuyển liquid-glass indicator theo tab đang mở
     const nav = $('.main-nav');
     const activeBtn = nav && nav.querySelector('.nav-tab[data-tab="' + tabName + '"]');
@@ -10648,10 +10830,13 @@ function setupSubPopupEvents() {
     refreshAuthState();
     await loadMyListData(); // nạp profile + states riêng (điểm card của mình)
     renderAnimeGrid();      // vẽ lại card với điểm riêng (nếu đã login)
-    // Chế độ xem ?u=username: tự mở My List của user đó sau khi dữ liệu sẵn sàng.
+    // Chế độ list khi mở trang: ?u=username (link share) > cài đặt trang chủ
+    // mặc định (mine) > list admin. Link share = URL có ?u= trên thanh địa chỉ.
     State.viewingUser = readViewUserParam();
     if (State.viewingUser) {
-      setTimeout(() => openMylistModal(State.viewingUser), 600);
+      await showListView(State.viewingUser);
+    } else if (readHomeDefault() === 'mine' && State.myUsername) {
+      await showListView(State.myUsername);
     }
     // Khởi động chat chung (sticky bar) + captcha chat
     newChatCaptcha();

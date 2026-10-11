@@ -15,6 +15,7 @@ Website quản lý, đánh giá và chia sẻ danh sách Anime cá nhân & cộn
 - **💬 Chat chung:** bong bóng chat nổi (góc dưới màn hình) tổng hợp toàn bộ tin nhắn — cả tin chat tự do (không gắn phim) lẫn bình luận trong từng phim, click nhãn phim để mở chi tiết; tự làm mới mỗi 30s; tin của chính mình căn phải theo nickname (thành viên) hoặc tên khách đã dùng — tên khách được nhớ qua `localStorage` nên lần truy cập sau vẫn nhận diện lại tin của mình
 - **Admin Panel (đăng nhập):** CRUD anime & bài hát, quản lý bình luận, auto-fill form từ AniList API, backfill ảnh nhân vật + liên kết cho anime cũ, upload poster Cloudinary, export/import backup JSON
 - **Trạng thái xem:** mỗi anime có thể đặt `Đã xem / Chưa xem / Có ý định xem` + điểm đánh giá (0–10)
+- **📋 My List (multi-user):** mỗi thành viên có list riêng (điểm/trạng thái lưu trong `user_anime_states`) hiển thị ngay trên LƯỚI CARD chính (bấm **List anime của tôi** trong menu 👤 hoặc bấm logo **KullAnime** để chuyển qua lại `KullAnime ⇄ {user}Anime`); có thể **CÔNG KHAI** link `?u=username` để ai cũng xem được (chỉ xem, không sửa); backup/restore JSON + đặt trang chủ mặc định (list admin / list của tôi) trong menu Tài khoản; tên hiển thị chat/bình luận = username link list (một tên duy nhất, đổi trong menu 👤); chặn 18+ ở 3 lớp (client + trigger SQL + query AniList)
 
 ## 🧱 Tech Stack
 
@@ -103,11 +104,12 @@ NEXT_PUBLIC_JIKAN_API_URL=https://api.jikan.moe/v4
 4. **Tạo tài khoản thành viên** (bình luận/chat): `Authentication → Users → Add user` → nhập email + password (chỉ admin mới tạo được user — site đã tắt self-registration)
 5. **Lấy thông tin kết nối:** `Project Settings → API` → sao chép `URL` và `anon public` key
 
-### Đăng nhập & nickname
+### Đăng nhập & tài khoản
 
-- Tài khoản đăng nhập bằng nút **👤 Đăng nhập** trên header
-- Sau đăng nhập, bình luận & chat **không cần nhập tên hiển thị và không cần captcha** — hệ thống tự lấy **nickname** (nếu chưa có nickname thì hiển thị phần trước `@` của email)
-- Bấm **✏️ Đổi tên** trong composer để đặt nickname → lưu vĩnh viễn qua `auth.updateUser`
+- Tài khoản đăng nhập bằng nút **👤** trên header (khách → form đăng nhập kèm dòng liên hệ admin **kull@duck.com** để cấp tài khoản / quên mật khẩu — không có nút "Quên mật khẩu")
+- Đã đăng nhập: bấm **👤** mở menu Tài khoản — **List anime của tôi**, đổi tên, đổi mật khẩu, công khai link list, backup/restore, chọn trang chủ mặc định, đăng xuất (không có nút đăng xuất trên header)
+- **Một tên duy nhất:** tên hiển thị chat/bình luận = username của link list `?u=` (chữ thường a–z, số, dấu `_`) — sửa trong menu Tài khoản hoặc nút **✏️ Đổi tên** trong composer
+- Sau đăng nhập, bình luận & chat **không cần nhập tên hiển thị và không cần captcha** — hệ thống tự lấy tên đã đặt
 - Khách chưa đăng nhập phải nhập tên + giải captcha
 
 ## 🖼️ Thiết lập Cloudinary
