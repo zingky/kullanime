@@ -1,8 +1,10 @@
 -- ============================================================
---  KullAnime — Migration: MY LIST (multi-user) + CHẶN HENTAI (PHẦN 1/2)
---  Chạy TRONG Supabase Dashboard -> SQL Editor -> RUN (1 lần).
+--  KullAnime — Migration: MY LIST (multi-user) + CHẶN HENTAI (GỘP 1 FILE)
+--  Chạy TRONG Supabase Dashboard -> SQL Editor -> RUN (1 lần duy nhất).
+--  Chạy lại nhiều lần vẫn an toàn (toàn bộ IF NOT EXISTS / OR REPLACE).
 --  Yêu cầu: đã chạy supabase-setup.sql trước đó.
 --  Gồm: A) profiles  B) user_anime_states  C) migrate điểm admin cũ
+--        D) user insert thẳng animes  E) trigger chặn 18+  F) RPC get_public_list
 -- ============================================================
 
 -- A) BẢNG PROFILES — 1 row / 1 user (username = slug link ?u=)
@@ -15,6 +17,21 @@ create table if not exists public.profiles (
   updated_at   timestamptz not null default now()
 );
 comment on table public.profiles is 'Ho so public: username (link ?u=) + tick cong khai list';
+
+-- Tự vá schema nếu bảng profiles đã tồn tại từ trước mà thiếu cột
+-- (đây chính là nguyên nhân lỗi 42703 column "is_public" does not exist:
+-- CREATE TABLE IF NOT EXISTS bỏ qua bảng cũ, policy mới trỏ cột chưa có).
+alter table public.profiles add column if not exists username text not null default '';
+alter table public.profiles add column if not exists display_name text not null default '';
+alter table public.profiles add column if not exists is_public boolean not null default false;
+alter table public.profiles add column if not exists created_at timestamptz not null default now();
+alter table public.profiles add column if not exists updated_at timestamptz not null default now();
+-- UNIQUE username (bảng cũ có thể chưa có constraint này).
+do $$ begin
+  if not exists (select 1 from pg_constraint where conname = 'profiles_username_key') then
+    alter table public.profiles add constraint profiles_username_key unique (username);
+  end if;
+end; $$;
 
 alter table public.profiles enable row level security;
 grant usage on schema public to anon, authenticated;
@@ -112,3 +129,78 @@ create trigger trg_profiles_updated_at before update on public.profiles
 drop trigger if exists trg_states_updated_at on public.user_anime_states;
 create trigger trg_states_updated_at before update on public.user_anime_states
   for each row execute function public.set_updated_at();
+
+-- ============================================================
+-- D) USER ĐƯỢC THÊM THẲNG ANIME VÀO KHO CHUNG (khỏi duyệt)
+-- ============================================================
+drop policy if exists "animes_admin_insert" on public.animes;
+drop policy if exists "animes_member_insert" on public.animes;
+create policy "animes_member_insert"
+  on public.animes for insert to authenticated
+  with check (length(btrim(coalesce(title,''))) >= 1 and length(title) <= 300
+    and coalesce(is_adult, false) = false);
+
+-- ============================================================
+-- E) CHẶN HENTAI 18+ Ở SERVER (F12 gọi thẳng cũng bị chặn)
+-- ============================================================
+alter table public.animes add column if not exists is_adult boolean not null default false;
+
+create or replace function public.reject_adult_anime()
+returns trigger language plpgsql security definer set search_path = public
+as $$
+declare _hay text;
+begin
+  if coalesce(new.is_adult, false) = true then
+    raise exception 'Noi dung 18+ bi chan tren web nay.';
+  end if;
+  _hay := lower(coalesce(new.title,'') || ' ' || coalesce(new.title_romaji,'')
+    || ' ' || coalesce(new.title_native,'') || ' ' || coalesce(array_to_string(new.genres,' '),'')
+    || ' ' || coalesce(array_to_string(new.title_synonyms,' '),'') || ' ' || coalesce(new.tags::text,''));
+  if _hay ~ '(^|[^a-z0-9])(hentai|porn|xxx|lolicon|shotacon|ahegao|netorare|harem[ _-]?sex|adult[ _-]?video|av[ _-]?idol|18\+)([^a-z0-9]|$)' then
+    raise exception 'Noi dung 18+ bi chan tren web nay.';
+  end if;
+  new.is_adult := false;
+  return new;
+end;
+$$;
+
+drop trigger if exists trg_reject_adult_anime on public.animes;
+create trigger trg_reject_adult_anime before insert or update on public.animes
+  for each row execute function public.reject_adult_anime();
+
+-- ============================================================
+-- F) RPC GET_PUBLIC_LIST — 1 call lấy list công khai (?u=username)
+-- ============================================================
+drop function if exists public.get_public_list(text);
+create or replace function public.get_public_list(p_username text)
+returns jsonb language plpgsql stable security definer set search_path = public
+as $$
+declare
+  _prof public.profiles%rowtype;
+  _viewer uuid := auth.uid();
+  _items jsonb;
+begin
+  select * into _prof from public.profiles
+   where lower(username) = lower(btrim(coalesce(p_username,'')));
+  if not found then raise exception 'NOT_FOUND'; end if;
+  if _prof.is_public = false
+     and (_viewer is null or (_viewer <> _prof.user_id and not public.is_admin())) then
+    raise exception 'PRIVATE';
+  end if;
+  select coalesce(jsonb_agg(t ORDER BY t.my_rating DESC, t.title), '[]'::jsonb) into _items
+    from (
+      select a.id, a.title, a.title_romaji, a.title_native, a.poster_url,
+             a.status, a.rating, a.genres, a.studio, a.year,
+             a.total_episodes, s.watched_episodes, s.my_rating, s.my_status,
+             s.watch_count, s.watch_dates, s.updated_at
+        from public.user_anime_states s
+        join public.animes a on a.id = s.anime_id
+       where s.user_id = _prof.user_id
+    ) t;
+  return jsonb_build_object('username', _prof.username, 'display_name', _prof.display_name,
+    'is_public', _prof.is_public, 'total', jsonb_array_length(_items), 'items', _items);
+end;
+$$;
+
+grant execute on function public.get_public_list(text) to anon, authenticated;
+grant execute on function public.is_list_public(uuid) to anon, authenticated;
