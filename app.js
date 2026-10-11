@@ -841,8 +841,11 @@
      user_anime_states của mình vào State (1 + 1 query, vài KB với 5 user). */
   async function loadMyListData() {
     State.myUid = ''; State.myUsername = ''; State.myProfile = null; State.myStates = {};
-    if (!State.supabase || !State.isLoggedIn) return;
+    if (!State.supabase) return;
     try {
+      // NGUỒN SỰ THẬT = session (không dựa State.isLoggedIn — biến này có thể
+      // chưa được refreshAuthState gán khi init chưa await → trước đây reload
+      // web bị rỗng username/profile do race condition).
       const { data: sess } = await State.supabase.auth.getSession();
       const uid = sess && sess.session && sess.session.user ? sess.session.user.id : '';
       if (!uid) return;
@@ -10871,7 +10874,7 @@ function setupSubPopupEvents() {
       }
     }
     updateLoginUI();
-    refreshAuthState();
+    await refreshAuthState(); // PHẢI await: set State.isLoggedIn TRƯỚC khi loadMyListData
     await loadMyListData(); // nạp profile + states riêng (điểm card của mình)
     renderAnimeGrid();      // vẽ lại card với điểm riêng (nếu đã login)
     // Chế độ list khi mở trang: ?u=username (link share) > cài đặt trang chủ
