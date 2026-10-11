@@ -371,12 +371,23 @@
   // Brand trên header + tiêu đề tab: KullAnime / KullSong / {user}Anime
   function updateBrand(tabName) {
     const tab = tabName || currentTabName();
-    if (tab !== 'anime') { paintBrand('Kull<em>Song</em>', 'KullSong'); return; }
+    if (tab !== 'anime') { paintBrand('Kull<em>Song</em>', 'KullSong'); syncBrandSwitch(); return; }
     if (State.listMode !== 'admin' && State.listOwner) {
       paintBrand(esc(State.listOwner) + '<em>Anime</em>', State.listOwner + 'Anime');
     } else {
       paintBrand('Kull<em>Anime</em>', 'KullAnime');
     }
+    syncBrandSwitch();
+  }
+  // Nút ⇄ kế bên tên brand: ẩn khi không có gì để chuyển (khách, không ?u=)
+  function syncBrandSwitch() {
+    const sw = document.getElementById('brandSwitchBtn');
+    if (!sw) return;
+    const target = State.myUsername || State.viewingUser || '';
+    sw.classList.toggle('hidden', State.listMode === 'admin' && !target);
+    sw.title = State.listMode === 'admin'
+      ? 'Chuyển sang ' + (target ? target + 'Anime' : 'list của tôi') + ' (⇄)'
+      : 'Chuyển về KullAnime — list admin (⇄)';
   }
   function paintBrand(html, plain) {
     const brand = document.getElementById('brandName');
@@ -385,12 +396,7 @@
     brand.innerHTML = html;
     document.title = plain;
     const btn = document.getElementById('brandBtn');
-    if (btn) {
-      const other = State.myUsername || State.viewingUser || '';
-      btn.title = State.listMode === 'admin'
-        ? (other ? 'Về đầu trang — bấm để mở list ' + other + 'Anime' : 'Về đầu trang')
-        : 'Bấm để về KullAnime (list admin)';
-    }
+    if (btn) btn.title = 'Về đầu trang + xoá toàn bộ bộ lọc';
     // Tên dài quá khung header → CẮT + chạy chữ liên tục từ trái sang phải
     requestAnimationFrame(() => {
       let over = false;
@@ -823,10 +829,11 @@
     }
   }
 
-  // Đồng bộ giao diện theo trạng thái đăng nhập (nút header + composer)
+  // Đồng bộ giao diện theo trạng thái đăng nhập (nút header + composer + brand⇄)
   function applyAuthState() {
     updateLoginUI();
     updateAuthUI();
+    updateBrand(); // cập nhật nút ⇄ (login/logout đổi username để chuyển list)
   }
 
   /* ── MY LIST: profile + states RIÊNG của tài khoản đang login ──────────
@@ -5357,11 +5364,12 @@ function setupSubPopupEvents() {
     State.animePage = page;
     const start = (page - 1) * perPage;
     const visible = list.slice(start, start + perPage);
-    // quiet = true: tắt animation cardIn (render ẩn ầm ầm khi bật/tắt bộ lọc, resize) — chống chớp chớp
+    // quiet = true: tắt animation cardIn — GIỮ class .no-anim cho tới lần render
+    // non-quiet KẾ TIẾP. Trước đây gỡ class bằng setTimeout 600ms → đổi animation-name
+    // none→cardIn làm cardIn KHỞI ĐỘNG LẠI → cả lưới nhấp nháy ~1s sau khi chuyển list.
+    // Render non-quiet gỡ class TRƯỚC khi thay innerHTML (cùng task, chưa paint) → an toàn.
     if (quiet) {
       grid.classList.add('no-anim');
-      clearTimeout(_gridAnimTimer);
-      _gridAnimTimer = setTimeout(() => grid.classList.remove('no-anim'), 600);
     } else {
       grid.classList.remove('no-anim');
     }
@@ -5492,7 +5500,6 @@ function setupSubPopupEvents() {
   // Sau khi render: đối chiếu chiều cao card thật với số hàng đang dùng — nếu khác
   // (thường ở lần đầu vẽ khi chưa có card để đo) → render lại đúng 1 lần, chống vòng lặp.
   let _animeRowsSyncing = false;
-  let _gridAnimTimer = null;
   function syncAnimeRows(quiet) {
     if (_animeRowsSyncing) return;
     if (!isDesktopLandscape()) return;
@@ -5569,7 +5576,9 @@ function setupSubPopupEvents() {
   }
 
   // Xoá toàn bộ bộ lọc + sắp xếp tab Anime về mặc định (Gần đây / giảm dần)
-  function resetAnimeFilters() {
+  // skipRender === true: chỉ xoá giá trị, KHÔNG render lẻ (caller tự render 1 lần
+  // sau — dùng khi sắp chuyển list để tránh render thừa 2 lần liên tiếp).
+  function resetAnimeFilters(skipRender) {
     const as = $('#animeSearch');    if (as) as.value = '';
     const gFil = $('#genreFilter');  if (gFil) gFil.value = 'all';
     const tFil = $('#tagFilter');    if (tFil) tFil.value = 'all';
@@ -5588,6 +5597,7 @@ function setupSubPopupEvents() {
     syncSeasonNowURL();
     updateSortDirBtn();
     updateFilterBadge();
+    if (skipRender === true) return;
     renderAnimeGrid();
   }
 
@@ -9379,18 +9389,25 @@ function setupSubPopupEvents() {
      19. EVENT BINDINGS (delegated handlers)
      ────────────────────────────────────────────────────── */
   function bindEvents() {
-    // Brand: cuộn về đầu trang + xoá bộ lọc + CHUYỂN QUA LẠI giữa 2 list —
-    // KullAnime (admin) ⇄ {user}Anime (list của mình / ?u= đang xem)
+    // Brand (KullAnime / {user}Anime): CUỘN VỀ ĐẦU + XOÁ TOÀN BỘ BỘ LỌC
+    // (không chuyển list — chuyển list bằng nút ⇄ kế bên tên brand)
     const brandBtn = $('#brandBtn');
-    if (brandBtn) brandBtn.addEventListener('click', async () => {
+    if (brandBtn) brandBtn.addEventListener('click', () => {
       window.scrollTo({ top: 0, behavior: 'smooth' });
-      if (currentTabName() !== 'anime') switchTab('anime'); // list là của tab Anime
       resetAnimeFilters();
+    });
+    // Nút ⇄ kế bên tên brand: CHUYỂN QUA LẠI 2 list — KullAnime ⇄ {user}Anime
+    const _bsw = $('#brandSwitchBtn');
+    if (_bsw) _bsw.addEventListener('click', async () => {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      if (currentTabName() !== 'anime') switchTab('anime'); // list nằm ở tab Anime
       if (State.listMode === 'admin') {
         const target = State.myUsername || State.viewingUser || '';
         if (!target) { toast('Đăng nhập để mở "List anime của tôi" (hoặc mở link ?u=).', 'info', 4000); return; }
+        resetAnimeFilters(true); // xoá bộ lọc, KHÔNG render lẻ — showListView render đúng 1 lần
         await showListView(target);
       } else {
+        resetAnimeFilters(true);
         await showListView('');
       }
     });

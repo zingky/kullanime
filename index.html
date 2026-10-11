@@ -35,7 +35,7 @@
   <!-- File cấu hình (đọc .env.local / fallback) -->
   <script src="./config.js"></script>
 
-  <link rel="stylesheet" href="./styles.css?v=122" />
+  <link rel="stylesheet" href="./styles.css?v=123" />
 </head>
 <body>
   <!-- Nền đêm sao + cánh hoa anh đào (night sky + sakura) — JS sinh sao tĩnh, CSS animation transform/opacity -->
@@ -52,10 +52,14 @@
   <!-- ======================= HEADER / NAV ======================= -->
   <header class="app-header">
     <div class="header-inner container">
-      <button class="brand" id="brandBtn" aria-label="Về đầu trang">
-        <span class="brand-logo">🌸</span>
-        <span class="brand-name" id="brandName">Kull<em>Anime</em></span>
-      </button>
+      <!-- Nhóm brand: tên KullAnime/{user}Anime + nút ⇄ chuyển 2 list -->
+      <div class="brand-group">
+        <button class="brand" id="brandBtn" aria-label="Về đầu trang">
+          <span class="brand-logo">🌸</span>
+          <span class="brand-name" id="brandName">Kull<em>Anime</em></span>
+        </button>
+        <button class="brand-switch hidden" id="brandSwitchBtn" title="Chuyển list" aria-label="Chuyển qua lại giữa KullAnime và list của bạn">⇄</button>
+      </div>
 
       <nav class="main-nav" aria-label="Điều hướng chính">
         <button class="nav-tab active" data-tab="anime" id="tabAnimeBtn">
@@ -851,7 +855,7 @@
   <div class="mini-pop hidden" id="epPop"></div>
   <div class="mini-pop hidden" id="heartPop"></div>
 
-  <script src="./app.js?v=122"></script>
+  <script src="./app.js?v=123"></script>
 </body>
 </html>
 
