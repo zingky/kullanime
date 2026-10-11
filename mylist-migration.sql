@@ -8,6 +8,24 @@
 -- ============================================================
 
 -- A) BẢNG PROFILES — 1 row / 1 user (username = slug link ?u=)
+-- Nếu bảng profiles CŨ tồn tại mà KHÔNG có cột user_id (template cũ dùng id)
+-- thì CREATE TABLE IF NOT EXISTS sẽ bỏ qua + policy gãy với lỗi
+-- 42703 column "user_id" does not exist. Đổi tên bảng cũ để giữ dữ liệu
+-- rồi tạo mới đúng schema (an toàn chạy lại nhiều lần).
+do $$ begin
+  if exists (select 1 from information_schema.tables
+              where table_schema = 'public' and table_name = 'profiles')
+     and not exists (select 1 from information_schema.columns
+              where table_schema = 'public' and table_name = 'profiles'
+                and column_name = 'user_id') then
+    if exists (select 1 from information_schema.tables
+                where table_schema = 'public' and table_name = 'profiles_backup_before_mylist') then
+      drop table public.profiles_backup_before_mylist;
+    end if;
+    alter table public.profiles rename to profiles_backup_before_mylist;
+    raise notice 'Bang profiles cu thieu user_id — da doi ten thanh profiles_backup_before_mylist, tao moi dung schema.';
+  end if;
+end; $$;
 create table if not exists public.profiles (
   user_id      uuid primary key references auth.users(id) on delete cascade,
   username     text not null unique,
@@ -19,8 +37,10 @@ create table if not exists public.profiles (
 comment on table public.profiles is 'Ho so public: username (link ?u=) + tick cong khai list';
 
 -- Tự vá schema nếu bảng profiles đã tồn tại từ trước mà thiếu cột
--- (đây chính là nguyên nhân lỗi 42703 column "is_public" does not exist:
+-- (đây chính là nguyên nhân lỗi 42703 column "is_public"/"user_id" does not exist:
 -- CREATE TABLE IF NOT EXISTS bỏ qua bảng cũ, policy mới trỏ cột chưa có).
+-- LƯU Ý: khối DO ở trên đã đổi tên bảng cũ thiếu user_id, nên tới đây bảng
+-- profiles (nếu còn) chắc chắn đã có user_id — chỉ vá nốt các cột còn lại.
 alter table public.profiles add column if not exists username text not null default '';
 alter table public.profiles add column if not exists display_name text not null default '';
 alter table public.profiles add column if not exists is_public boolean not null default false;
