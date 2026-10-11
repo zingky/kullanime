@@ -49,6 +49,11 @@
     afLinks: null,           // liên kết đang soạn trong form admin (auto-fill AniList hoặc giữ từ record cũ)
     adminEmail: '',
     nickname: '',        // tên hiển thị (nickname) của tài khoản đã đăng nhập
+    myUid: '',           // user.id của tài khoản đang đăng nhập (My List)
+    myUsername: '',      // username (slug ?u=) của tài khoản đang đăng nhập
+    myProfile: null,     // row profiles của mình { username, display_name, is_public }
+    myStates: {},        // map anime_id -> state RIÊNG của mình (điểm/trạng thái)
+    viewingUser: '',     // username đang xem ở chế độ ?u= ('' = trang mặc định/admin)
     youtubeReady: false,
     ytPlayer: null,
     ytReady: false,        // player da san sang (onReady da chay) - moi load video an toan
@@ -217,6 +222,42 @@
     return null;
   }
 
+  /* ── MY LIST (?u=username) + CHẶN HENTAI (client) ───────────────────
+     - ?u=username: xem list công khai của user đó (RPC get_public_list, 1 call).
+     - Không ?u=: trang mặc định = list admin như cũ.
+     - Chặn 18+: lớp client (toast đẹp) + trigger SQL (lớp cuối, F12 cũng chặn).
+     - AniList search đã query isAdult:false nên auto-fill sạch sẵn; hàm dưới
+       chặn nốt đường thêm tay + Jikan fallback. */
+  function readViewUserParam() {
+    try {
+      const v = new URLSearchParams(window.location.search || '').get('u');
+      if (v == null) return '';
+      return String(v).trim().toLowerCase().replace(/[^a-z0-9_]/g, '').slice(0, 30);
+    } catch (_e) { return ''; }
+  }
+  function myListShareURL(username) {
+    try {
+      const url = new URL(window.location.href);
+      url.search = ''; url.hash = '';
+      url.searchParams.set('u', username);
+      return url.toString();
+    } catch (_e) { return '?u=' + username; }
+  }
+  // Kiểm tra 18+ phía client: cờ isAdult từ AniList/Jikan + từ khóa blocklist
+  // (match nguyên từ để tránh false-positive). True = BỊ CHẶN.
+  const ADULT_RE = /(^|[^a-z0-9])(hentai|porn|xxx|lolicon|shotacon|ahegao|netorare|harem[ _-]?sex|adult[ _-]?video|av[ _-]?idol|18\+)([^a-z0-9]|$)/i;
+  function isAdultAnime(info) {
+    if (!info) return false;
+    if (info.isAdult === true || info.is_adult === true) return true;
+    const hay = [
+      info.title, info.title_romaji, info.title_native,
+      (Array.isArray(info.genres) ? info.genres.join(' ') : info.genres),
+      (Array.isArray(info.title_synonyms) ? info.title_synonyms.join(' ') : ''),
+      (Array.isArray(info.tags) ? info.tags.map((t) => (t && t.name) || t).join(' ') : '')
+    ].join(' ');
+    return ADULT_RE.test(String(hay || ''));
+  }
+
   /* ──────────────────────────────────────────────────────
      2. TIỆN ÍCH (helpers)
      ────────────────────────────────────────────────────── */
@@ -228,6 +269,22 @@
     el.textContent = msg;
     box.appendChild(el);
     setTimeout(() => { el.classList.add('hide'); setTimeout(() => el.remove(), 350); }, duration);
+  }
+
+  // Copy text vào clipboard (fallback cho trình duyệt cũ / không HTTPS).
+  function copyText(s) {
+    const done = () => toast('Đã copy link ✅', 'success', 2000);
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(s).then(done, () => fallbackCopy(s, done));
+    } else fallbackCopy(s, done);
+  }
+  function fallbackCopy(s, done) {
+    try {
+      const ta = document.createElement('textarea');
+      ta.value = s; ta.style.position = 'fixed'; ta.style.opacity = '0';
+      document.body.appendChild(ta); ta.select();
+      document.execCommand('copy'); ta.remove(); done();
+    } catch (_e) { toast('Copy thất bại — bôi đen link để copy tay.', 'warning'); }
   }
 
   // ── Inline Confirm: hiện bubbles xác nhận nhỏ ngay tại nút cần xác nhận ──
@@ -596,6 +653,55 @@
   function applyAuthState() {
     updateLoginUI();
     updateAuthUI();
+  }
+
+  /* ── MY LIST: profile + states RIÊNG của tài khoản đang login ──────────
+     Gọi sau refreshAuthState()/handleLogin: nạp profiles row + toàn bộ
+     user_anime_states của mình vào State (1 + 1 query, vài KB với 5 user). */
+  async function loadMyListData() {
+    State.myUid = ''; State.myUsername = ''; State.myProfile = null; State.myStates = {};
+    if (!State.supabase || !State.isLoggedIn) return;
+    try {
+      const { data: sess } = await State.supabase.auth.getSession();
+      const uid = sess && sess.session && sess.session.user ? sess.session.user.id : '';
+      if (!uid) return;
+      State.myUid = uid;
+      const { data: prof } = await State.supabase
+        .from('profiles').select('username,display_name,is_public').eq('user_id', uid).maybeSingle();
+      if (prof) {
+        State.myProfile = prof;
+        State.myUsername = prof.username || '';
+      }
+      const { data: states } = await State.supabase
+        .from('user_anime_states').select('*').eq('user_id', uid);
+      const map = {};
+      (states || []).forEach((s) => { map[String(s.anime_id)] = s; });
+      State.myStates = map;
+    } catch (_e) { /* chưa chạy migration → bỏ qua, trang mặc định vẫn chạy */ }
+  }
+  // Điểm/trạng thái HIỂN THỊ của 1 anime: ưu tiên state riêng của mình (đã login),
+  // fallback về cột chung trên record (trang mặc định/admin chưa migrate).
+  function myViewOf(a) {
+    const st = a && State.myStates ? State.myStates[String(a.id)] : null;
+    if (st) return {
+      my_rating: st.my_rating, my_status: st.my_status,
+      watched_episodes: st.watched_episodes, watch_count: st.watch_count,
+      watch_dates: st.watch_dates
+    };
+    return a;
+  }
+  // Lưu điểm/trạng thái của MÌNH cho 1 anime (upsert state riêng — không đụng kho chung).
+  async function saveMyState(animeId, patch) {
+    if (!State.supabase || !State.isLoggedIn || !State.myUid) {
+      toast('Đăng nhập để chấm điểm / lưu trạng thái.', 'warning');
+      return null;
+    }
+    const row = Object.assign({ user_id: State.myUid, anime_id: animeId }, patch || {});
+    const { data, error } = await State.supabase
+      .from('user_anime_states').upsert(row, { onConflict: 'user_id,anime_id' }).select().maybeSingle();
+    if (error) { toast('Không lưu được: ' + error.message, 'error', 5000); return null; }
+    if (data) State.myStates[String(animeId)] = data;
+    return data;
   }
 
   // Ẩn/hiện ô tên hiển thị + captcha trong composer theo trạng thái đăng nhập
@@ -5528,8 +5634,11 @@ function setupSubPopupEvents() {
 
   function animeCardHTML(a) {
     const rating = Number(a.rating) || 0;
-    const mySt = myStatusMeta(a.my_status);
-    const myRating = Math.round(Number(a.my_rating) || 0);
+    // Điểm/trạng thái HIỂN THỊ: ưu tiên state RIÊNG của mình (đã login),
+    // fallback cột chung (trang mặc định/khách).
+    const mine = myViewOf(a);
+    const mySt = myStatusMeta(mine.my_status);
+    const myRating = Math.round(Number(mine.my_rating) || 0);
     const totalEp = Number(a.total_episodes) || 0;
     // Tên chính ngoài card theo chế độ English ⇄ Romaji; title EN gốc giữ trong
     // tooltip + alt ảnh để hover vẫn thấy tên cũ (không tăng chiều cao card).
@@ -5661,10 +5770,11 @@ function setupSubPopupEvents() {
     const rating = Number(a.rating) || 0;
     const total = a.total_episodes || 0;
 
-    // Trạng thái xem + điểm đánh giá của riêng chủ web
-    const mySt = myStatusMeta(a.my_status);
-    const myRating = Number(a.my_rating) || 0;
-    const myIcons = State.isAdmin ? watchIconsHTML(a) : '';
+    // Trạng thái xem + điểm đánh giá: ưu tiên state RIÊNG của mình (đã login)
+    const mine0 = myViewOf(a);
+    const mySt = myStatusMeta(mine0.my_status);
+    const myRating = Number(mine0.my_rating) || 0;
+    const myIcons = State.isLoggedIn ? watchIconsHTML(a) : '';
 
     const poster = a.poster_url
       ? '<img src="' + esc(a.poster_url) + '" alt="' + esc(a.title) + '" loading="lazy" data-title="' + esc(a.title) + '" onerror="window.__posterFallback(this, this.dataset.title)" />'
@@ -5919,10 +6029,12 @@ function setupSubPopupEvents() {
     }
   }
 
-  // Dãy icon trạng thái xem + điểm của tôi (chỉ admin) — đặt ngay dưới ảnh bìa, bấm là lưu liền
+  // Dãy icon trạng thái xem + điểm của tôi (mọi user đã login — lưu vào
+  // user_anime_states RIÊNG; admin giữ hành vi cũ ghi kho chung) — bấm là lưu liền
   function watchIconsHTML(a) {
-    const cur = myStatusMeta(a.my_status);
-    const myRating = Math.round(Number(a.my_rating) || 0);
+    const mine = myViewOf(a);
+    const cur = myStatusMeta(mine.my_status);
+    const myRating = Math.round(Number(mine.my_rating) || 0);
     const opts = [
       { value: 'Đã xem', icon: '✅', cls: 'my-watched' },
       { value: 'Đang xem', icon: '⏳', cls: 'my-watching' },
@@ -5945,8 +6057,19 @@ function setupSubPopupEvents() {
   }
 
   // Lưu nhanh một/nhiều trường “của tôi” (my_status / my_rating / watched_episodes)
+  // - Member: ghi user_anime_states RIÊNG (không đụng kho chung).
+  // - Admin: giữ hành vi cũ — ghi thẳng kho chung (trang mặc định hiện điểm admin).
   async function saveMyTracker(animeId, patch) {
-    if (!State.isAdmin) { toast('Bạn không có quyền.', 'error'); return false; }
+    if (!State.isLoggedIn) { toast('Đăng nhập để chấm điểm / lưu trạng thái.', 'warning'); return false; }
+    if (!State.isAdmin) {
+      const r = await saveMyState(animeId, patch);
+      if (!r) return false;
+      renderAnimeGrid(true);
+      if (State.currentAnime && String(State.currentAnime.id) === String(animeId)) {
+        renderAnimeDetail(State.currentAnime);
+      }
+      return true;
+    }
     const { error } = await State.supabase.from('animes').update(patch).eq('id', animeId);
     if (error) { toast('Lưu thất bại: ' + error.message, 'error', 5000); return false; }
     const idx = State.animes.findIndex((x) => String(x.id) === String(animeId));
@@ -7206,11 +7329,15 @@ function setupSubPopupEvents() {
 
   $('#loginBtn').addEventListener('click', () => {
     if (State.isLoggedIn) {
-      // Thoát đăng nhập
-      if (confirm('Đăng xuất khỏi tài khoản?')) handleLogout();
+      openAccountModal(); // đã login → modal Tài khoản (đổi tên/pass + My List)
     } else {
       openModal('loginModal');
     }
+  });
+  // Quên mật khẩu: KHÔNG gửi mail recovery — chỉ hiện dòng liên hệ admin.
+  const _forgotBtn = $('#forgotBtn');
+  if (_forgotBtn) _forgotBtn.addEventListener('click', () => {
+    $('#forgotNote').classList.remove('hidden');
   });
 
   // (Nút 🔄 "Tải lại" đã ẨN — mỗi lần mở/tải lại trang web tự check phiên bản
@@ -7248,6 +7375,8 @@ function setupSubPopupEvents() {
     State.nickname = (nm && String(nm).trim()) || (user.email || '').split('@')[0] || '';
     closeModal('loginModal');
     applyAuthState();
+    await loadMyListData(); // nạp profile + states riêng (?u= + điểm của mình)
+    renderAnimeGrid();      // vẽ lại card với điểm riêng của mình
     if (State.isAdmin) {
       toast('Đăng nhập Admin thành công 🎉', 'success');
       renderAdminAnimeList();
@@ -7264,10 +7393,203 @@ function setupSubPopupEvents() {
     State.isLoggedIn = false;
     State.adminEmail = '';
     State.nickname = '';
+    State.myUid = ''; State.myUsername = ''; State.myProfile = null; State.myStates = {};
     applyAuthState();
+    renderAnimeGrid(); // về điểm chung (trang mặc định)
     if (!silent) toast('Đã đăng xuất.', 'info');
     closeModal('loginModal');
     closeModal('adminModal');
+    closeModal('accountModal');
+  }
+
+  /* ── MODAL TÀI KHOẢN: đổi nickname + đổi pass + My List ────────────────
+     - Đổi pass: auth.updateUser({password}) — user tự đổi pass admin cấp.
+     - Admin reset pass user = làm trong Dashboard (không dùng service_role ở web). */
+  function openAccountModal() {
+    if (!State.isLoggedIn) { openModal('loginModal'); return; }
+    const hello = $('#accountHello');
+    if (hello) hello.textContent = 'Xin chào ' + (State.nickname || State.adminEmail || 'bạn') +
+      (State.isAdmin ? ' (Admin)' : '') + ' — email: ' + (State.adminEmail || '—');
+    const nick = $('#accountNickname');
+    if (nick) nick.value = State.nickname || '';
+    const link = $('#accountMyLink');
+    if (link) link.value = State.myUsername ? myListShareURL(State.myUsername) : '(chưa có username — admin tạo profiles cho bạn)';
+    const pub = $('#accountPublic');
+    if (pub) pub.checked = !!(State.myProfile && State.myProfile.is_public);
+    const perr = $('#accountPassError');
+    if (perr) perr.classList.add('hidden');
+    const p1 = $('#accountPass1'); if (p1) p1.value = '';
+    const p2 = $('#accountPass2'); if (p2) p2.value = '';
+    openModal('accountModal');
+  }
+  async function handleAccountRename() {
+    const el = $('#accountNickname');
+    const trimmed = String((el && el.value) || '').trim();
+    if (!trimmed) { toast('Tên hiển thị không được để trống.', 'warning'); return; }
+    if (trimmed.length > 60) { toast('Tên hiển thị tối đa 60 ký tự.', 'warning'); return; }
+    const { error } = await State.supabase.auth.updateUser({ data: { nickname: trimmed } });
+    if (error) { toast('Không đổi được tên hiển thị: ' + error.message, 'error', 5000); return; }
+    State.nickname = trimmed;
+    applyAuthState();
+    toast('Đã đổi tên hiển thị thành "' + trimmed + '" ✅', 'success');
+  }
+  async function handleAccountPass() {
+    const p1 = String(($('#accountPass1') || {}).value || '');
+    const p2 = String(($('#accountPass2') || {}).value || '');
+    const errEl = $('#accountPassError');
+    const fail = (m) => { errEl.textContent = m; errEl.classList.remove('hidden'); };
+    errEl.classList.add('hidden');
+    if (p1.length < 6) return fail('Mật khẩu mới phải ≥ 6 ký tự.');
+    if (p1 !== p2) return fail('Nhập lại mật khẩu chưa khớp.');
+    const btn = $('#accountPassBtn');
+    btn.disabled = true; btn.textContent = 'Đang đổi...';
+    const { error } = await State.supabase.auth.updateUser({ password: p1 });
+    btn.disabled = false; btn.textContent = 'Đổi mật khẩu';
+    if (error) return fail('Không đổi được mật khẩu: ' + error.message);
+    $('#accountPass1').value = ''; $('#accountPass2').value = '';
+    toast('Đổi mật khẩu thành công ✅', 'success');
+  }
+  async function handleAccountPublic() {
+    if (!State.myUid || !State.myProfile) { toast('Chưa có profiles — nhờ admin tạo username cho bạn.', 'warning'); return; }
+    const v = $('#accountPublic').checked;
+    const { error } = await State.supabase
+      .from('profiles').update({ is_public: v }).eq('user_id', State.myUid);
+    if (error) { toast('Không đổi được: ' + error.message, 'error', 5000); $('#accountPublic').checked = !v; return; }
+    State.myProfile.is_public = v;
+    toast(v ? 'Đã CÔNG KHAI list.' : 'Đã ẨN list.', 'success');
+  }
+
+  /* ── MY LIST MODAL (?u=username): xem + backup/restore + tick công khai ─
+     - Chưa login: hiện dòng liên hệ admin kull@duck.com + ô nhập username.
+     - Backup JSON versioned; restore vào acc ĐANG login (RLS đảm bảo). */
+  const MYLIST_BACKUP_VERSION = 1;
+  function mylistFail(m) {
+    const el = $('#mylistError');
+    if (!el) return;
+    if (!m) { el.classList.add('hidden'); el.textContent = ''; return; }
+    el.textContent = m; el.classList.remove('hidden');
+  }
+  function mylistCardHTML(it) {
+    const title = it.title_romaji && String(it.title_romaji).trim() ? it.title_romaji : it.title;
+    const r = Math.round(Number(it.my_rating) || 0);
+    const we = Number(it.watched_episodes) || 0, te = Number(it.total_episodes) || 0;
+    return '<div class="mylist-card">' +
+      (it.poster_url ? '<img src="' + esc(it.poster_url) + '" alt="" loading="lazy" />' : '') +
+      '<div class="ml-body"><p class="ml-title">' + esc(title || '(khong ten)') + '</p>' +
+      '<div class="ml-meta">♥ ' + (r > 0 ? r : '–') + ' · ' + esc(it.my_status || 'Chua xem') +
+      (te > 0 || we > 0 ? ' · ' + we + '/' + (te || '?') + ' tap' : '') + '</div></div></div>';
+  }
+  function renderMylistGrid(items) {
+    const grid = $('#mylistGrid');
+    const cnt = $('#mylistCount');
+    if (cnt) cnt.textContent = items && items.length ? ('Tong ' + items.length + ' anime') : '';
+    if (!grid) return;
+    grid.innerHTML = (items && items.length)
+      ? items.map(mylistCardHTML).join('')
+      : '<p class="empty-desc">List nay chua co anime nao.</p>';
+  }
+  async function openMylistModal(username) {
+    const guest = $('#mylistGuest');
+    const pubWrap = $('#mylistPublicWrap');
+    mylistFail(null);
+    renderMylistGrid([]);
+    if (guest) guest.classList.toggle('hidden', State.isLoggedIn);
+    const target = String(username || State.myUsername || '').trim().toLowerCase();
+    if (!target) {
+      $('#mylistTitle').textContent = '📋 My List';
+      $('#mylistSub').textContent = State.isLoggedIn
+        ? 'Ban chua co username — nho admin tao profiles.'
+        : 'Nhap username de xem list cong khai.';
+      if (pubWrap) pubWrap.classList.add('hidden');
+      openModal('mylistModal');
+      return;
+    }
+    $('#mylistTitle').textContent = '📋 List cua ' + target;
+    $('#mylistSub').textContent = 'Dang tai...';
+    openModal('mylistModal');
+    try {
+      const res = await State.supabase.rpc('get_public_list', { p_username: target });
+      if (res.error) throw res.error;
+      const d = res.data || {};
+      const items = d.items || [];
+      const isMine = State.isLoggedIn && State.myUsername && State.myUsername === d.username;
+      $('#mylistSub').textContent = (d.display_name || d.username) +
+        ' — ' + (d.total || items.length) + ' anime' +
+        (d.is_public ? ' (cong khai)' : ' (rieng tu)') + ' · link: ' + myListShareURL(d.username);
+      renderMylistGrid(items);
+      if (pubWrap) pubWrap.classList.toggle('hidden', !isMine);
+      const pub = $('#mylistPublic');
+      if (pub && isMine) pub.checked = !!d.is_public;
+    } catch (err) {
+      const msg = String((err && err.message) || err || '');
+      if (/PRIVATE/i.test(msg)) {
+        $('#mylistSub').textContent = 'List nay dang de rieng tu.';
+        mylistFail('User da tat cong khai — khong ai xem duoc du co link.');
+      } else if (/NOT_FOUND/i.test(msg)) {
+        $('#mylistSub').textContent = 'Khong tim thay user.';
+        mylistFail('Username "' + target + '" khong ton tai.');
+      } else {
+        $('#mylistSub').textContent = 'Khong tai duoc list.';
+        mylistFail('Loi: ' + msg.slice(0, 200));
+      }
+    }
+  }
+  function backupMyList() {
+    if (!State.isLoggedIn || !State.myUid) { toast('Dang nhap de backup.', 'warning'); return; }
+    const states = Object.values(State.myStates || {});
+    const byId = {};
+    (State.animes || []).forEach((a) => { byId[String(a.id)] = a; });
+    const payload = {
+      app: 'kullanime-mylist', version: MYLIST_BACKUP_VERSION,
+      username: State.myUsername || '', exported_at: new Date().toISOString(),
+      states: states.map((s) => {
+        const a = byId[String(s.anime_id)] || {};
+        return {
+          anime_id: s.anime_id, title: a.title || '',
+          my_rating: s.my_rating, my_status: s.my_status,
+          watched_episodes: s.watched_episodes, watch_count: s.watch_count,
+          watch_dates: s.watch_dates
+        };
+      })
+    };
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'mylist-' + (State.myUsername || 'user') + '-' + new Date().toISOString().slice(0, 10) + '.json';
+    document.body.appendChild(a); a.click();
+    setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 500);
+    toast('Da xuat backup (' + payload.states.length + ' anime).', 'success');
+  }
+  async function restoreMyListFile(file) {
+    if (!State.isLoggedIn || !State.myUid) { toast('Dang nhap de restore.', 'warning'); return; }
+    let payload;
+    try { payload = JSON.parse(await file.text()); }
+    catch (_e) { toast('File khong phai JSON hop le.', 'error'); return; }
+    if (!payload || payload.app !== 'kullanime-mylist' || !Array.isArray(payload.states)) {
+      toast('File khong phai backup My List.', 'error');
+      return;
+    }
+    const known = new Set((State.animes || []).map((a) => String(a.id)));
+    const rows = [];
+    let skipped = 0;
+    payload.states.forEach((s) => {
+      if (!s || !s.anime_id || !known.has(String(s.anime_id))) { skipped++; return; }
+      rows.push({
+        user_id: State.myUid, anime_id: s.anime_id,
+        my_rating: Math.max(0, Math.min(10, Number(s.my_rating) || 0)),
+        my_status: String(s.my_status || 'Chua xem').slice(0, 40),
+        watched_episodes: Math.max(0, Number(s.watched_episodes) || 0),
+        watch_count: Math.max(0, Number(s.watch_count) || 0),
+        watch_dates: Array.isArray(s.watch_dates) ? s.watch_dates.slice(0, 50) : []
+      });
+    });
+    if (!rows.length) { toast('Khong restore duoc dong nao.', 'warning'); return; }
+    const res = await State.supabase.from('user_anime_states').upsert(rows, { onConflict: 'user_id,anime_id' });
+    if (res.error) { toast('Restore loi: ' + res.error.message, 'error', 5000); return; }
+    await loadMyListData();
+    renderAnimeGrid();
+    toast('Da restore ' + rows.length + ' anime' + (skipped ? ' (bo qua ' + skipped + ').' : '.'), 'success');
+    openMylistModal(State.myUsername);
   }
 
   // Đổi tên hiển thị (nickname) của tài khoản đã đăng nhập
@@ -7542,11 +7864,20 @@ function setupSubPopupEvents() {
 
   async function saveAnime(e) {
     e.preventDefault();
-    if (!State.isAdmin) { toast('Bạn không có quyền.', 'error'); return; }
+    if (!State.isLoggedIn) { toast('Đăng nhập để thêm anime.', 'error'); return; }
+    // Admin: CRUD kho chung. Member: chỉ THÊM MỚI (thêm thẳng, khỏi duyệt);
+    // sửa/xóa kho chung vẫn chỉ admin (RLS + check dưới đây).
     const title = $('#af_title').value.trim();
     if (!title) { toast('Vui lòng nhập tên anime.', 'warning'); return; }
     const payload = animFormPayload();
     const id = $('#af_id').value;
+    // Chặn 18+ phía client (lớp đẹp — trigger SQL là lớp cuối, F12 cũng chặn).
+    // Auto-fill AniList đã query isAdult:false nên sạch sẵn; đây chặn nốt
+    // đường thêm tay + Jikan fallback.
+    if (isAdultAnime(payload)) {
+      toast('⛔ Nội dung 18+ bị chặn trên web này.', 'error', 5000);
+      return;
+    }
     // Chặn trùng tên: so chéo title/romaji/native/synonyms với toàn bộ anime đã có
     // (chuẩn hoá hoa-thường/dấu/cách). Sửa record cũ thì bỏ qua chính nó.
     const dup = findAnimeByName(
@@ -7560,7 +7891,14 @@ function setupSubPopupEvents() {
     const btn = $('#saveAnimeBtn');
     btn.disabled = true;
     let error;
+    let newAnimeId = null;
     if (id) {
+      // Sửa kho chung: CHỈ ADMIN (member bị RLS chặn ngay cả khi bypass check này).
+      if (!State.isAdmin) {
+        btn.disabled = false;
+        toast('Chỉ admin mới sửa được kho chung. Bạn vẫn chấm điểm/trạng thái RIÊNG của mình ngoài card.', 'warning', 5000);
+        return;
+      }
       // Sửa anime có sẵn: nếu trạng thái xem ĐỔI thì áp đúng logic như bấm nút ngoài card
       // (chọn "Đã xem" → +1 lần xem + ghi ngày hôm nay; bỏ "Đã xem" → trừ đi 1 lần).
       const old = State.animes.find((x) => String(x.id) === String(id));
@@ -7570,16 +7908,31 @@ function setupSubPopupEvents() {
       const r = await State.supabase.from('animes').update(payload).eq('id', id);
       error = r.error;
     } else {
-      // Thêm anime mới: chọn sẵn "Đã xem" cũng tính 1 lần xem + ngày hôm nay
+      // Thêm anime mới: chọn sẵn "Đã xem" cũng tính 1 lần xem + ngày hôm nay.
+      // Member thêm thẳng vào kho chung (khỏi duyệt) + tự link vào My List mình.
       Object.assign(payload, watchDatesPatchForStatusChange('', [], payload.my_status));
-      const r = await State.supabase.from('animes').insert(payload);
+      payload.is_adult = false; // cờ sạch client — trigger SQL kiểm tra lại
+      const r = await State.supabase.from('animes').insert(payload).select('id').maybeSingle();
       error = r.error;
+      if (!error && r.data) newAnimeId = r.data.id;
+      // Link vào My List của người thêm (điểm/trạng thái họ vừa chọn trong form).
+      if (!error && newAnimeId && State.myUid && !State.isAdmin) {
+        await State.supabase.from('user_anime_states').upsert({
+          user_id: State.myUid, anime_id: newAnimeId,
+          my_rating: payload.my_rating || 0, my_status: payload.my_status || 'Chưa xem',
+          watched_episodes: payload.watched_episodes || 0,
+          watch_count: payload.watch_count || 0, watch_dates: payload.watch_dates || []
+        }, { onConflict: 'user_id,anime_id' });
+      }
     }
     btn.disabled = false;
     if (error) {
-      toast('Lưu thất bại: ' + error.message, 'error', 5000);
+      const msg = String(error.message || '');
+      if (/18\+/i.test(msg)) toast('⛔ Nội dung 18+ bị chặn trên web này.', 'error', 5000);
+      else toast('Lưu thất bại: ' + error.message, 'error', 5000);
       return;
     }
+    if (newAnimeId && State.myUid) await loadMyListData();
     toast('Đã lưu anime ✅', 'success');
     closeModal('animeFormModal');
     await loadAnimes();
@@ -8014,9 +8367,20 @@ function setupSubPopupEvents() {
     return ((body && body.data) || []).map((k) => mapKitsuToAnilistShape(k, genresMap)).filter(Boolean);
   }
 
-  // Render danh sách kết quả dùng chung (AniList hoặc Jikan fallback)
+  // Render danh sách kết quả dùng chung (AniList hoặc Jikan fallback).
+  // Lọc 18+ ngay ở kết quả tìm kiếm (Jikan/Kitsu có thể trả hentai dù đã sfw=true).
   function renderAnilistItems(items) {
-    return items.map((it) => {
+    const clean = (Array.isArray(items) ? items : []).filter((it) => {
+      if (!it) return false;
+      if (it.isAdult === true) return false;
+      const hay = [
+        it.title && (it.title.romaji || it.title.english), it.synopsis,
+        (it.genres || []).join(' '),
+        ((it.tags || []).map((t) => (t && t.name) || t).join(' '))
+      ].join(' ');
+      return !ADULT_RE.test(String(hay || ''));
+    });
+    return clean.map((it) => {
       const thumb = (it.coverImage && (it.coverImage.extraLarge || it.coverImage.large)) || '';
       const subParts = [];
       subParts.push(it.episodes != null ? it.episodes + ' tập' : 'Chưa rõ số tập');
@@ -9795,6 +10159,40 @@ function setupSubPopupEvents() {
     $('#loginForm').addEventListener('submit', handleLogin);
     $('#animeForm').addEventListener('submit', saveAnime);
     $('#songForm').addEventListener('submit', saveSong);
+    // Modal Tài khoản: đổi tên + đổi pass + copy link + tick công khai + đăng xuất
+    const _rn = $('#accountRenameBtn'); if (_rn) _rn.addEventListener('click', handleAccountRename);
+    const _pw = $('#accountPassBtn'); if (_pw) _pw.addEventListener('click', handleAccountPass);
+    const _cp = $('#accountCopyLink'); if (_cp) _cp.addEventListener('click', () => {
+      const v = $('#accountMyLink').value || '';
+      if (!v || v.charAt(0) === '(') { toast('Chưa có link — nhờ admin tạo username.', 'warning'); return; }
+      copyText(v);
+    });
+    const _ap = $('#accountPublic'); if (_ap) _ap.addEventListener('change', handleAccountPublic);
+    const _lo = $('#accountLogoutBtn'); if (_lo) _lo.addEventListener('click', () => handleLogout());
+    // Nút My List (luôn hiện): đã login → list mình; chưa → panel liên hệ admin + xem ?u=
+    const _ml = $('#mylistBtn'); if (_ml) _ml.addEventListener('click', () => openMylistModal(''));
+    const _mv = $('#mylistViewBtn'); if (_mv) _mv.addEventListener('click', () => {
+      const v = String(($('#mylistUserInput') || {}).value || '').trim().toLowerCase();
+      if (!v) { toast('Nhập username cần xem.', 'warning'); return; }
+      openMylistModal(v);
+    });
+    const _bb = $('#mylistBackupBtn'); if (_bb) _bb.addEventListener('click', backupMyList);
+    const _rb = $('#mylistRestoreBtn'); if (_rb) _rb.addEventListener('click', () => {
+      if (!State.isLoggedIn) { toast('Đăng nhập để restore vào list của bạn.', 'warning'); return; }
+      $('#mylistFile').click();
+    });
+    const _mf = $('#mylistFile'); if (_mf) _mf.addEventListener('change', () => {
+      if (_mf.files && _mf.files[0]) restoreMyListFile(_mf.files[0]);
+      _mf.value = '';
+    });
+    const _mp = $('#mylistPublic'); if (_mp) _mp.addEventListener('change', async () => {
+      if (!State.myUid) return;
+      const v = _mp.checked;
+      const res = await State.supabase.from('profiles').update({ is_public: v }).eq('user_id', State.myUid);
+      if (res.error) { toast('Không đổi được: ' + res.error.message, 'error', 5000); _mp.checked = !v; return; }
+      if (State.myProfile) State.myProfile.is_public = v;
+      toast(v ? 'Đã CÔNG KHAI list.' : 'Đã ẨN list.', 'success');
+    });
     // Nút 💾 Lưu nổi (cố định đáy màn hình, ngoài <form>) → submit form anime,
     // vẫn chạy validate required như nút gốc trong .form-actions.
     const animeFabSave = $('#animeFormFabSave');
@@ -10248,6 +10646,13 @@ function setupSubPopupEvents() {
     }
     updateLoginUI();
     refreshAuthState();
+    await loadMyListData(); // nạp profile + states riêng (điểm card của mình)
+    renderAnimeGrid();      // vẽ lại card với điểm riêng (nếu đã login)
+    // Chế độ xem ?u=username: tự mở My List của user đó sau khi dữ liệu sẵn sàng.
+    State.viewingUser = readViewUserParam();
+    if (State.viewingUser) {
+      setTimeout(() => openMylistModal(State.viewingUser), 600);
+    }
     // Khởi động chat chung (sticky bar) + captcha chat
     newChatCaptcha();
     refreshChat();

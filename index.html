@@ -35,7 +35,7 @@
   <!-- File cấu hình (đọc .env.local / fallback) -->
   <script src="./config.js"></script>
 
-  <link rel="stylesheet" href="./styles.css?v=119" />
+  <link rel="stylesheet" href="./styles.css?v=120" />
 </head>
 <body>
   <!-- Nền đêm sao + cánh hoa anh đào (night sky + sakura) — JS sinh sao tĩnh, CSS animation transform/opacity -->
@@ -70,6 +70,11 @@
         <!-- Nút xuất hiện khi Admin đã đăng nhập -->
         <button class="btn btn-admin hidden" id="adminBtn">
           <span>🛠️</span><span class="btn-label">Quản trị</span>
+        </button>
+        <!-- My List: luôn hiện kể cả chưa đăng nhập (chưa login → panel ghi
+             liên hệ admin kull@duck.com để đăng ký user) -->
+        <button class="btn btn-mylist" id="mylistBtn" title="My List — list anime của tôi / xem list công khai (?u=)" aria-label="My List">
+          <span>📋</span><span class="btn-label">My List</span>
         </button>
         <button class="btn btn-login" id="loginBtn" title="Đăng nhập / Tài khoản" aria-label="Đăng nhập / Tài khoản">
           <span id="loginBtnIcon">👤</span>
@@ -441,6 +446,70 @@
         <p class="form-error hidden" id="loginError" role="alert"></p>
         <button type="submit" class="btn btn-primary btn-block" id="loginSubmitBtn">Đăng nhập</button>
       </form>
+      <p class="forgot-line"><button type="button" class="linklike" id="forgotBtn">Quên mật khẩu?</button></p>
+      <p class="form-note hidden" id="forgotNote">Dùng email đã đăng ký tài khoản gửi mail cho admin <strong>kull@duck.com</strong> để tạo password/user mới.</p>
+    </div>
+  </div>
+
+  <!-- ═══════════════ MODAL: TÀI KHOẢN (đổi nickname + đổi pass + My List) ═══════════════ -->
+  <div class="modal-overlay" id="accountModal" role="dialog" aria-modal="true" aria-hidden="true">
+    <div class="modal modal-sm" role="document">
+      <button class="modal-close" data-close="accountModal" aria-label="Đóng">✕</button>
+      <h3 class="modal-title">👤 Tài khoản</h3>
+      <p class="modal-subtitle" id="accountHello">—</p>
+      <div class="field">
+        <label>Tên hiển thị (nickname)</label>
+        <div class="row-flex">
+          <input type="text" id="accountNickname" class="input" maxlength="60" autocomplete="nickname" />
+          <button type="button" class="btn btn-ghost" id="accountRenameBtn">Đổi tên</button>
+        </div>
+      </div>
+      <div class="field">
+        <label for="accountPass1">Mật khẩu mới (≥ 6 ký tự)</label>
+        <input type="password" id="accountPass1" class="input" autocomplete="new-password" />
+      </div>
+      <div class="field">
+        <label for="accountPass2">Nhập lại mật khẩu mới</label>
+        <input type="password" id="accountPass2" class="input" autocomplete="new-password" />
+      </div>
+      <p class="form-error hidden" id="accountPassError" role="alert"></p>
+      <button type="button" class="btn btn-primary btn-block" id="accountPassBtn">Đổi mật khẩu</button>
+      <div class="field">
+        <label>My List của tôi</label>
+        <div class="row-flex">
+          <input type="text" id="accountMyLink" class="input" readonly />
+          <button type="button" class="btn btn-ghost" id="accountCopyLink">Copy</button>
+        </div>
+        <label class="check-line"><input type="checkbox" id="accountPublic" /> Công khai list của tôi (ai có link ?u= mới xem được)</label>
+      </div>
+      <button type="button" class="btn btn-ghost btn-block" id="accountLogoutBtn">Đăng xuất</button>
+    </div>
+  </div>
+
+  <!-- ═══════════════ MODAL: MY LIST (?u=username) ═══════════════ -->
+  <div class="modal-overlay" id="mylistModal" role="dialog" aria-modal="true" aria-hidden="true">
+    <div class="modal modal-xl" role="document">
+      <button class="modal-close" data-close="mylistModal" aria-label="Đóng">✕</button>
+      <h3 class="modal-title" id="mylistTitle">📋 My List</h3>
+      <p class="modal-subtitle" id="mylistSub">—</p>
+      <!-- Chưa đăng nhập: ghi liên hệ admin + ô xem list công khai -->
+      <div id="mylistGuest" class="hidden">
+        <p class="form-note">Chưa có tài khoản? Liên hệ admin <strong>kull@duck.com</strong> để đăng ký user.</p>
+        <div class="row-flex">
+          <input type="text" id="mylistUserInput" class="input" placeholder="Nhập username (vd kull_admin)..." maxlength="30" />
+          <button type="button" class="btn btn-primary" id="mylistViewBtn">Xem</button>
+        </div>
+      </div>
+      <div class="row-flex" id="mylistToolbar">
+        <button type="button" class="btn btn-ghost" id="mylistBackupBtn">📥 Backup</button>
+        <button type="button" class="btn btn-ghost" id="mylistRestoreBtn">📤 Restore</button>
+        <input type="file" id="mylistFile" accept="application/json,.json" class="hidden" />
+        <span class="muted" id="mylistCount"></span>
+      </div>
+      <p class="form-error hidden" id="mylistError" role="alert"></p>
+      <div id="mylistGrid" class="mylist-grid"></div>
+      <!-- Cuối trang: tick công khai (chỉ chính chủ thấy) -->
+      <label class="check-line hidden" id="mylistPublicWrap"><input type="checkbox" id="mylistPublic" /> Công khai list anime của tôi (tắt → không ai xem được dù có link)</label>
     </div>
   </div>
 
@@ -780,7 +849,7 @@
   <div class="mini-pop hidden" id="epPop"></div>
   <div class="mini-pop hidden" id="heartPop"></div>
 
-  <script src="./app.js?v=118"></script>
+  <script src="./app.js?v=119"></script>
 </body>
 </html>
 
