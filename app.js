@@ -61,8 +61,8 @@
     lastCommentAt: 0,
     lastChatAt: 0,
     lastGithubAt: 0,      // rate limit cho GitHub API calls (list refresh + .ass fetch)
-    lastRefreshAt: 0,       // mốc lần bấm nút 🔄 "Tải lại" gần nhất (chống spam click — 60s/lần)
-    refreshing: false,      // đang chạy smartRefreshData → bấm tiếp thì bỏ qua (chống double-click)
+    lastRefreshAt: 0,       // mốc lần auto-check dữ liệu gần nhất (60s/lần khi mở/tải lại trang)
+    refreshing: false,      // (giữ chỗ — nút 🔄 đã ẩn, init() auto-check 60s/lần)
     // Quote preview (trích dẫn chỉ đọc — User không sửa được nội dung quote)
     commentQuote: null,   // { author, text } nội dung trích dẫn được chèn vào ô bình luận
     chatQuote: null,      // { author, text } nội dung trích dẫn được chèn vào ô chat
@@ -837,120 +837,38 @@
     return map;
   }
 
-  // ── Chống spam nút 🔄 "Tải lại" (60s/lần) ─────────────────────────────
-  // 3 lớp, cùng pattern với rate-limit comment/chat/GitHub của web:
-  //  1) State.refreshing — đang chạy thì bấm tiếp bỏ qua (chống double-click).
-  //  2) Cooldown 60s tính từ LẦN BẤM HỢP LỆ gần nhất — spam click chỉ thấy toast
-  //     đếm ngược, KHÔNG phát sinh request Supabase nào.
-  //  3) Mốc lưu localStorage (kullanime_refresh_at) — F5/reload không reset được
-  //     cooldown; mở F12 xóa key này thì request kế tiếp vẫn chỉ ~0.5KB version-check
-  //     (không phải fetch full) nên thiệt hại không đáng kể. Chống tuyệt đối phải
-  //     làm ở server (Supabase plan trả phí) — frontend chỉ chặn đường "lười".
+  // ── Auto-check 60s/lần khi mở/tải lại trang (nút 🔄 đã ẩn) ─────────────
+  // Mỗi lần vào web: render cache trước (0 request) → nếu lần check gần nhất
+  // (kullanime_refresh_at) chưa quá 60s thì DÙNG CACHE, 0 request Supabase nào;
+  // quá 60s (hoặc máy mới/mất cache) mới gọi version-check RPC ~0.5KB + delta.
+  // F12 xóa key vẫn bypass được (bản chất frontend) — nhưng mỗi bypass cũng chỉ
+  // tốn 1 RPC ~0.5KB. Chống tuyệt đối phải làm ở server (plan trả phí).
   const REFRESH_COOLDOWN_MS = 60 * 1000;
   const REFRESH_AT_KEY = 'kullanime_refresh_at';
-  let _refreshCooldownTimer = null;
   function readRefreshAt() {
     try {
       const raw = parseInt(localStorage.getItem(REFRESH_AT_KEY) || '0', 10);
       return isNaN(raw) ? 0 : raw;
     } catch (_e) { return State.lastRefreshAt || 0; }
   }
-  // Vẽ lại nút theo cooldown còn lại (disable + "Chờ Ns"); hết giờ thì mở lại.
-  function paintRefreshCooldown() {
-    const btn = $('#refreshBtn');
-    if (!btn) return;
-    if (_refreshCooldownTimer) { clearInterval(_refreshCooldownTimer); _refreshCooldownTimer = null; }
-    const tick = () => {
-      const remain = Math.ceil((REFRESH_COOLDOWN_MS - (Date.now() - readRefreshAt())) / 1000);
-      if (remain <= 0) {
-        if (_refreshCooldownTimer) { clearInterval(_refreshCooldownTimer); _refreshCooldownTimer = null; }
-        btn.classList.remove('cooling');
-        btn.disabled = false;
-        btn.innerHTML = '<span>🔄</span>';
-        btn.setAttribute('title', 'Tải lại dữ liệu mới nhất');
-        btn.setAttribute('aria-label', 'Tải lại dữ liệu mới nhất');
-        return;
-      }
-      btn.classList.add('cooling');
-      btn.disabled = true;
-      btn.textContent = 'Chờ ' + remain + 's';
-      btn.setAttribute('title', 'Chống spam: thử lại sau ' + remain + ' giây');
-      btn.setAttribute('aria-label', 'Chống spam: thử lại sau ' + remain + ' giây');
-    };
-    tick();
-    const remain0 = REFRESH_COOLDOWN_MS - (Date.now() - readRefreshAt());
-    if (remain0 > 0) _refreshCooldownTimer = setInterval(tick, 1000);
-  }
-  // Cổng vào duy nhất của nút 🔄: chặn double-click + spam click trước khi đụng mạng.
-  // Trả về true nếu được phép chạy tiếp, false nếu đã chặn (kèm toast lý do).
-  function guardRefreshSpam() {
-    if (State.refreshing) { toast('⏳ Đang tải, chờ chút...', 'info', 1500); return false; }
-    const diff = Date.now() - readRefreshAt();
-    if (diff < REFRESH_COOLDOWN_MS) {
-      const remain = Math.ceil((REFRESH_COOLDOWN_MS - diff) / 1000);
-      toast('⏳ Chống spam: thử lại sau ' + remain + ' giây.', 'warning', 2000);
-      paintRefreshCooldown();
-      return false;
-    }
-    return true;
-  }
-  // Ghi mốc lần bấm hợp lệ (memory + localStorage) rồi vẽ cooldown ngay.
-  function stampRefreshAt() {
+  // Ghi mốc lần auto-check hợp lệ (memory + localStorage). Silent: không toast,
+  // không vẽ nút (nút đã ẩn) — mở web phải êm, chỉ báo khi thực sự có dữ liệu mới.
+  function stampRefreshAtSilent() {
     State.lastRefreshAt = Date.now();
     try { localStorage.setItem(REFRESH_AT_KEY, String(State.lastRefreshAt)); } catch (_e) { /* ignore */ }
-    paintRefreshCooldown();
   }
-  // "Tải lại" thông minh: check version → chỉ fetch phần thay đổi (delta incremental,
-  // không fetch full). force=true (bấm nút 🔄) vẫn đi qua version-check: đã mới nhất
-  // thì báo ngay, không fetch thừa.
-  async function smartRefreshData(force) {
-    // Chặn spam NGAY TRƯỚC khi đụng mạng: double-click hoặc trong 60s cooldown
-    // thì return luôn, không phát sinh request Supabase nào.
-    if (!guardRefreshSpam()) return;
-    stampRefreshAt();
-    State.refreshing = true;
-    const cache = readPubDataCache();
-    const lastAnime = cache && cache.animeUpdated ? cache.animeUpdated : 0;
-    const lastSong  = cache && cache.songUpdated  ? cache.songUpdated  : 0;
-    const lastCom   = cache && cache.chatUpdated  ? cache.chatUpdated  : 0;
-    try {
-      const versions = await fetchDataVersions();
-      const vAnimeTs = versionToMs(versions.animes && versions.animes.last_updated);
-      const vSongTs  = versionToMs(versions.songs && versions.songs.last_updated);
-      const vComTs   = versionToMs(versions.comments && versions.comments.last_updated);
-      const wantsAnime = force || !lastAnime || (vAnimeTs && vAnimeTs > lastAnime);
-      const wantsSong  = force || !lastSong  || (vSongTs  && vSongTs  > lastSong);
-      const wantsCom   = force || !lastCom   || (vComTs   && vComTs   > lastCom);
-      if (!wantsAnime && !wantsSong && !wantsCom) {
-        toast('✅ Dữ liệu đã mới nhất.', 'success', 2000);
-        return;
-      }
-      // Anime/songs: đồng bộ delta incremental (chỉ tải record đổi sau mốc cache);
-      // nếu phát hiện xóa record hoặc chưa có cache thì fetch full 1 lần.
-      if (wantsAnime) {
-        const r = await syncTableIncrementalSafe('animes');
-        if (r === 'full') await loadAnimes(true);
-      }
-      if (wantsSong) {
-        const r = await syncTableIncrementalSafe('songs');
-        if (r === 'full') await loadSongs(true);
-      }
-      if (wantsCom)   await loadGlobalChat(true);
-      toast('🔄 Đã làm mới dữ liệu.', 'success', 2000);
-    } catch (err) {
-      console.warn('smartRefreshData lỗi:', err);
-      // Nếu RPC chưa được tạo trên DB → fallback: force fetch toàn bộ
-      toast('⚠️ Không kiểm tra được phiên bản — tải lại toàn bộ.', 'warning', 3000);
-      await Promise.all([loadAnimes(true), loadSongs(true)]);
-      await loadGlobalChat(true);
-    } finally {
-      State.refreshing = false; // mở lại cổng double-click (cooldown 60s vẫn giữ)
-    }
+  // Có được phép auto-check không? Lần đầu/mất cache → luôn cho (tránh trắng trang).
+  // Còn lại: cách lần check trước >= 60s mới cho; trong 60s → dùng cache, 0 request.
+  function shouldAutoSync(hasData) {
+    if (!hasData) return true;
+    return (Date.now() - readRefreshAt()) >= REFRESH_COOLDOWN_MS;
   }
+  // (Nút 🔄 đã ẩn — không còn đường bấm tay. Lõi đồng bộ duy nhất là
+  // syncTableIncrementalSafe bên dưới, được init() gọi auto-check 60s/lần.)
   // Bọc syncTableIncremental: sync xong thì nạp kết quả vào State + render.
   // Trả về 'ok' (đã nạp State/render xong, KHÔNG cần fetch full),
   // 'full' (cần fetch full: cold-start / phát hiện xóa), 'error' (RPC lỗi → caller fallback).
-  async function syncTableIncrementalSafe(kind) {
+  async function syncTableIncrementalSafe(kind, quiet) {
     const isAnime = kind === 'animes';
     try {
       const r = await syncTableIncremental(kind);
@@ -960,14 +878,14 @@
         State.animes = cache.animes || State.animes || [];
         try { persistPubCachePart('animes', State.animes, computeMaxUpdated(State.animes)); } catch (_e) {}
         renderAnimeGrid();
-        if (!r.fresh && r.added > 0) toast('✨ Có ' + r.added + ' anime mới/cập nhật.', 'success', 3000);
+        if (!quiet && !r.fresh && r.added > 0) toast('✨ Có ' + r.added + ' anime mới/cập nhật.', 'success', 3000);
       } else {
         State.songs = cache.songs || State.songs || [];
         try { persistPubCachePart('songs', State.songs, computeMaxUpdated(State.songs)); } catch (_e) {}
         renderSongList();
-        if (!r.fresh && r.added > 0) toast('🎵 Có ' + r.added + ' bài hát mới/cập nhật.', 'success', 3000);
+        if (!quiet && !r.fresh && r.added > 0) toast('🎵 Có ' + r.added + ' bài hát mới/cập nhật.', 'success', 3000);
       }
-      return 'ok';
+      return { added: r.added || 0 };
     } catch (err) {
       console.warn('sync incremental ' + kind + ' lỗi:', err);
       return 'error';
@@ -7295,16 +7213,9 @@ function setupSubPopupEvents() {
     }
   });
 
-  // Nút "Tải lại" 🔄 — làm mới dữ liệu mới nhất (smart: chỉ fetch phần thay đổi).
-  // Chống spam 60s/lần: guard nằm trong smartRefreshData nên gọi trực tiếp hay
-  // gọi từ console cũng đều qua 1 cổng. Mở web giữa cooldown thì vẽ lại nút ngay.
-  const refreshBtn = $('#refreshBtn');
-  if (refreshBtn) {
-    refreshBtn.addEventListener('click', () => {
-      smartRefreshData(true);
-    });
-    paintRefreshCooldown(); // F5 giữa cooldown → nút vẫn "Chờ Ns" thay vì mở lại
-  }
+  // (Nút 🔄 "Tải lại" đã ẨN — mỗi lần mở/tải lại trang web tự check phiên bản
+  // 60s/lần qua khối auto-check trong init(). Giữ element ẩn trong HTML để
+  // $('#refreshBtn') không null nếu code khác còn trỏ tới.)
 
   async function handleLogin(e) {
     e.preventDefault();
@@ -10317,17 +10228,23 @@ function setupSubPopupEvents() {
       if (_pubCache.animes.length) { State.animes = _pubCache.animes; renderAnimeGrid(); }
       if (_pubCache.songs.length)  { State.songs  = _pubCache.songs;  renderSongList(); }
     }
-    // Đồng bộ incremental: hỏi server đúng 1 câu "có gì mới?" (RPC ~0.5KB).
-    // - Không có gì mới → 0 byte dữ liệu (trường hợp phổ biến nhất).
-    // - Có mới → chỉ tải record đổi sau mốc cache (vài KB) rồi merge vào danh sách.
+    // Auto-check 60s/lần: render cache trước (0 request) → F5 dồn trong 60s thì
+    // DÙNG CACHE, không đụng mạng; quá 60s (hoặc máy mới/mất cache) mới hỏi
+    // server đúng 1 câu "có gì mới?" (RPC ~0.5KB).
+    // - Không có gì mới → 0 byte dữ liệu (trường hợp phổ biến nhất), KHÔNG toast.
+    // - Có mới → chỉ tải record đổi sau mốc cache (vài KB) + toast ✨/🎵.
     // - Lần đầu/mất cache/RPC lỗi/phát hiện xóa → fetch full 1 lần như cũ (không trắng trang).
-    try {
-      const rAnime = await syncTableIncrementalSafe('animes');
-      if (rAnime === 'full' || rAnime === 'error') await loadAnimes();
-      const rSong = await syncTableIncrementalSafe('songs');
-      if (rSong === 'full' || rSong === 'error') await loadSongs();
-    } catch (_e) {
-      await Promise.all([loadAnimes(), loadSongs()]);
+    // Mốc lần check lưu localStorage (kullanime_refresh_at) nên F5 không reset được.
+    if (shouldAutoSync(!!(_pubCache && (_pubCache.animes.length || _pubCache.songs.length)))) {
+      stampRefreshAtSilent();
+      try {
+        const rAnime = await syncTableIncrementalSafe('animes');
+        if (rAnime === 'full' || rAnime === 'error') await loadAnimes();
+        const rSong = await syncTableIncrementalSafe('songs');
+        if (rSong === 'full' || rSong === 'error') await loadSongs();
+      } catch (_e) {
+        await Promise.all([loadAnimes(), loadSongs()]);
+      }
     }
     updateLoginUI();
     refreshAuthState();

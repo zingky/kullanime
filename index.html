@@ -35,7 +35,7 @@
   <!-- File cấu hình (đọc .env.local / fallback) -->
   <script src="./config.js"></script>
 
-  <link rel="stylesheet" href="./styles.css?v=118" />
+  <link rel="stylesheet" href="./styles.css?v=119" />
 </head>
 <body>
   <!-- Nền đêm sao + cánh hoa anh đào (night sky + sakura) — JS sinh sao tĩnh, CSS animation transform/opacity -->
@@ -74,9 +74,11 @@
         <button class="btn btn-login" id="loginBtn" title="Đăng nhập / Tài khoản" aria-label="Đăng nhập / Tài khoản">
           <span id="loginBtnIcon">👤</span>
         </button>
-        <!-- Nút Tải lại dữ liệu mới nhất — đi qua version-check: đã mới nhất thì báo
-             ngay không fetch thừa, có mới thì chỉ tải delta (record đổi sau mốc cache) -->
-        <button class="btn btn-refresh" id="refreshBtn" title="Tải lại dữ liệu mới nhất" aria-label="Tải lại dữ liệu mới nhất">
+        <!-- Nút Tải lại đã ẨN: mỗi lần mở/tải lại trang web tự check phiên bản
+             (version-check RPC ~0.5KB) + chỉ tải delta nếu có mới; giới hạn
+             1 phút/lần (F5 dồn trong 60s thì dùng cache, 0 request).
+             Giữ element ẩn để code cũ $('#refreshBtn') không null. -->
+        <button class="btn btn-refresh hidden" id="refreshBtn" style="display:none" tabindex="-1" aria-hidden="true" title="Tải lại dữ liệu mới nhất" aria-label="Tải lại dữ liệu mới nhất">
           <span>🔄</span>
         </button>
       </div>
@@ -778,7 +780,7 @@
   <div class="mini-pop hidden" id="epPop"></div>
   <div class="mini-pop hidden" id="heartPop"></div>
 
-  <script src="./app.js?v=117"></script>
+  <script src="./app.js?v=118"></script>
 </body>
 </html>
 
