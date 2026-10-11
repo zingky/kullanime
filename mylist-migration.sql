@@ -97,6 +97,27 @@ create table if not exists public.user_anime_states (
 );
 comment on table public.user_anime_states is 'Diem/trang thai xem RIENG tung user (1 row = 1 user x 1 anime)';
 
+-- Tự vá schema states nếu bảng từng tạo tay thiếu cột (tránh 42703 khi tạo policy).
+-- PHẢI chạy TRƯỚC grant/policy/index — policy trỏ cột chưa có → lỗi ngay lúc CREATE.
+alter table public.user_anime_states add column if not exists user_id uuid;
+alter table public.user_anime_states add column if not exists anime_id uuid;
+alter table public.user_anime_states add column if not exists my_rating numeric(3,1) not null default 0;
+alter table public.user_anime_states add column if not exists my_status text not null default 'Chưa xem';
+alter table public.user_anime_states add column if not exists watched_episodes integer not null default 0;
+alter table public.user_anime_states add column if not exists watch_count integer not null default 0;
+alter table public.user_anime_states add column if not exists watch_dates text[] not null default '{}';
+alter table public.user_anime_states add column if not exists updated_at timestamptz not null default now();
+
+-- PK (user_id, anime_id) — bảng cũ có thể thiếu; cần cho ON CONFLICT phía dưới.
+do $$ begin
+  if not exists (select 1 from pg_constraint
+                  where conrelid = 'public.user_anime_states'::regclass and contype = 'p') then
+    alter table public.user_anime_states add primary key (user_id, anime_id);
+  end if;
+exception when others then
+  raise notice 'Khong the them PK cho user_anime_states (co the trung du lieu) — bo qua.';
+end; $$;
+
 alter table public.user_anime_states enable row level security;
 grant select, insert, update, delete on public.user_anime_states to authenticated;
 
@@ -119,6 +140,12 @@ returns boolean language sql stable security definer set search_path = public
 as $$ select coalesce((select is_public from public.profiles where user_id = p_uid), false); $$;
 
 -- C) MIGRATE điểm cũ của admin (chỉ row có dữ liệu thật)
+-- (Đảm bảo cột animes mà SELECT trỏ tới tồn tại TRƯỚC — tránh 42703.)
+alter table public.animes add column if not exists my_rating numeric(3,1) not null default 0;
+alter table public.animes add column if not exists my_status text not null default 'Chưa xem';
+alter table public.animes add column if not exists watched_episodes integer not null default 0;
+alter table public.animes add column if not exists watch_count integer not null default 0;
+alter table public.animes add column if not exists watch_dates text[] not null default '{}';
 do $$
 declare _admin_id uuid;
 begin
@@ -152,7 +179,25 @@ create trigger trg_states_updated_at before update on public.user_anime_states
 
 -- ============================================================
 -- D) USER ĐƯỢC THÊM THẲNG ANIME VÀO KHO CHUNG (khỏi duyệt)
+-- LƯU Ý THỨ TỰ: ADD COLUMN is_adult PHẢI CHẠY TRƯỚC CREATE POLICY
+-- (policy trỏ is_adult mà cột chưa có → lỗi 42703, Postgres check ngay
+-- lúc tạo policy chứ không đợi lúc insert — đây là lỗi vừa gặp).
 -- ============================================================
+-- Tự vá schema animes nếu bảng cũ thiếu cột mà trigger/policy/RPC trỏ tới
+-- (title_romaji/title_native/title_synonyms/genres/tags/my_rating/my_status/
+-- watched_episodes/watch_count/watch_dates/is_adult — tránh 42703 hàng loạt).
+alter table public.animes add column if not exists title_romaji text not null default '';
+alter table public.animes add column if not exists title_native text not null default '';
+alter table public.animes add column if not exists title_synonyms text[] not null default '{}';
+alter table public.animes add column if not exists genres text[] not null default '{}';
+alter table public.animes add column if not exists tags jsonb not null default '[]'::jsonb;
+alter table public.animes add column if not exists my_rating numeric(3,1) not null default 0;
+alter table public.animes add column if not exists my_status text not null default 'Chưa xem';
+alter table public.animes add column if not exists watched_episodes integer not null default 0;
+alter table public.animes add column if not exists watch_count integer not null default 0;
+alter table public.animes add column if not exists watch_dates text[] not null default '{}';
+alter table public.animes add column if not exists is_adult boolean not null default false;
+
 drop policy if exists "animes_admin_insert" on public.animes;
 drop policy if exists "animes_member_insert" on public.animes;
 create policy "animes_member_insert"
@@ -162,8 +207,8 @@ create policy "animes_member_insert"
 
 -- ============================================================
 -- E) CHẶN HENTAI 18+ Ở SERVER (F12 gọi thẳng cũng bị chặn)
+-- (ADD COLUMN is_adult đã chạy ở phần D — không lặp lại ở đây.)
 -- ============================================================
-alter table public.animes add column if not exists is_adult boolean not null default false;
 
 create or replace function public.reject_adult_anime()
 returns trigger language plpgsql security definer set search_path = public
