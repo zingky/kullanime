@@ -9841,6 +9841,7 @@ function setupSubPopupEvents() {
       autoResizeComposer(commentBox);
     }
     $('#uploadImgInput').addEventListener('change', handleImageUpload);
+    $('#uploadImgBtn').addEventListener('click', () => $('#uploadImgInput').click());
     const _oldCommentLoadMore = $('#commentLoadMoreBtn');
     if (_oldCommentLoadMore) _oldCommentLoadMore.remove();
     // Thanh phân trang bình luận (5/trang) — delegate trên modal
@@ -9921,6 +9922,7 @@ function setupSubPopupEvents() {
       });
     });
     $('#chatUploadImgInput').addEventListener('change', handleChatImageUpload);
+    $('#chatUploadImgBtn').addEventListener('click', () => $('#chatUploadImgInput').click());
     $('#chatLoadMoreBtn').addEventListener('click', () => {
       State.chatVisible += 20;
       renderGlobalChat();
