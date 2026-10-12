@@ -273,7 +273,8 @@
     return slug.length >= 3 ? slug : '';
   }
   // Mở list của user từ tên tác giả: về tab Anime trước rồi gọi showListView
-  // (showListView tự toast PRIVATE/NOT_FOUND khi list riêng tư / không tồn tại).
+  // (showListView tự toast PRIVATE/NOT_FOUND/ADMIN_HOME khi list riêng tư /
+  // không tồn tại / username của admin → về trang chủ).
   async function openUserListFromName(username) {
     if (!username) return false;
     try { switchTab('anime'); } catch (_e) { /* ignore */ }
@@ -350,6 +351,7 @@
         title: it.title, title_romaji: it.title_romaji, title_native: it.title_native,
         poster_url: it.poster_url, status: it.status, rating: it.rating,
         genres: it.genres, studio: it.studio, year: it.year, total_episodes: it.total_episodes,
+        is_approved: it.is_approved,
         watched_episodes: it.watched_episodes, my_rating: it.my_rating, my_status: it.my_status,
         watch_count: it.watch_count, watch_dates: it.watch_dates, updated_at: it.updated_at,
         _owner_state: isMine ? 0 : 1
@@ -366,6 +368,13 @@
       return true;
     } catch (err) {
       const msg = String((err && err.message) || err || '');
+      // ?u=username-admin → không có "list admin" riêng: về trang chủ (list admin).
+      if (/ADMIN_HOME/i.test(msg)) {
+        closeModal('accountModal');
+        toast('Trang chủ đã là list của admin — không cần mở link riêng.', 'info', 4000);
+        await showListView('');
+        return true;
+      }
       if (/PRIVATE/i.test(msg)) {
         toast('List của "' + target + '" đang để RIÊNG TƯ — chủ list phải bật công khai mới xem được.', 'warning', 5000);
       } else if (/NOT_FOUND/i.test(msg)) {
@@ -5270,9 +5279,13 @@ function setupSubPopupEvents() {
     updateFilterBadge();
 
     let list = State.animes.slice();
-    // Chế độ list user (mine/user): nguồn lưới = card của chính list đó
-    // (đã merge state của chủ list) — bộ lọc/sắp xếp chạy hệt như list admin.
-    if (State.listMode !== 'admin' && State.listItems) list = State.listItems.slice();
+    // Trang chủ = list ADMIN duy nhất: chỉ anime ĐÃ DUYỆT (is_approved !== false).
+    // Anime member mới thêm (chờ duyệt) chỉ hiện ở panel Quản trị để admin duyệt,
+    // KHÔNG lên trang chủ. (RLS cũng chặn ở server — đây là lớp hiển thị.)
+    // Chế độ list user (mine/user) do RPC get_public_list đã lọc — giữ nguyên.
+    if (State.listMode === 'admin') {
+      list = list.filter((a) => a && a.is_approved !== false);
+    } else if (State.listItems) list = State.listItems.slice();
 
     // Lọc trạng thái (tình trạng phát hành của anime)
     if (status !== 'all') {
@@ -7669,6 +7682,12 @@ function setupSubPopupEvents() {
     const hello = $('#accountHello');
     if (hello) hello.textContent = 'Chào ' + (State.myUsername || State.nickname || 'bạn') +
       ' — ' + (State.adminEmail || '—') + (State.isAdmin ? ' · Admin' : '');
+    // 1 admin duy nhất: admin KHÔNG có link list riêng — trang chủ đã là list admin.
+    // Ẩn các mục list (nút list/link công khai/trang chủ) khi là admin.
+    const hideForAdmin = (id, hide) => { const el = document.getElementById(id); if (el) { const f = el.closest('.field') || el; f.classList.toggle('hidden', !!hide); } };
+    hideForAdmin('accountMyListBtn', State.isAdmin);
+    hideForAdmin('accountMyLink', State.isAdmin);
+    hideForAdmin('accountHome', State.isAdmin);
     const nm = $('#accountName');
     if (nm) nm.value = State.myUsername || State.nickname || '';
     const link = $('#accountMyLink');
@@ -7880,17 +7899,19 @@ function setupSubPopupEvents() {
     }
     list.innerHTML = items.map((a) => {
       const checked = State.adminSelectedAnime.has(String(a.id));
+      const pending = a && a.is_approved === false;
       return (
         '<div class="admin-row' + (checked ? ' selected' : '') + '" data-id="' + esc(a.id) + '">' +
           '<input type="checkbox" class="admin-cb" data-cbid="' + esc(a.id) + '"' + (checked ? ' checked' : '') + ' />' +
         '<div class="admin-row-thumb">' + (a.poster_url ? '<img src="' + esc(a.poster_url) + '" alt="" onerror="this.remove()" />' : '🎞') + '</div>' +
-        '<div class="admin-row-info">' +
-          '<div class="admin-row-title">' + esc(a.title) + '</div>' +
-          '<div class="admin-row-sub">' + esc(a.status || '') + ' · ★ ' + (Number(a.rating) || 0).toFixed(1) + '</div>' +
+          '<div class="admin-row-info">' +
+            '<div class="admin-row-title">' + esc(a.title) + (pending ? ' <span class="pin-badge">Ch\u1edd duy\u1ec7t</span>' : '') + '</div>' +
+            '<div class="admin-row-sub">' + esc(a.status || '') + ' \u00b7 \u2605 ' + (Number(a.rating) || 0).toFixed(1) + '</div>' +
         '</div>' +
-        '<div class="admin-row-actions">' +
-            '<button class="mini-btn primary" data-apact="edit" data-id="' + esc(a.id) + '">✏️ Sửa</button>' +
-            '<button class="mini-btn danger" data-apact="del" data-id="' + esc(a.id) + '">🗑 Xóa</button>' +
+          '<div class="admin-row-actions">' +
+            (pending ? '<button class="mini-btn primary" data-apact="approve" data-id="' + esc(a.id) + '">Duy\u1ec7t</button>' : '') +
+            '<button class="mini-btn primary" data-apact="edit" data-id="' + esc(a.id) + '">S\u1eeda</button>' +
+            '<button class="mini-btn danger" data-apact="del" data-id="' + esc(a.id) + '">X\u00f3a</button>' +
           '</div>' +
         '</div>'
       );
@@ -8138,7 +8159,9 @@ function setupSubPopupEvents() {
       error = r.error;
     } else {
       // Thêm anime mới: chọn sẵn "Đã xem" cũng tính 1 lần xem + ngày hôm nay.
-      // Member thêm thẳng vào kho chung (khỏi duyệt) + tự link vào My List mình.
+      // ADMIN thêm → duyệt luôn (lên trang chủ).
+      // MEMBER thêm → CHỜ DUYỆT (is_approved=false do trigger set_anime_approval ép —
+      // client không tự duyệt được, F12 cũng vậy), chỉ hiện ở panel Quản trị.
       Object.assign(payload, watchDatesPatchForStatusChange('', [], payload.my_status));
       payload.is_adult = false; // cờ sạch client — trigger SQL kiểm tra lại
       const r = await State.supabase.from('animes').insert(payload).select('id').maybeSingle();
@@ -8162,7 +8185,11 @@ function setupSubPopupEvents() {
       return;
     }
     if (newAnimeId && State.myUid) await loadMyListData();
-    toast('Đã lưu anime ✅', 'success');
+    if (newAnimeId && !State.isAdmin) {
+      toast('Đã gửi anime — đang CHỜ ADMIN DUYỆT ✅ (hiện ở Quản trị, chưa lên trang chủ).', 'success', 5000);
+    } else {
+      toast('Đã lưu anime ✅', 'success');
+    }
     closeModal('animeFormModal');
     await loadAnimes();
     renderAdminAnimeList();
@@ -8177,6 +8204,18 @@ function setupSubPopupEvents() {
         renderAnimeDetail(fresh);
       }
     }
+  }
+
+  // Duyệt anime member thêm (chờ duyệt → lên trang chủ). Chỉ admin.
+  async function approveAnime(id) {
+    if (!State.isAdmin) { toast('Bạn không có quyền.', 'error'); return; }
+    const { error } = await State.supabase.from('animes').update({ is_approved: true }).eq('id', id);
+    if (error) { toast('Duyệt thất bại: ' + error.message, 'error', 5000); return; }
+    const a = State.animes.find((x) => String(x.id) === String(id));
+    if (a) a.is_approved = true;
+    toast('Đã duyệt — anime lên trang chủ ✅', 'success');
+    renderAdminAnimeList();
+    renderAnimeGrid(true);
   }
 
   async function deleteAnime(id) {
@@ -9972,6 +10011,7 @@ function setupSubPopupEvents() {
         const id = btn.dataset.id;
         if (btn.dataset.apact === 'edit') openEditAnimeForm(id);
         else if (btn.dataset.apact === 'del') deleteAnime(id);
+        else if (btn.dataset.apact === 'approve') approveAnime(id);
         return;
       }
       const row = e.target.closest('.admin-row');
