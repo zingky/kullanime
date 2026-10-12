@@ -1058,44 +1058,59 @@
   async function loadAnimes() {
     if (!State.supabase) return;
     // Luôn fetch mới từ Supabase (mỗi lần vào web là tải dữ liệu mới nhất)
-    $('#animeLoading').classList.remove('hidden');
-    $('#animeEmpty').classList.add('hidden');
+    // Chỉ nháy dòng "đang tải" khi lưới còn trống — đã có dữ liệu hiển thị thì
+    // không hiện overlay (tránh "chớp" vô ích khi sync xong).
+    const hadData = (State.animes || []).length > 0;
+    if (!hadData) {
+      $('#animeLoading').classList.remove('hidden');
+      $('#animeEmpty').classList.add('hidden');
+    }
     const { data, error } = await State.supabase
       .from('animes')
       .select('*')
       .order('created_at', { ascending: false });
-    $('#animeLoading').classList.add('hidden');
+    if (!hadData) $('#animeLoading').classList.add('hidden');
     if (error) {
       console.error('Lỗi đọc animes:', error);
       toast('Không tải được danh sách anime: ' + error.message, 'error', 5000);
       return;
     }
-    State.animes = data || [];
+    const next = data || [];
+    // Dữ liệu không đổi (cùng số lượng + cùng mốc updated_at) → KHÔNG vẽ lại:
+    // vẽ lại chạy lại cardIn = cả lưới chớp dù chẳng có gì mới.
+    if (hadData && next.length === State.animes.length
+      && computeMaxUpdated(next) === computeMaxUpdated(State.animes)) return;
+    State.animes = next;
     // Ghi cache full để lần mở web sau đồng bộ incremental theo mốc này
     // (localStorage đầy ~5MB thì bỏ qua — lần sau fetch full lại, không crash).
     try { persistPubCachePart('animes', State.animes, computeMaxUpdated(State.animes)); } catch (_e) {}
-    renderAnimeGrid();
+    renderAnimeGrid(hadData); // lưới đã có dữ liệu → quiet (no-anim, không chớp)
   }
 
   async function loadSongs() {
     if (!State.supabase) return;
     const loading = $('#songLoading');
-    // Luôn fetch mới từ Supabase (mỗi lần vào web là tải dữ liệu mới nhất)
-    if (loading) loading.classList.remove('hidden');
+    // Chỉ nháy dòng "đang tải" khi danh sách còn trống (chống chớp khi sync lại).
+    const hadData = (State.songs || []).length > 0;
+    if (!hadData && loading) loading.classList.remove('hidden');
     const empty = $('#songEmpty');
-    if (empty) empty.classList.add('hidden');
+    if (!hadData && empty) empty.classList.add('hidden');
     const { data, error } = await State.supabase
       .from('songs')
       .select('*')
       .order('sort_order', { ascending: true })
       .order('created_at', { ascending: true });
-    if (loading) loading.classList.add('hidden');
+    if (!hadData && loading) loading.classList.add('hidden');
     if (error) {
       console.error('Lỗi đọc songs:', error);
       toast('Không tải được danh sách nhạc: ' + error.message, 'error', 5000);
       return;
     }
-    State.songs = data || [];
+    const next = data || [];
+    // Không đổi → không vẽ lại (chống chớp vô ích).
+    if (hadData && next.length === State.songs.length
+      && computeMaxUpdated(next) === computeMaxUpdated(State.songs)) return;
+    State.songs = next;
     try { persistPubCachePart('songs', State.songs, computeMaxUpdated(State.songs)); } catch (_e) {}
     renderSongList();
   }
@@ -1205,12 +1220,15 @@
       if (isAnime) {
         State.animes = cache.animes || State.animes || [];
         try { persistPubCachePart('animes', State.animes, computeMaxUpdated(State.animes)); } catch (_e) {}
-        renderAnimeGrid();
+        // fresh = server KHÔNG có gì mới → KHÔNG vẽ lại (vẽ lại = cardIn chạy
+        // lần nữa = lưới "chớp" sau vài giây dù dữ liệu không đổi).
+        // Có delta mới → vẽ quiet (no-anim) để cập nhật tại chỗ, không nhấp nháy.
+        if (!r.fresh) renderAnimeGrid(true);
         if (!quiet && !r.fresh && r.added > 0) toast('✨ Có ' + r.added + ' anime mới/cập nhật.', 'success', 3000);
       } else {
         State.songs = cache.songs || State.songs || [];
         try { persistPubCachePart('songs', State.songs, computeMaxUpdated(State.songs)); } catch (_e) {}
-        renderSongList();
+        if (!r.fresh) renderSongList();
         if (!quiet && !r.fresh && r.added > 0) toast('🎵 Có ' + r.added + ' bài hát mới/cập nhật.', 'success', 3000);
       }
       return { added: r.added || 0 };
@@ -10958,10 +10976,16 @@ function setupSubPopupEvents() {
     updateLoginUI();
     await refreshAuthState(); // PHẢI await: set State.isLoggedIn TRƯỚC khi loadMyListData
     await loadMyListData(); // nạp profile + states riêng (điểm card của mình)
-    renderAnimeGrid();      // vẽ lại card với điểm riêng (nếu đã login)
     // Chế độ list khi mở trang: ?u=username (link share) > cài đặt trang chủ
     // mặc định (mine) > list admin. Link share = URL có ?u= trên thanh địa chỉ.
     State.viewingUser = readViewUserParam();
+    // Vẽ lại CHỈ khi thật sự cần và LUÔN quiet (no-anim):
+    // - Chưa login + lưới đã có dữ liệu → chẳng có gì mới → BỎ QUA (trước đây
+    //   luôn render không quiet → cả lưới "chớp" ~vài giây sau khi vào web).
+    // - Lưới còn trống → vẽ để hiện thông báo "Chưa có anime" (không có card → không chớp).
+    // - Đang mở ?u= → showListView bên dưới tự vẽ (quiet).
+    // - Đã login → vẽ lại quiet để hiện điểm/trạng thái riêng vừa nạp.
+    if ((State.isLoggedIn || !(State.animes || []).length) && !State.viewingUser) renderAnimeGrid(true);
     if (State.viewingUser) {
       await showListView(State.viewingUser);
     } else if (readHomeDefault() === 'mine' && State.myUsername) {
