@@ -265,6 +265,20 @@
       .slice(0, 30);
   }
 
+  // Bấm tên tác giả (chat/bình luận) → mở list công khai ?u=username của user đó.
+  // Tên hiển thị = username (slug) duy nhất nên slugify ngược lại là ra username.
+  // Trả về '' khi tên không map được thành username hợp lệ (khách vãng lai, tên cũ...).
+  function authorToUsername(author) {
+    const slug = slugifyUsername(author);
+    return slug.length >= 3 ? slug : '';
+  }
+  // Mở list của user từ tên tác giả: về tab Anime trước rồi gọi showListView
+  // (showListView tự toast PRIVATE/NOT_FOUND khi list riêng tư / không tồn tại).
+  async function openUserListFromName(username) {
+    if (!username) return false;
+    try { switchTab('anime'); } catch (_e) { /* ignore */ }
+    return showListView(username);
+  }
   // Trang chủ mặc định khi mở web (không có ?u=): 'admin' (KullAnime) | 'mine'
   // Lưu localStorage — web static không có cột DB, setting áp dụng theo máy.
   const HOME_DEFAULT_KEY = 'kullanime_home_default_v1';
@@ -6763,7 +6777,14 @@ function setupSubPopupEvents() {
       '<div class="comment-item' + (isPinned ? ' pinned' : '') + (isReply ? ' is-reply' : '') + '" data-id="' + esc(c.id) + '">' +
         replyBadge +
         '<div class="comment-head">' +
-          '<span class="comment-author">' + esc(author) + '</span>' +
+          // Bấm tên tác giả → mở list công khai ?u=username (list riêng tư / không tồn tại → toast).
+          // Tên không map được thành username (khách, tên cũ...) → giữ span thường.
+          (() => {
+            const _au = authorToUsername(author);
+            return _au
+              ? '<button type="button" class="comment-author author-list-link" data-author-list="' + esc(_au) + '" title="Mở list anime của ' + esc(_au) + '">' + esc(author) + '</button>'
+              : '<span class="comment-author">' + esc(author) + '</span>';
+          })() +
           (isPinned ? '<span class="pin-badge">📌 Đã ghim</span>' : '') +
           '<span class="comment-time">' + timeAgo(c.created_at) + '</span>' +
           actions +
@@ -7151,6 +7172,12 @@ function setupSubPopupEvents() {
     const tag = anime
       ? '<a href="#" class="chat-anime-tag" data-anime-id="' + esc(anime.id) + '" title="Mở chi tiết ' + esc(anime.title) + '">🎬 ' + esc(anime.title) + '</a>'
       : '<span class="chat-anime-tag chat-general">💬 Chat All</span>';
+    // Bấm tên tác giả → mở list công khai ?u=username (như bình luận).
+    // Tên không map được thành username (khách, tên cũ...) → giữ span thường.
+    const chatAuthorU = authorToUsername(author);
+    const chatAuthorHTML = chatAuthorU
+      ? '<button type="button" class="chat-bubble-author author-list-link" data-author-list="' + esc(chatAuthorU) + '" title="Mở list anime của ' + esc(chatAuthorU) + '">' + esc(author) + '</button>'
+      : '<span class="chat-bubble-author">' + esc(author) + '</span>';
     // Nội dung dài > 400 ký tự → thu gọn + nút xem thêm / thu gọn lại
     const bodyHtml = renderRichText(c.content);
     const bodyInner = '<div class="comment-body chat-bubble-body long-text-body">' + bodyHtml + '</div>';
@@ -7161,7 +7188,7 @@ function setupSubPopupEvents() {
       '<div class="chat-bubble-row' + (isOwn ? ' own' : '') + '" data-id="' + esc(c.id) + '">' +
         '<div class="chat-bubble' + (isPinned ? ' pinned' : '') + '">' +
           '<div class="chat-bubble-head">' +
-            '<span class="chat-bubble-author">' + esc(author) + '</span>' +
+            chatAuthorHTML +
             tag +
             (isPinned ? '<span class="pin-badge">📌 Đã ghim</span>' : '') +
             '<span class="chat-bubble-time">' + timeAgo(c.created_at) + '</span>' +
@@ -9878,6 +9905,13 @@ function setupSubPopupEvents() {
       if (e.key === 'Escape' && State.chatExpanded) toggleChatPanel();
     });
     $('#chatDock').addEventListener('click', (e) => {
+      // Bấm tên tác giả → mở list công khai ?u=username của user đó
+      const auBtn = e.target.closest('[data-author-list]');
+      if (auBtn) {
+        e.preventDefault();
+        openUserListFromName(auBtn.dataset.authorList);
+        return;
+      }
       // Click nhãn anime trong chat (cả preview lẫn list) → mở modal chi tiết
       const tag = e.target.closest('[data-anime-id]');
       if (tag) {
@@ -10558,6 +10592,14 @@ function setupSubPopupEvents() {
 
     // Comment actions trong modal anime (delegate)
     $('#animeModal').addEventListener('click', (e) => {
+      // Bấm tên tác giả → mở list công khai ?u=username (đóng modal chi tiết trước)
+      const auBtn = e.target.closest('[data-author-list]');
+      if (auBtn) {
+        e.preventDefault();
+        try { closeModal('animeModal'); } catch (_e) { /* ignore */ }
+        openUserListFromName(auBtn.dataset.authorList);
+        return;
+      }
       // Nút dịch tóm tắt sang tiếng Việt (Google Translate, chỉ hiển thị ở máy người xem)
       const trBtn = e.target.closest('#synopsisTranslateBtn');
       if (trBtn && trBtn.dataset.anime) {
