@@ -5626,7 +5626,7 @@ function setupSubPopupEvents() {
   }
 
   // Đồng bộ ô dropdown chung theo #myStatusFilter: đang lọc trạng thái xem thì hiện
-  // "✅ Đã xem / ⏳ Đang xem / ➕ Muốn xem / ⬜ Chưa xem", không lọc thì hiện đúng chế độ
+  // "Đã xem / Đang xem / Muốn xem / Chưa xem" (không icon), không lọc thì hiện đúng chế độ
   // sắp xếp trong State. Gọi sau mọi chỗ đổi Trạng thái trong panel nâng cao / reset / khởi tạo.
   function syncSortFilterUI() {
     try {
