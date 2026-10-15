@@ -6341,6 +6341,20 @@ function setupSubPopupEvents() {
       const r = await saveMyState(animeId, patch);
       if (!r) return false;
       syncListItemState(animeId, patch);
+      // Vá state mới vào object card/trang chi tiết (nếu không: lần đọc myViewOf KẾ TIẾP
+      // vẫn thấy giá trị cũ trên object a → UI "nhảy về cũ" sau ~1s).
+      // CHỈ gán 5 cột "của tôi" — KHÔNG gán cả r (r có user_id/anime_id/id/created_at...,
+      // gán cả sẽ làm bẩn record kho chung và vỡ các chỗ so sánh id).
+      try {
+        const MY_COLS3 = ['my_status', 'my_rating', 'watched_episodes', 'watch_count', 'watch_dates'];
+        const mine3 = {};
+        MY_COLS3.forEach((c) => { if (r[c] !== undefined) mine3[c] = r[c]; });
+        const ga = findGridAnime(animeId);
+        if (ga && ga !== State.currentAnime) Object.assign(ga, mine3);
+        if (State.currentAnime && String(State.currentAnime.id) === String(animeId)) {
+          Object.assign(State.currentAnime, mine3);
+        }
+      } catch (_e) { /* ignore */ }
       // Sửa tại chỗ đúng thẻ vừa bấm (GIỐNG nhánh admin) → KHÔNG vẽ lại cả lưới,
       // không chạy cardIn, không reload poster → hết "chớp chớp" khi chấm ♥/trạng thái.
       const stFilter = $('#myStatusFilter');
