@@ -183,43 +183,24 @@
     State.titleLang = localStorage.getItem(TITLELANG_KEY) === 'romaji' ? 'romaji' : 'en';
   } catch (_e2) { /* ignore */ }
 
-  /* ── Chống trùng anime (theo TÊN) khi thêm mới ────────────────────────
-     Chuẩn hoá: trim → gộp khoảng trắng → lowercase → bỏ dấu tiếng Việt
-     (normalize NFD + strip combining marks). So cả 4 tên: title, romaji,
-     native, synonyms — vì cùng 1 anime có thể lưu dưới tên khác nhau
-     (vd đã lưu English, giờ auto-fill trả về Romaji). */
-  function normAnimeName(s) {
-    return String(s || '')
-      .trim()
-      .toLowerCase()
-      .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
-      .replace(/đ/g, 'd') // NFD không tách được đ → đổi tay (đã lowercase nên chỉ cần đ thường)
-      .replace(/\s+/g, ' ');
+  /* ── Chống trùng anime ──
+     Chỉ chặn khi title chính Y HỆT sau chuẩn hoá nhẹ
+     (trim/lowercase/gộp cách; GIỮ NGUYÊN dấu). */
+  function normTitleExact(s) {
+    return String(s || '').trim().toLowerCase().replace(/\s+/g, ' ');
   }
-  // Mọi tên đã biết của 1 record (bỏ rỗng + dedupe) để so trùng.
-  function animeKnownNames(a) {
-    const out = [];
-    const push = (s) => { const n = normAnimeName(s); if (n && out.indexOf(n) < 0) out.push(n); };
-    if (!a) return out;
-    push(a.title);
-    push(a.title_romaji);
-    push(a.title_native);
-    (Array.isArray(a.title_synonyms) ? a.title_synonyms : []).forEach(push);
-    return out;
-  }
-  // Tìm anime ĐÃ CÓ trùng với bộ tên định lưu (so chéo mọi tên đã biết).
-  // ignoreId: bỏ qua chính record đang sửa (cho phép sửa mà không đổi tên).
-  // Trả về record trùng đầu tiên hoặc null.
+  // Tìm anime ĐÃ CÓ có title Y HỆT (ignoreId = bỏ qua record đang sửa).
   function findAnimeByName(names, ignoreId) {
-    const want = (Array.isArray(names) ? names : []).map(normAnimeName).filter(Boolean);
+    const want = (Array.isArray(names) ? names : []).map(normTitleExact).filter(Boolean);
     if (!want.length) return null;
     const list = State.animes || [];
     for (let i = 0; i < list.length; i++) {
       const a = list[i];
       if (ignoreId != null && ignoreId !== '' && String(a.id) === String(ignoreId)) continue;
-      const known = animeKnownNames(a);
+      const known = normTitleExact(a && a.title);
+      if (!known) continue;
       for (let j = 0; j < want.length; j++) {
-        if (known.indexOf(want[j]) >= 0) return a;
+        if (want[j] === known) return a;
       }
     }
     return null;
@@ -8146,10 +8127,10 @@ function setupSubPopupEvents() {
       toast('⛔ Nội dung 18+ bị chặn trên web này.', 'error', 5000);
       return;
     }
-    // Chặn trùng tên: so chéo title/romaji/native/synonyms với toàn bộ anime đã có
-    // (chuẩn hoá hoa-thường/dấu/cách). Sửa record cũ thì bỏ qua chính nó.
+    // Chặn trùng tên chính: y hệt thì chặn (sửa record cũ thì bỏ qua chính nó).
+    // Season/phần mới (tên khác) vẫn thêm được bình thường.
     const dup = findAnimeByName(
-      [payload.title, payload.title_romaji, payload.title_native].concat(payload.title_synonyms || []),
+      [payload.title],
       id || null
     );
     if (dup) {
@@ -10575,15 +10556,11 @@ function setupSubPopupEvents() {
       try {
         const it = JSON.parse(decodeEntities(item.dataset.json));
         $('#jikanQuery').value = (it.title && (it.title.english || it.title.romaji)) || '';
-        // Cảnh báo sớm nếu anime đã có (so chéo mọi tên) — vẫn cho điền form để
-        // xem, nhưng nút Lưu sẽ chặn cứng. Không áp khi đang SỬA record cũ.
+        // Cảnh báo sớm nếu anime đã có tên chính y hệt — vẫn cho điền form
+        // để xem, nhưng nút Lưu sẽ chặn cứng. Không áp khi đang SỬA record cũ.
         const isEditing = ($('#af_id') && $('#af_id').value) ? $('#af_id').value : null;
-        const itSyn = Array.isArray(it.synonyms) ? it.synonyms
-          : ((it.title && Array.isArray(it.title.synonyms)) ? it.title.synonyms : []);
         const dupEarly = findAnimeByName(
-          [(it.title && (it.title.english || it.title.romaji)) || '',
-           (it.title && it.title.romaji) || '',
-           (it.title && it.title.native) || ''].concat(itSyn),
+          [(it.title && (it.title.english || it.title.romaji)) || ''],
           isEditing
         );
         if (dupEarly) {
