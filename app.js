@@ -866,6 +866,9 @@
           applyAuthState();
         }
       }
+      // ADMIN: nguồn sự thật là cột trên bảng animes — KHÔNG nạp user_anime_states
+      // (tránh row cũ đè giá trị mới sau F5; xem myViewOf). Giữ myStates rỗng.
+      if (State.isAdmin) return;
       const { data: states } = await State.supabase
         .from('user_anime_states').select('*').eq('user_id', uid);
       const map = {};
@@ -886,6 +889,11 @@
       };
     }
     const st = a && State.myStates ? State.myStates[String(a.id)] : null;
+    // ADMIN: nguồn sự thật là cột trên bảng animes (kho chung) — nhánh admin của
+    // saveMyTracker chỉ ghi bảng animes, KHÔNG upsert user_anime_states nên row
+    // states của admin có thể CŨ → bỏ qua để F5 không "nhảy về cũ" sau ~1s.
+    // (Member vẫn ưu tiên states riêng — không ảnh hưởng.)
+    if (State.isAdmin && State.listMode !== 'user') return a;
     if (st) return {
       my_rating: st.my_rating, my_status: st.my_status,
       watched_episodes: st.watched_episodes, watch_count: st.watch_count,
