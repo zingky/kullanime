@@ -2572,10 +2572,12 @@ select.input option { background: #141a2d; color: var(--text); }
 .chip-hashtag { color: var(--text-dim); border-color: var(--border); background: rgba(255,255,255,0.03); }
 
 /* ── Thanh phân trang — cụm ‹ [TRANG HIỆN TẠI] › CỐ ĐỊNH giữa thanh, gõ số + Enter ──
-   Grid 3 cột [trước 1fr][cụm auto][sau 1fr]: 2 cột chia đều → cụm ‹ input › LUÔN đứng yên
-   đúng 1 tọa độ, bấm lướt tiến/lùi nhiều lần vẫn trúng 1 chỗ. Dãy số quanh cụm: chỉ 1 trang
-   liền kề mỗi bên — trước = {1, cur−1}, sau = {cur+1, cuối}, KHÔNG dấu …; trang ĐẦU và trang
-   CUỐI tô màu mờ + cỡ nhỏ để phân biệt. sticky đáy → thanh dính đáy vùng cuộn. Ô trang hiện
+   Nền pill bám sát nội dung (fit-content, không chiếm đủ 440px khi ít nút);
+   tối đa 440px để nhiều nút không vỡ layout. Grid 3 cột [trước 1fr][cụm auto][sau 1fr]:
+   2 cột chia đều → cụm ‹ input › LUÔN đứng yên đúng 1 tọa độ, bấm lướt tiến/lùi
+   nhiều lần vẫn trúng 1 chỗ. Dãy số quanh cụm: chỉ 1 trang liền kề mỗi bên —
+   trước = {1, cur−1}, sau = {cur+1, cuối}, KHÔNG dấu …; trang ĐẦU và trang CUỐI tô
+   màu mờ + cỡ nhỏ để phân biệt. sticky đáy → thanh dính đáy vùng cuộn. Ô trang hiện
    tại = ô nhập: bấm vào gõ số rồi Enter để nhảy thẳng. */
 .comment-pagination, .anime-pagination {
   position: sticky;
@@ -2585,7 +2587,9 @@ select.input option { background: #141a2d; color: var(--text); }
   grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
   align-items: center;
   gap: 6px;
-  width: min(440px, 100%);
+  width: fit-content;
+  min-width: 0;
+  max-width: min(440px, 100%);
   margin: 8px auto 0;
   padding: 6px 12px;
   border: var(--glass-border);
