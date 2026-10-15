@@ -35,7 +35,7 @@
   <!-- File cấu hình (đọc .env.local / fallback) -->
   <script src="./config.js"></script>
 
-  <link rel="stylesheet" href="./styles.css?v=127" />
+  <link rel="stylesheet" href="./styles.css?v=128" />
 </head>
 <body>
   <!-- Nền đêm sao + cánh hoa anh đào (night sky + sakura) — JS sinh sao tĩnh, CSS animation transform/opacity -->
@@ -113,6 +113,10 @@
                 title="Lọc anime MÙA HIỆN TẠI (theo thời gian bấm) — bấm để bật">Now</button>
         <select id="sortFilter" class="input filter-select" aria-label="Sắp xếp" title="Đổi cách sắp xếp — bấm để chọn">
           <option value="recent" title="Mới thêm hoặc vừa cập nhật (trạng thái xem / điểm ♥ / thông tin) lên đầu">Gần đây</option>
+          <option value="st:Đã xem" title="Lọc nhanh: chỉ anime Đã xem">✅ Đã xem</option>
+          <option value="st:Đang xem" title="Lọc nhanh: chỉ anime Đang xem">⏳ Đang xem</option>
+          <option value="st:Muốn xem" title="Lọc nhanh: chỉ anime Muốn xem">➕ Muốn xem</option>
+          <option value="st:Chưa xem" title="Lọc nhanh: chỉ anime Chưa xem">⬜ Chưa xem</option>
           <option value="release" title="Sắp xếp theo ngày phát hành đầu tiên (start_date)">Phát hành</option>
           <option value="myRating" title="Sắp xếp theo điểm ♥ của tôi (my_rating)">Đánh giá ♥</option>
           <option value="rating" title="Sắp xếp theo điểm cộng đồng (AniDB)">Đánh giá ★</option>
@@ -857,7 +861,7 @@
   <div class="mini-pop hidden" id="epPop"></div>
   <div class="mini-pop hidden" id="heartPop"></div>
 
-  <script src="./app.js?v=129"></script>
+  <script src="./app.js?v=130"></script>
 </body>
 </html>
 

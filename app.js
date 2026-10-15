@@ -5604,6 +5604,42 @@ function setupSubPopupEvents() {
     if (b) b.textContent = State.animeSortDir === 'desc' ? '▼' : '▲';
   }
 
+  // Ô dropdown chung (#sortFilter): đo chữ option đang chọn rồi set width inline cho bám sát.
+  // (Ô không icon mũi tên — chữ bám sát nội dung; CSS padding-right chỉ 10px nên phải đo.)
+  function fitSortFilter() {
+    try {
+      const srt = $('#sortFilter');
+      if (!srt) return;
+      const opt = srt.options[srt.selectedIndex];
+      const label = opt ? opt.textContent : '';
+      const cs = getComputedStyle(srt);
+      const probe = document.createElement('canvas').getContext('2d');
+      // Canvas font KHÔNG hiểu "13px/1.35 family" → chỉ dùng "weight size family".
+      probe.font = [cs.fontStyle, cs.fontVariant, cs.fontWeight, cs.fontSize, cs.fontFamily]
+        .filter(Boolean).join(' ');
+      const textW = Math.ceil(probe.measureText(label).width);
+      const padL = parseFloat(cs.paddingLeft) || 0;
+      const padR = parseFloat(cs.paddingRight) || 10;
+      const bord = (parseFloat(cs.borderLeftWidth) || 0) + (parseFloat(cs.borderRightWidth) || 0);
+      srt.style.width = Math.ceil(textW + padL + padR + bord + 2) + 'px';
+    } catch (_e) { /* ignore */ }
+  }
+
+  // Đồng bộ ô dropdown chung theo #myStatusFilter: đang lọc trạng thái xem thì hiện
+  // "✅ Đã xem / ⏳ Đang xem / ➕ Muốn xem / ⬜ Chưa xem", không lọc thì hiện đúng chế độ
+  // sắp xếp trong State. Gọi sau mọi chỗ đổi Trạng thái trong panel nâng cao / reset / khởi tạo.
+  function syncSortFilterUI() {
+    try {
+      const srt = $('#sortFilter');
+      if (!srt) return;
+      const mSf0 = $('#myStatusFilter');
+      const cur = mSf0 ? mSf0.value : 'all';
+      const want = (cur && cur !== 'all') ? ('st:' + cur) : State.animeSortMode;
+      if (srt.value !== want) srt.value = want;
+      fitSortFilter();
+    } catch (_e) { /* ignore */ }
+  }
+
   // Xoá toàn bộ bộ lọc + sắp xếp tab Anime về mặc định (Gần đây / giảm dần)
   // skipRender === true: chỉ xoá giá trị, KHÔNG render lẻ (caller tự render 1 lần
   // sau — dùng khi sắp chuyển list để tránh render thừa 2 lần liên tiếp).
@@ -5626,6 +5662,7 @@ function setupSubPopupEvents() {
     syncSeasonNowURL();
     updateSortDirBtn();
     updateFilterBadge();
+    syncSortFilterUI();
     if (skipRender === true) return;
     renderAnimeGrid();
   }
@@ -9536,12 +9573,15 @@ function setupSubPopupEvents() {
         if (as) as.value = term;
         const stf = $('#statusFilter');
         if (stf) stf.value = 'all';
+        const mSf0 = $('#myStatusFilter');
+        if (mSf0) mSf0.value = 'all';
         const srt = $('#sortFilter');
         if (srt) srt.value = 'recent';
         State.animeSortMode = 'recent';
         State.animeSortDir = 'desc';
         State.animePage = 1;
         updateSortDirBtn();
+        syncSortFilterUI();
         renderAnimeGrid();
         window.scrollTo({ top: 0, behavior: 'smooth' });
       });
@@ -9554,33 +9594,32 @@ function setupSubPopupEvents() {
     const stf = $('#statusFilter');
     if (stf) stf.addEventListener('change', resetAnimePageAndRender);
     const srt = $('#sortFilter');
-    // Ô SẮP XẾP không icon: đo chữ option đang chọn rồi set width inline cho bám sát.
-    function fitSortFilter() {
-      try {
-        if (!srt) return;
-        const opt = srt.options[srt.selectedIndex];
-        const label = opt ? opt.textContent : '';
-        const cs = getComputedStyle(srt);
-        const probe = document.createElement('canvas').getContext('2d');
-        // Canvas font KHÔNG hiểu "13px/1.35 family" → chỉ dùng "weight size family".
-        probe.font = [cs.fontStyle, cs.fontVariant, cs.fontWeight, cs.fontSize, cs.fontFamily]
-          .filter(Boolean).join(' ');
-        const textW = Math.ceil(probe.measureText(label).width);
-        const padL = parseFloat(cs.paddingLeft) || 0;
-        const padR = parseFloat(cs.paddingRight) || 10;
-        const bord = (parseFloat(cs.borderLeftWidth) || 0) + (parseFloat(cs.borderRightWidth) || 0);
-        srt.style.width = Math.ceil(textW + padL + padR + bord + 2) + 'px';
-      } catch (_e) { /* ignore */ }
-    }
     if (srt) srt.addEventListener('change', () => {
-      // Chọn chế độ sắp xếp khác → đặt lại chiều mặc định (tên A-Z tăng dần, còn lại giảm dần)
-      State.animeSortMode = srt.value;
-      State.animeSortDir = srt.value === 'title' ? 'asc' : 'desc';
-      updateSortDirBtn();
+      // Dropdown chung: value "st:X" = LỌC NHANH trạng thái xem (dùng chung #myStatusFilter,
+      // sắp xếp giữ Gần đây); value còn lại = chế độ SẮP XẾP (xoá lọc trạng thái để 1 ô 1 nghĩa).
+      const v = srt.value;
+      if (v.indexOf('st:') === 0) {
+        const st = v.slice(3);
+        const mSf2 = $('#myStatusFilter');
+        if (mSf2) mSf2.value = st;
+        State.animeSortMode = 'recent';
+        State.animeSortDir = 'desc';
+        updateSortDirBtn();
+        updateFilterBadge();
+      } else {
+        const mSf3 = $('#myStatusFilter');
+        if (mSf3) mSf3.value = 'all';
+        // Chọn chế độ sắp xếp khác → đặt lại chiều mặc định (tên A-Z tăng dần, còn lại giảm dần)
+        State.animeSortMode = v;
+        State.animeSortDir = v === 'title' ? 'asc' : 'desc';
+        updateSortDirBtn();
+        updateFilterBadge();
+      }
       fitSortFilter();
       resetAnimePageAndRender();
     });
     fitSortFilter();
+    syncSortFilterUI();
     // Nút đảo chiều sắp xếp (▼/▲): bấm lại → đảo ngược thứ tự hiện tại
     const sdb = $('#sortDirBtn');
     if (sdb) sdb.addEventListener('click', () => {
@@ -9620,7 +9659,7 @@ function setupSubPopupEvents() {
     const tFil = $('#tagFilter');
     if (tFil) tFil.addEventListener('change', resetAnimePageAndRender);
     const mSf = $('#myStatusFilter');
-    if (mSf) mSf.addEventListener('change', resetAnimePageAndRender);
+    if (mSf) mSf.addEventListener('change', () => { syncSortFilterUI(); resetAnimePageAndRender(); });
     const sFil = $('#seasonFilter');
     if (sFil) sFil.addEventListener('change', resetAnimePageAndRender);
     const yFil = $('#yearFilter');
