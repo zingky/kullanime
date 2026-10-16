@@ -5607,10 +5607,13 @@ function setupSubPopupEvents() {
     wrap.classList.remove('hidden');
   }
 
-  // Đổi bộ lọc/tìm kiếm/sắp xếp → quay về trang 1 rồi render lại lưới
+  // Đổi bộ lọc/tìm kiếm/sắp xếp → quay về trang 1 rồi render lại lưới.
+  // quiet: refine KHÔNG phát lại cardIn — gõ search debounce là refresh at-place,
+  // chạy animation làm cả lưới chớp sau mỗi lần ngừng gõ (mở trang/chuyển trang mới
+  // giữ animation — các chỗ đó gọi renderAnimeGrid() không quiet).
   function resetAnimePageAndRender() {
     State.animePage = 1;
-    renderAnimeGrid();
+    renderAnimeGrid(true);
   }
 
   // Cập nhật mũi tên chiều sắp xếp trên nút đảo chiều (▼ giảm dần / ▲ tăng dần)
