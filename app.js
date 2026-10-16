@@ -18,6 +18,15 @@
   const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) =>
     ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])
   );
+  // Debounce: gộp chuỗi gõ liên tiếp thành1 lần chạy sau khi ngừng `ms` — ô tìm kiếm
+  // từng render lưới + dựng options filter sau MỖI phím gõ (gõ1 từ ≈5-10 lần render).
+  const debounce = (fn, ms) => {
+    let t = null;
+    return (...args) => {
+      clearTimeout(t);
+      t = setTimeout(() => fn(...args), ms);
+    };
+  };
 
   const State = {
     config: null,
@@ -5280,9 +5289,7 @@ function setupSubPopupEvents() {
     const empty = $('#animeEmpty');
     const search = $('#animeSearch').value.trim().toLowerCase();
     const status = $('#statusFilter').value;
-    syncGenreFilter();
-    syncTagFilter();
-    syncYearFilter();
+    syncFilterOptions(); // chỉ dựng lại options 3 select lọc khi DỮ LIỆU đổi (xem hàm)
     updateFilterBadge();
 
     let list = State.animes.slice();
@@ -5763,6 +5770,19 @@ function setupSubPopupEvents() {
     } else {
       wrap.classList.add('hidden');
     }
+  }
+
+  // Gộp3 hàm đổ option lọc (thể loại/tag/năm): chỉ dựng lại khi DỮ LIỆU State.animes
+  // đổi (con dấu length + updated_at mới nhất) — renderAnimeGrid chạy mỗi keystroke/
+  // đổi bộ lọc, tránh iterate + sort toàn bộ genres/tags/năm vô ích khi options giữ nguyên.
+  // (Mỗi hàm con bên dưới còn1 lớp sig chống rewrite innerHTML —2 lớp complementary.)
+  function syncFilterOptions() {
+    const stamp = (State.animes ? State.animes.length : 0) + '|' + computeMaxUpdated(State.animes);
+    if (State._filterOptsStamp === stamp) return;
+    State._filterOptsStamp = stamp;
+    syncGenreFilter();
+    syncTagFilter();
+    syncYearFilter();
   }
 
   // Đổ danh sách thể loại vào select lọc — tự động liệt kê mọi thể loại đã lưu
@@ -6868,10 +6888,13 @@ function setupSubPopupEvents() {
   // Tải toàn bộ chat chung (anime_id = null + tất cả bình luận trong phim, kèm tên anime)
   async function loadGlobalChat() {
     if (!State.supabase) return;
-    // Luôn fetch mới từ Supabase (mỗi lần vào web là tải dữ liệu mới nhất)
+    // Luôn fetch mới từ Supabase (mỗi lần vào web là tải dữ liệu mới nhất).
+    // Chọn đúng cột mà renderGlobalChat/chatHTML dùng thay vì select('*') — cắt payload;
+    // bảng comments KHÔNG có cột updated_at (computeMaxUpdated trên chat trả Date.now()
+    // như cũ, cache chat hiện chỉ ghi không đọc nên không đổi hành vi).
     const { data, error } = await State.supabase
       .from('comments')
-      .select('*')
+      .select('id, parent_id, anime_id, author_name, content, is_pinned, created_at')
       .order('created_at', { ascending: false })
       .limit(100);
     if (error) {
@@ -9612,7 +9635,7 @@ function setupSubPopupEvents() {
     // Lọc & sắp xếp anime đã render sẵn qua renderAnimeGrid()
     // Đổi bộ lọc/tìm kiếm/sắp xếp → luôn quay về trang 1 (resetAnimePageAndRender)
     const as = $('#animeSearch');
-    if (as) as.addEventListener('input', resetAnimePageAndRender);
+    if (as) as.addEventListener('input', debounce(resetAnimePageAndRender, 180));
     const stf = $('#statusFilter');
     if (stf) stf.addEventListener('change', resetAnimePageAndRender);
     const srt = $('#sortFilter');
@@ -10441,7 +10464,7 @@ function setupSubPopupEvents() {
     // ── Admin: tìm kiếm + sắp xếp Anime ──
     const adminAnimeSearch = $('#adminAnimeSearch');
     if (adminAnimeSearch) {
-      adminAnimeSearch.addEventListener('input', () => renderAdminAnimeList());
+      adminAnimeSearch.addEventListener('input', debounce(() => renderAdminAnimeList(), 180));
     }
     const adminAnimeSort = $('#adminAnimeSort');
     if (adminAnimeSort) {
@@ -10450,7 +10473,7 @@ function setupSubPopupEvents() {
     // ── Admin: tìm kiếm + sắp xếp Comments ──
     const adminCommentSearch = $('#adminCommentSearch');
     if (adminCommentSearch) {
-      adminCommentSearch.addEventListener('input', () => renderAdminCommentList());
+      adminCommentSearch.addEventListener('input', debounce(() => renderAdminCommentList(), 180));
     }
     const adminCommentSort = $('#adminCommentSort');
     if (adminCommentSort) {
@@ -11002,20 +11025,27 @@ function setupSubPopupEvents() {
     // - Có mới → chỉ tải record đổi sau mốc cache (vài KB) + toast ✨/🎵.
     // - Lần đầu/mất cache/RPC lỗi/phát hiện xóa → fetch full 1 lần như cũ (không trắng trang).
     // Mốc lần check lưu localStorage (kullanime_refresh_at) nên F5 không reset được.
-    if (shouldAutoSync(!!(_pubCache && (_pubCache.animes.length || _pubCache.songs.length)))) {
-      stampRefreshAtSilent();
-      try {
-        const rAnime = await syncTableIncrementalSafe('animes');
-        if (rAnime === 'full' || rAnime === 'error') await loadAnimes();
-        const rSong = await syncTableIncrementalSafe('songs');
-        if (rSong === 'full' || rSong === 'error') await loadSongs();
-      } catch (_e) {
-        await Promise.all([loadAnimes(), loadSongs()]);
+    // Gói auto-sync trong1 promise → chạy SONG SONG với refreshAuthState bên dưới:
+    // loadMyListData chỉ nạp State.myStates (myViewOf merge lúc render, KHÔNG ghi
+    // State.animes) nên 2 nhánh không tranh chấp → wall time ≈ max(sync, auth+mylist)
+    // thay vì tổng cả3 như trước.
+    const syncDone = (async () => {
+      if (shouldAutoSync(!!(_pubCache && (_pubCache.animes.length || _pubCache.songs.length)))) {
+        stampRefreshAtSilent();
+        try {
+          const rAnime = await syncTableIncrementalSafe('animes');
+          if (rAnime === 'full' || rAnime === 'error') await loadAnimes();
+          const rSong = await syncTableIncrementalSafe('songs');
+          if (rSong === 'full' || rSong === 'error') await loadSongs();
+        } catch (_e) {
+          await Promise.all([loadAnimes(), loadSongs()]);
+        }
       }
-    }
+    })();
     updateLoginUI();
-    await refreshAuthState(); // PHẢI await: set State.isLoggedIn TRƯỚC khi loadMyListData
-    await loadMyListData(); // nạp profile + states riêng (điểm card của mình)
+    await refreshAuthState(); // PHẢI await trước loadMyListData (syncDone vẫn chạy ngầm)
+    // Đợi song song: dữ liệu public (sync) + profile/states riêng của mình
+    await Promise.all([syncDone, loadMyListData()]);
     // Chế độ list khi mở trang: ?u=username (link share) > cài đặt trang chủ
     // mặc định (mine) > list admin. Link share = URL có ?u= trên thanh địa chỉ.
     State.viewingUser = readViewUserParam();

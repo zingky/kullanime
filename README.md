@@ -1,6 +1,6 @@
 # KullAnime 🌸
 
-> **Demo live:** https://zingky.github.io/kullanime/
+> **Demo live:** https://kullist.moe.page/ (GitHub Pages gốc: https://zingky.github.io/kullanime/)
 
 Website quản lý, đánh giá và chia sẻ danh sách Anime cá nhân & cộng đồng — **site tĩnh 100% (Vanilla JS)**, không cần build step, không cần server riêng. Dữ liệu + đăng nhập lưu trên **Supabase** (free), ảnh upload qua **Cloudinary** (free), auto-fill dữ liệu anime từ **AniList GraphQL API** (free, không cần key), phụ đề `.ass` tải tự động từ GitHub.
 
@@ -12,7 +12,7 @@ Website quản lý, đánh giá và chia sẻ danh sách Anime cá nhân & cộn
 - **Auto-fill từ AniList / Jikan:** nhập tên anime → tự điền đầy đủ metadata + seiyuu + liên kết (gồm link khác); fallback Jikan/MAL khi AniList tạm ngừng
 - **Nhạc OST:** danh sách bài hát + player YouTube, tải phụ đề `.ass` từ GitHub + cập nhật Romaji/Vietsub theo thời gian phát, cài đặt phụ đề popup (font size, màu, karaoke, timeshift)
 - **Bình luận:** rich text (BBCode + Markdown, lọc qua DOMPurify chống XSS), upload ảnh qua Cloudinary, captcha + rate-limit 45s chống spam, admin ghim/xóa
-- **💬 Chat chung:** bong bóng chat nổi (góc dưới màn hình) tổng hợp toàn bộ tin nhắn — cả tin chat tự do (không gắn phim) lẫn bình luận trong từng phim, click nhãn phim để mở chi tiết; tự làm mới mỗi 30s; tin của chính mình căn phải theo nickname (thành viên) hoặc tên khách đã dùng — tên khách được nhớ qua `localStorage` nên lần truy cập sau vẫn nhận diện lại tin của mình
+- **💬 Chat chung:** bong bóng chat nổi (góc dưới màn hình) tổng hợp toàn bộ tin nhắn — cả tin chat tự do (không gắn phim) lẫn bình luận trong từng phim, click nhãn phim để mở chi tiết; nhận tin mới real-time qua Supabase WebSocket (không cần tải lại trang); tin của chính mình căn phải theo nickname (thành viên) hoặc tên khách đã dùng — tên khách được nhớ qua `localStorage` nên lần truy cập sau vẫn nhận diện lại tin của mình
 - **Admin Panel (đăng nhập):** CRUD anime & bài hát, quản lý bình luận, auto-fill form từ AniList API, backfill ảnh nhân vật + liên kết cho anime cũ, upload poster Cloudinary, export/import backup JSON
 - **Trạng thái xem:** mỗi anime có thể đặt `Đã xem / Chưa xem / Có ý định xem` + điểm đánh giá (0–10)
 - **📋 My List (multi-user):** mỗi thành viên có list riêng (điểm/trạng thái lưu trong `user_anime_states`) hiển thị ngay trên LƯỚI CARD chính (bấm **List anime của tôi** trong menu 👤 hoặc bấm logo **KullAnime** để chuyển qua lại `KullAnime ⇄ {user}Anime`); có thể **CÔNG KHAI** link `?u=username` để ai cũng xem được (chỉ xem, không sửa); backup/restore JSON + đặt trang chủ mặc định (list admin / list của tôi) trong menu Tài khoản; tên hiển thị chat/bình luận = username link list (một tên duy nhất, đổi trong menu 👤); chặn 18+ ở 3 lớp (client + trigger SQL + query AniList)

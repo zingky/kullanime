@@ -13,27 +13,21 @@
   <!-- Favicon: hoa anh đào (sakura, cánh hoa hồng) -->
   <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
 
-  <!-- DOMPurify — chống XSS (có fallback CDN jsdelivr nếu cloudflare lỗi) -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/2.5.6/purify.min.js"></script>
-  <script>
-    // Nếu DOMPurify không tải được từ cloudflare (bị chặn/lỗi mạng), thử jsdelivr
-    (function () {
-      if (typeof window.DOMPurify !== 'undefined') return;
-      var s = document.createElement('script');
-      s.src = 'https://cdn.jsdelivr.net/npm/dompurify@3.1.6/dist/purify.min.js';
-      s.async = false;
-      document.head.appendChild(s);
-    })();
-  </script>
+  <!-- DOMPurify — chống XSS. defer: không chặn render; nếu cdnjs lỗi/bị chặn thì
+       onerror tự nạp lại từ jsdelivr (thay cho đoạn script inline check trước đây —
+       defer khiến window.DOMPurify chưa sẵn sàng lúc inline chạy → sẽ nạp đôi). -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/2.5.6/purify.min.js" defer
+    onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/npm/dompurify@3.1.6/dist/purify.min.js'"></script>
   <!-- Marked.js — parse Markdown -->
-  <script src="https://cdn.jsdelivr.net/npm/marked@12.0.2/marked.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/marked@12.0.2/marked.min.js" defer></script>
   <!-- Supabase JS Client v2 -->
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <!-- YouTube IFrame Player API -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" defer></script>
+  <!-- YouTube IFrame Player API — GIỮ đồng bộ: API gọi onYouTubeIframeAPIReady toàn cục,
+       để async/defer đổi thời điểm callback nên giữ nguyên như cũ (script nhỏ). -->
   <script src="https://www.youtube.com/iframe_api"></script>
 
-  <!-- File cấu hình (đọc .env.local / fallback) -->
-  <script src="./config.js"></script>
+  <!-- File cấu hình — defer, chạy TRƯỚC app.js theo đúng thứ tự document -->
+  <script src="./config.js" defer></script>
 
   <link rel="stylesheet" href="./styles.css?v=133" />
 </head>
@@ -861,7 +855,7 @@
   <div class="mini-pop hidden" id="epPop"></div>
   <div class="mini-pop hidden" id="heartPop"></div>
 
-  <script src="./app.js?v=133"></script>
+  <script src="./app.js?v=134" defer></script>
 </body>
 </html>
 
