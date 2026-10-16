@@ -2598,10 +2598,13 @@ select.input option { background: #141a2d; color: var(--text); }
   box-shadow: none;
 }
 .comment-pagination.hidden, .anime-pagination.hidden { display: none; }
+/* Thanh đã trong suốt → nền nút phải tự đủ rõ: nền trắng đục hơn + blur nhẹ
+   để chữ không bị nền aurora nuốt (trước đây dựa vào nền pill tối phía sau). */
 .comment-page-btn, .anime-page-btn {
   cursor: pointer; min-width: 26px; height: 26px; padding: 0 7px;
   display: inline-flex; align-items: center; justify-content: center;
-  border: var(--glass-border); background: rgba(255,255,255,0.06);
+  border: var(--glass-border); background: rgba(255,255,255,0.10);
+  backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
   color: var(--text); border-radius: 6px; font-size: 12.5px; font-weight: 700; line-height: 1;
   transition: all .15s ease;
 }
@@ -2645,7 +2648,7 @@ select.input option { background: #141a2d; color: var(--text); }
 /* Mobile hẹp: giãn nhỏ lại, chừa maximum chỗ cho dãy số 2 bên cụm */
 @media (max-width: 480px) {
   .comment-pagination, .anime-pagination {
-    gap: 4px; padding: 6px 8px;
+    gap: 4px; padding: 0;
   }
   .comment-page-before, .anime-page-before,
   .comment-page-after, .anime-page-after { gap: 3px; }
