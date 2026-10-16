@@ -2586,10 +2586,10 @@ select.input option { background: #141a2d; color: var(--text); }
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   width: fit-content;
   min-width: 0;
-  max-width: min(440px, 100%);
+  max-width: min(572px, 100%);
   margin: 8px auto 0;
   padding: 0;
   border: none;
@@ -2601,11 +2601,11 @@ select.input option { background: #141a2d; color: var(--text); }
 /* Thanh đã trong suốt → nền nút tự là "viên thuốc" tối nhỏ (cùng tone với pill
    cũ): nền đặc 0.85 + blur → chữ trắng nổi rõ trên mọi nền aurora. */
 .comment-page-btn, .anime-page-btn {
-  cursor: pointer; min-width: 26px; height: 26px; padding: 0 7px;
+  cursor: pointer; min-width: 34px; height: 34px; padding: 0 9px;
   display: inline-flex; align-items: center; justify-content: center;
   border: var(--border); background: rgba(10, 14, 26, 0.85);
   backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
-  color: var(--text); border-radius: 6px; font-size: 12.5px; font-weight: 700; line-height: 1;
+  color: var(--text); border-radius: 8px; font-size: 16px; font-weight: 700; line-height: 1;
   transition: all .15s ease;
 }
 .comment-page-btn:hover:not(.disabled),
@@ -2613,30 +2613,30 @@ select.input option { background: #141a2d; color: var(--text); }
 .comment-page-btn.disabled, .anime-page-btn.disabled { opacity: 0.4; cursor: not-allowed; }
 /* Trang ĐẦU & trang CUỐI: cỡ chữ nhỏ + màu mờ hơn → phân biệt được thay cho dấu … */
 .comment-page-btn.edge, .anime-page-btn.edge {
-  min-width: 22px; padding: 0 5px;
-  font-size: 10.5px; color: var(--text-dim);
+  min-width: 28px; padding: 0 7px;
+  font-size: 13.5px; color: var(--text-dim);
 }
 .comment-page-btn.edge:hover:not(.disabled),
 .anime-page-btn.edge:hover:not(.disabled) { color: var(--text); }
 /* Mũi tên kẹp 2 bên ô trang hiện tại, nằm trong cụm cố định giữa thanh */
-.comment-page-arrow, .anime-page-arrow { padding: 0 6px; font-size: 15px; }
+.comment-page-arrow, .anime-page-arrow { padding: 0 8px; font-size: 19px; }
 /* Cụm điều khiển ‹ [trang] › — cố định giữa thanh, không di chuyển khi đổi trang */
-.comment-page-cluster, .anime-page-cluster { display: flex; align-items: center; gap: 4px; }
+.comment-page-cluster, .anime-page-cluster { display: flex; align-items: center; gap: 5px; }
 /* Dãy số trước/sau: 2 cột chia đều → bên ngắn dồn sát cụm, bên dài tràn ra ngoài rồi bị cắt */
 .comment-page-before, .anime-page-before,
 .comment-page-after, .anime-page-after {
   min-width: 0;
   overflow: hidden;
-  display: flex; align-items: center; gap: 4px;
+  display: flex; align-items: center; gap: 5px;
 }
 .comment-page-before, .anime-page-before { justify-content: flex-end; justify-content: safe flex-end; }
 .comment-page-after, .anime-page-after { justify-content: flex-start; }
 /* Ô TRANG HIỆN TẠI = ô nhập luôn (nhìn như nút current): bấm vào gõ số rồi Enter để nhảy */
 .comment-page-input, .anime-page-input {
-  width: 46px; height: 26px; padding: 0 4px;
-  text-align: center; font-size: 12.5px; font-weight: 700; font-family: inherit; line-height: 1;
+  width: 60px; height: 34px; padding: 0 5px;
+  text-align: center; font-size: 16px; font-weight: 700; font-family: inherit; line-height: 1;
   color: #fff; background: var(--accent); border: 1px solid var(--accent);
-  border-radius: 6px; outline: none;
+  border-radius: 8px; outline: none;
   -moz-appearance: textfield; appearance: textfield;
   transition: box-shadow .15s ease;
 }
@@ -2648,8 +2648,8 @@ select.input option { background: #141a2d; color: var(--text); }
 /* Mobile hẹp: giãn nhỏ lại, chừa maximum chỗ cho dãy số 2 bên cụm */
 @media (max-width: 480px) {
   .comment-pagination, .anime-pagination {
-    gap: 4px; padding: 0;
+    gap: 5px; padding: 0;
   }
   .comment-page-before, .anime-page-before,
-  .comment-page-after, .anime-page-after { gap: 3px; }
+  .comment-page-after, .anime-page-after { gap: 4px; }
 }
