@@ -3570,6 +3570,8 @@
       loadYtVideo(song.youtube_id);
       $('#playerPlaceholder').classList.add('hidden');
       toast('Đang phát: ' + (song.title || ''), 'info', 1600);
+      // YouTube có thể chặn autoplay lần đầu -> retry sau 1.5s
+      setTimeout(() => ytPlay(), 1500);
     } catch (e) {
       console.error('Lỗi phát video:', e);
       toast('Không thể phát video ' + (song.title || ''), 'error');
