@@ -514,7 +514,7 @@ select.input { appearance: none; -webkit-appearance: none; background-image: url
 @media (min-width: 900px) { .music-layout { grid-template-columns: 7fr 5fr; } }
 .music-column, .player-column, .playlist-column { min-width: 0; } /* mọi cột music luôn co được, tránh tràn ngang */
 .video-wrap { position: relative; width: 100%; aspect-ratio: 16 / 9; background: #000; border-radius: var(--radius); overflow: hidden; border: var(--glass-border); box-shadow: var(--shadow-soft); }
-.video-wrap iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: none; }
+.video-wrap iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: none; z-index: 1; }
 .player-placeholder { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; background: radial-gradient(circle at 30% 30%, rgba(168,85,247,0.22), transparent 55%), radial-gradient(circle at 70% 70%, rgba(6,182,212,0.22), transparent 55%), rgba(17,24,39,0.6); color: var(--text-dim); text-align: center; padding: 20px; backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); }
 .ph-icon { font-size: 52px; margin-bottom: 8px; }
 
