@@ -67,10 +67,13 @@
     listOwner: '',       // username chủ list đang xem (mine/user)
     listItems: null,     // card merge state của chủ list — nguồn lưới thay State.animes khi mine/user
     youtubeReady: false,
-    ytPlayer: null,
-    ytReady: false,        // player da san sang (onReady da chay) - moi load video an toan
-    pendingPlay: null,     // bai hat cho phat khi YT API san sang
-    pendingVideoId: null,  // videoId cho nap khi player onReady
+    ytPlayer: null,        // iframe element YouTube
+    ytReady: false,        // iframe da co src youtube hop le
+    ytCurrentTime: 0,      // thoi gian hien tai (duoc cap nhat tu infoDelivery hoac estimated)
+    ytPlayerState: -1,     // -1 unstarted, 0 ended, 1 playing, 2 paused, 3 buffering, 5 cued
+    pendingPlay: null,     // bai hat cho phat khi iframe san sang
+    pendingVideoId: null,  // videoId cho nap khi iframe san sang
+    _ytTimeInterval: null, // interval yeu cau getCurrentTime tu YouTube
     autoNext: true,        // tự động chuyển bài kế tiếp khi bài hiện tại kết thúc
     shuffle: false,        // phát ngẫu nhiên khi kết thúc / bấm next
     repeat: false,         // lặp lại 1 bài: khi hết bài thì phát lại chính bài đó
@@ -3134,93 +3137,174 @@
   /* ──────────────────────────────────────────────────────
      7. YOUTUBE IFrame PLAYER
      ────────────────────────────────────────────────────── */
-  // Được gọi bởi YouTube IFrame API khi sẵn sàng
+  // Được gọi bởi YouTube IFrame API khi sẵn sàng (giữ trống — ta dùng iframe tĩnh + postMessage)
   window.onYouTubeIframeAPIReady = function () {
     State.youtubeReady = true;
     _ytApiLoading = false;
-    // Tao player ngay khi API san sang de khong phai cho khi nguoi dung bam phat
-    ensureYtPlayer();
-    // Không tự tạo player ở đây; tạo khi người dùng chọn bài
+    ytInitIframe();
   };
 
-  // Bị chặn hoặc API chưa nạp -> tự động chèn lại script iframe_api
+  // Không cần nạp script YouTube IFrame API nữa (dùng iframe trực tiếp)
   let _ytApiLoading = false;
   function loadYouTubeApi() {
-    if ((window.YT && YT.Player) || _ytApiLoading) return;
-    _ytApiLoading = true;
-    const tag = document.createElement('script');
-    tag.src = 'https://www.youtube.com/iframe_api';
-    tag.async = true;
-    document.head.appendChild(tag);
+    // Đã có <script src="https://www.youtube.com/iframe_api"> trong head; không làm gì thêm
+    return;
   }
 
   // Player YT đã sẵn sàng -> mở khóa này để an toàn gọi loadVideoById
   function onYtPlayerReady() {
+    ytInitIframe();
+  }
+
+  function loadCurrentVideo(ytid) {
+    return loadYtVideo(ytid);
+  }
+
+  // ──────────────────────────────────────────────────────
+  // YouTube embed iframe (direct iframe + postMessage)
+  // ──────────────────────────────────────────────────────
+
+  // Khoi tao iframe YouTube (co san trong index.html), chi can set src khi can
+  function ytInitIframe() {
+    const iframe = document.getElementById('ytPlayer');
+    if (!iframe) return false;
+    State.ytPlayer = iframe;
     State.ytReady = true;
-    startSubtitleTicker();
-    try { State.ytPlayer.unloadModule('captions'); } catch (_e) { /* nếu module không có sẵn thì bỏ qua */ }
-    // Nếu đang có bài hát chờ -> phát lại đầy đủ (kèm .ass) khi player sẵn sàng
-    if (State.pendingPlay) {
-      const song = State.pendingPlay;
-      State.pendingPlay = null;
-      State.pendingVideoId = null;
-      playSong(song);
-    } else if (State.pendingVideoId) {
+    ytListen();
+    // Neu co bai hat dang cho -> load luon
+    if (State.pendingVideoId) {
       const vid = State.pendingVideoId;
       State.pendingVideoId = null;
-      try {
-        State.ytPlayer.loadVideoById({ videoId: vid, suggestedQuality: 'default' });
-        const ph = $('#playerPlaceholder'); if (ph) ph.classList.add('hidden');
-      } catch (_e) { /* ignore */ }
+      loadYtVideo(vid);
+    } else if (State.pendingPlay) {
+      const song = State.pendingPlay;
+      State.pendingPlay = null;
+      playSong(song);
     }
+    return true;
   }
 
-  // Nạp & phát video chỉ khi player đã onReady; ngược lại thì queue để phát sau
-  function loadCurrentVideo(ytid) {
-    if (State.ytPlayer && State.ytReady) {
-      try {
-        State.ytPlayer.loadVideoById({ videoId: ytid, suggestedQuality: 'default' });
-        const ph = $('#playerPlaceholder'); if (ph) ph.classList.add('hidden');
-        return true;
-      } catch (_e) { return false; }
-    }
-    State.pendingVideoId = ytid;
-    return false;
+  // Gui lenh dieu khien den YouTube iframe qua postMessage
+  function ytCmd(func, ...args) {
+    const iframe = State.ytPlayer;
+    if (!iframe || !iframe.contentWindow) return;
+    iframe.contentWindow.postMessage(JSON.stringify({ event: 'command', func, args }), '*');
   }
 
-  function ensureYtPlayer() {
-    if (!State.youtubeReady || typeof YT === 'undefined' || !YT.Player) return false;
-    if (State.ytPlayer) return true;
+  // Dang ky lang nghe su kien tu YouTube iframe (infoDelivery, onStateChange)
+  function ytListen() {
+    const iframe = State.ytPlayer;
+    if (!iframe || !iframe.contentWindow) return;
     try {
-      State.ytPlayer = new YT.Player('ytPlayer', {
-        width: '100%',
-        height: '100%',
-        playerVars: {
-          autoplay: 1,
-          modestbranding: 1,
-          rel: 0,
-          playsinline: 1,
-          controls: 1,
-          enablejsapi: 1,
-          fs: 0, // ẩn nút fullscreen của YouTube; dùng nút fullscreen riêng của app
-          cc_load_policy: 0, // luôn mặc định tắt phụ đề CC gốc của YouTube (dùng engine ASS riêng)
-          cc_lang_pref: 'vi'
-        },
-        events: {
-          onReady: () => {
-            startSubtitleTicker();
-            // Tắt hẳn module captions của YouTube để không bao giờ hiện CC gốc chồng lên phụ đề ASS
-            try { State.ytPlayer.unloadModule('captions'); } catch (_e) { /* nếu module không có sẵn thì bỏ qua */ }
-          },
-          onStateChange: onPlayerStateChange,
-          onError: () => { toast('Không thể phát video này.', 'error'); }
-        }
-      });
-      return true;
-    } catch (e) {
-      console.error('Lỗi tạo YT player:', e);
-      return false;
+      iframe.contentWindow.postMessage(JSON.stringify({ event: 'listening', id: 'ytPlayer' }), '*');
+    } catch (_e) { /* ignore */ }
+  }
+
+  // Tai va phat video YouTube tren iframe tĩnh
+  function loadYtVideo(ytid) {
+    const iframe = State.ytPlayer;
+    if (!iframe) return false;
+    // Reset trang thai cu
+    State.ytCurrentTime = 0;
+    State.ytPlayerState = -1;
+    State.ytVideoPaused = true;
+    const ph = $('#playerPlaceholder');
+    if (ph) ph.classList.add('hidden');
+    const url = 'https://www.youtube.com/embed/' + ytid +
+      '?rel=0&modestbranding=1&playsinline=1&enablejsapi=1&autoplay=1&origin=' + encodeURIComponent(window.location.origin);
+    iframe.src = url;
+    State.ytReady = true;
+    // Yeu cap nhat thoi gian tu YouTube moi 300ms
+    stopYtTimeInterval();
+    State._ytTimeInterval = setInterval(ytRequestTime, 300);
+    return true;
+  }
+
+  // Phat video (goi sau khi iframe da co src)
+  function ytPlay() {
+    State.ytVideoPaused = false;
+    ytCmd('playVideo');
+  }
+
+  // Tam dung video
+  function ytPause() {
+    State.ytVideoPaused = true;
+    ytCmd('pauseVideo');
+  }
+
+  // Tua den giay giay
+  function ytSeekTo(sec) {
+    State.ytCurrentTime = sec;
+    State.ytVideoPaused = false;
+    ytCmd('seekTo', sec, true);
+  }
+
+  // Lay thoi gian hien tai (cap nhat boi infoDelivery listener)
+  function ytGetCurrentTime() {
+    return State.ytCurrentTime;
+  }
+
+  // Xu ly su kien tu YouTube iframe (infoDelivery, onStateChange)
+  window.addEventListener('message', (e) => {
+    if (!e.data) return;
+    let data;
+    try { data = typeof e.data === 'string' ? JSON.parse(e.data) : e.data; } catch (_e) { return; }
+    if (!data || data.target !== 'ytPlayer') return;
+    if (data.event === 'infoDelivery') {
+      State.ytCurrentTime = data.currentTime || 0;
+      if (data.playerState !== undefined) handleYtStateChange(data.playerState);
+    } else if (data.event === 'onStateChange') {
+      handleYtStateChange(data.data || data.playerState);
     }
+  });
+
+  function handleYtStateChange(state) {
+    if (state == null) return;
+    const st = Number(state);
+    State.ytPlayerState = st;
+    if (st === 1) { // PLAYING
+      State.ytVideoPaused = false;
+      startSubtitleTicker();
+      updatePlayerControlsUI();
+    } else if (st === 2 || st === 3) { // PAUSED / BUFFERING
+      updatePlayerControlsUI();
+      if (st === 2) {
+        State.ytVideoPaused = true;
+        hideSubtitleOverlay();
+      }
+    } else if (st === 0) { // ENDED
+      State.ytVideoPaused = true;
+      hideSubtitleOverlay();
+      stopSubtitleTicker();
+      stopYtTimeInterval();
+      if (State.repeat && State.currentSong) {
+        setTimeout(() => playSong(State.currentSong), 600);
+        return;
+      }
+      if (State.autoNext) {
+        const next = pickNextSong();
+        if (next) setTimeout(() => playSong(next), 1200);
+      }
+    } else if (st === 5) { // CUED
+      State.ytVideoPaused = true;
+      updatePlayerControlsUI();
+    }
+  }
+
+  function stopYtTimeInterval() {
+    if (State._ytTimeInterval) { clearInterval(State._ytTimeInterval); State._ytTimeInterval = null; }
+  }
+
+  // Yeu cap nhat thoi gian hien tai tu YouTube moi 300ms (de co infoDelivery lien tuc)
+  function ytRequestTime() {
+    const iframe = State.ytPlayer;
+    if (!iframe || !iframe.contentWindow) return;
+    iframe.contentWindow.postMessage(JSON.stringify({ event: 'command', func: 'getCurrentTime' }), '*');
+  }
+
+  // Giu ten ham cu de khong lam loi cac goi o khac neu co
+  function ensureYtPlayer() {
+    return ytInitIframe();
   }
 
   // Nút phóng to video full màn hình (dùng Fullscreen API trên khung video-wrap)
@@ -3333,30 +3417,6 @@
     document.addEventListener('webkitfullscreenchange', hideNow);
   }
 
-  function onPlayerStateChange(e) {
-    if (e.data === YT.PlayerState.PLAYING) {
-      startSubtitleTicker();
-      updatePlayerControlsUI();
-    } else if (e.data === YT.PlayerState.PAUSED || e.data === YT.PlayerState.BUFFERING) {
-      updatePlayerControlsUI();
-      if (e.data === YT.PlayerState.PAUSED) hideSubtitleOverlay();
-    } else if (e.data === YT.PlayerState.ENDED) {
-      hideSubtitleOverlay();
-      // Lặp lại 1 bài: phát lại chính bài đang phát
-      if (State.repeat && State.currentSong) {
-        setTimeout(() => playSong(State.currentSong), 600);
-        return;
-      }
-      // Tự phát bài kế tiếp (nếu bật) — ngẫu nhiên nếu bật shuffle
-      if (State.autoNext) {
-        const next = pickNextSong();
-        if (next) setTimeout(() => playSong(next), 1200);
-      }
-    } else if (e.data === YT.PlayerState.PAUSED || e.data === YT.PlayerState.BUFFERING) {
-      hideSubtitleOverlay();
-    }
-  }
-
   // Chọn bài kế tiếp — tôn trọng chế độ ngẫu nhiên (shuffle)
   function pickNextSong() {
     const curId = State.currentSong && State.currentSong.id;
@@ -3436,11 +3496,10 @@
 
   // Bật / tạm dừng (chỉ khi có player và đang phát một video)
   function togglePlay() {
-    if (!State.ytPlayer || !State.youtubeReady || !State.currentSong) return;
+    if (!State.ytPlayer || !State.currentSong) return;
     try {
-      const st = State.ytPlayer.getPlayerState();
-      if (st === YT.PlayerState.PLAYING) { State.ytPlayer.pauseVideo(); hideSubtitleOverlay(); }
-      else State.ytPlayer.playVideo();
+      if (State.ytPlayerState === 1) { ytPause(); hideSubtitleOverlay(); }
+      else ytPlay();
       updatePlayerControlsUI();
     } catch (_e) { /* ignore */ }
   }
@@ -3471,9 +3530,8 @@
     const shfBtn = $('#pcShuffle');
     if (shfBtn) shfBtn.classList.toggle('active', !!State.shuffle);
     const playIcon = $('#pcPlayIcon');
-    if (playIcon && State.ytPlayer && State.youtubeReady) {
-      let playing = false;
-      try { playing = State.ytPlayer.getPlayerState() === YT.PlayerState.PLAYING; } catch (_e) {}
+    if (playIcon && State.ytPlayer) {
+      let playing = State.ytPlayerState === 1;
       playIcon.innerHTML = playing
         ? '<path d="M6 5h4v14H6zM14 5h4v14h-4z"/>'
         : '<path d="M8 5v14l11-7z"/>';
@@ -3509,7 +3567,7 @@
 
     // Phát video NGAY (không chờ tải phụ đề) — nút tiến/lùi phản hồi tức thì
     try {
-      State.ytPlayer.loadVideoById({ videoId: song.youtube_id, suggestedQuality: 'default' });
+      loadYtVideo(song.youtube_id);
       $('#playerPlaceholder').classList.add('hidden');
       toast('Đang phát: ' + (song.title || ''), 'info', 1600);
     } catch (e) {
@@ -3579,9 +3637,9 @@
   }
   function updateCurrentSubtitle() {
     const overlay = $('#subtitleOverlay');
-    if (!overlay || !State.ytPlayer || !State.youtubeReady) return;
+    if (!overlay || !State.ytPlayer) return;
     let current;
-    try { current = State.ytPlayer.getCurrentTime(); } catch (_e) { return; }
+    try { current = ytGetCurrentTime(); } catch (_e) { return; }
     // Áp dụng timeshift (ms) + lưu chiều cao vùng hiển thị video để tính scaleH.
     // Đo từ .video-wrap (khung 16:9 thật) — giống extension đo layer khớp video
     // (engine-css.js: layerRect.height / playResY). Overlay span toàn khung nên
@@ -10317,16 +10375,13 @@ function setupSubPopupEvents() {
               }
             } catch (_err) { /* noembed fails → fallback below */ }
             // Phát video YouTube
-            if (State.ytPlayer && typeof State.ytPlayer.loadVideoById === 'function') {
-              State.ytPlayer.loadVideoById(yid);
-              toast('▶ Đang phát video: ' + yid, 'success', 2000);
-            }
+            loadYtVideo(yid);
+            toast('▶ Đang phát video: ' + yid, 'success', 2000);
             // Fallback: nếu noembed không lấy được title → dùng getVideoData() từ YouTube Player
             if (!gotTitle) {
               const tryGetTitle = (retries) => {
                 try {
-                  const vd = State.ytPlayer && typeof State.ytPlayer.getVideoData === 'function'
-                    ? State.ytPlayer.getVideoData() : null;
+                  const vd = null;
                   if (vd && vd.title && vd.title !== '') {
                     titleEl.value = vd.title;
                   } else if (retries > 0) {
