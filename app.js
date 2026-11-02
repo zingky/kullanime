@@ -3249,10 +3249,13 @@
     if (!e.data) return;
     let data;
     try { data = typeof e.data === 'string' ? JSON.parse(e.data) : e.data; } catch (_e) { return; }
-    if (!data || data.target !== 'ytPlayer') return;
+    if (!data || data.event !== 'infoDelivery' && data.event !== 'onStateChange') return;
+    // YouTube khong gui target, chi kiem tra event
     if (data.event === 'infoDelivery') {
-      State.ytCurrentTime = data.currentTime || 0;
+      const ct = data.currentTime != null ? data.currentTime : (data.info && data.info.currentTime != null ? data.info.currentTime : 0);
+      State.ytCurrentTime = ct;
       if (data.playerState !== undefined) handleYtStateChange(data.playerState);
+      else if (data.info && data.info.playerState !== undefined) handleYtStateChange(data.info.playerState);
     } else if (data.event === 'onStateChange') {
       handleYtStateChange(data.data || data.playerState);
     }
