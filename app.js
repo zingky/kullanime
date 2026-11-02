@@ -3170,7 +3170,6 @@
     if (!iframe) return false;
     State.ytPlayer = iframe;
     State.ytReady = true;
-    ytListen();
     // Neu co bai hat dang cho -> load luon
     if (State.pendingVideoId) {
       const vid = State.pendingVideoId;
@@ -3214,6 +3213,8 @@
       '?rel=0&modestbranding=1&playsinline=1&enablejsapi=1&autoplay=1&origin=' + encodeURIComponent(window.location.origin);
     iframe.src = url;
     State.ytReady = true;
+    // Dang ky lang nghe su kien sau khi iframe da co src (tranh gui den iframe trong trang)
+    iframe.onload = () => { setTimeout(ytListen, 300); };
     // Yeu cap nhat thoi gian tu YouTube moi 300ms
     stopYtTimeInterval();
     State._ytTimeInterval = setInterval(ytRequestTime, 300);
@@ -3257,7 +3258,7 @@
       if (data.playerState !== undefined) handleYtStateChange(data.playerState);
       else if (data.info && data.info.playerState !== undefined) handleYtStateChange(data.info.playerState);
     } else if (data.event === 'onStateChange') {
-      handleYtStateChange(data.data || data.playerState);
+      handleYtStateChange(data.data || data.playerState || (data.info && (data.info.data || data.info.playerState)));
     }
   });
 
