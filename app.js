@@ -40,6 +40,8 @@
     subtitles: [],         // mảng cue phụ đề ASS đã parse (engine)
     subsEnabled: false,
     subsTick: null,
+    subsRAF: null,
+    _lastCueKey: '',
     subSettings: null,     // cài đặt toàn cục phụ đề (fontSize, màu, karaoke...) -> lưu localStorage
     timeShiftMs: 0,        // dời phụ đề theo ms (Timeshift)
     subOverlayHeight: 0,   // chiều cao overlay phụ đề (dùng scaleH cho fontSize)
@@ -3656,11 +3658,16 @@
     if (State.subsEnabled) updateCurrentSubtitle();
   }
   function startSubtitleTicker() {
-    if (State.subsTick) clearInterval(State.subsTick);
-    State.subsTick = setInterval(updateCurrentSubtitle, 100);
+    if (State.subsRAF) return;
+    (function loop() {
+      if (!State.subsRAF) return;
+      updateCurrentSubtitle();
+      State.subsRAF = requestAnimationFrame(loop);
+    })();
   }
   function stopSubtitleTicker() {
-    if (State.subsTick) { clearInterval(State.subsTick); State.subsTick = null; }
+    if (State.subsRAF) { cancelAnimationFrame(State.subsRAF); State.subsRAF = null; }
+    State._lastCueKey = '';
   }
   function updateCurrentSubtitle() {
     const overlay = $('#subtitleOverlay');
@@ -3674,8 +3681,6 @@
     const shiftSec = (State.timeShiftMs || 0) / 1000;
     const t = current + shiftSec;
     State.lastRenderTime = t;
-    // Đồng hồ hiệu ứng: tick 100ms → cộng 6 (≈60fps) để khớp thang _animFrameCount*0.016 giây.
-    State.subsFrame = (State.subsFrame || 0) + 6;
     const videoFrame = overlay.closest('.video-wrap') || overlay.parentElement;
     const frameH = videoFrame
       ? (videoFrame.clientHeight || videoFrame.offsetHeight || overlay.clientHeight || 0)
@@ -3685,10 +3690,20 @@
       ? (videoFrame.clientWidth || videoFrame.offsetWidth || overlay.clientWidth || 0)
       : 0;
     const active = State.subtitles.filter((s) => t >= s.start && t <= s.end);
+    const cueKey = active.map(c => c.start + '|' + c.end + '|' + (c.text||'')).join(',');
     if (!State.subsEnabled || active.length === 0) {
-      hideSubtitleOverlay();
+      if (State._lastCueKey !== '') {
+        State._lastCueKey = '';
+        hideSubtitleOverlay();
+      }
       return;
     }
+    if (cueKey === State._lastCueKey) {
+      // Cues không đổi → chỉ cập nhật frame cho hiệu ứng karaoke, không chạm DOM (60fps, nhẹ)
+      State.subsFrame = (State.subsFrame || 0) + 1;
+      return;
+    }
+    State._lastCueKey = cueKey;
     // Render từng cue ASS (engine) — style/vị trí/karaoke
     overlay.innerHTML = '';
     let rendered = 0;
