@@ -74,6 +74,8 @@
     pendingPlay: null,     // bai hat cho phat khi iframe san sang
     pendingVideoId: null,  // videoId cho nap khi iframe san sang
     _ytTimeInterval: null, // interval yeu cau getCurrentTime tu YouTube
+    ytVideoStartTime: 0,   // Date.now() khi video bat dau chay (duoc su dung de estimated time)
+    ytVideoStartOffset: 0, // State.ytCurrentTime luc video bat dau chay
     autoNext: true,        // tự động chuyển bài kế tiếp khi bài hiện tại kết thúc
     shuffle: false,        // phát ngẫu nhiên khi kết thúc / bấm next
     repeat: false,         // lặp lại 1 bài: khi hết bài thì phát lại chính bài đó
@@ -3224,6 +3226,8 @@
   // Phat video (goi sau khi iframe da co src)
   function ytPlay() {
     State.ytVideoPaused = false;
+    State.ytVideoStartTime = Date.now();
+    State.ytVideoStartOffset = State.ytCurrentTime;
     ytCmd('playVideo');
   }
 
@@ -3240,8 +3244,13 @@
     ytCmd('seekTo', sec, true);
   }
 
-  // Lay thoi gian hien tai (cap nhat boi infoDelivery listener)
+  // Lay thoi gian hien tai. Neu video dang chay (khong pause) va co start time,
+  // tra ve estimated time dua tren Date.now() de khong phai cho infoDelivery tu YouTube.
+  // Neu video pause hoac chua co start time, tra ve State.ytCurrentTime (cap nhat boi infoDelivery).
   function ytGetCurrentTime() {
+    if (!State.ytVideoPaused && State.ytVideoStartTime) {
+      return State.ytVideoStartOffset + (Date.now() - State.ytVideoStartTime) / 1000;
+    }
     return State.ytCurrentTime;
   }
 
@@ -3255,6 +3264,14 @@
     if (data.event === 'infoDelivery') {
       const ct = data.currentTime != null ? data.currentTime : (data.info && data.info.currentTime != null ? data.info.currentTime : 0);
       State.ytCurrentTime = ct;
+      // Sync offset tu infoDelivery de tranh drift khi video dang chay (chi sync neu chenh lech nho)
+      if (!State.ytVideoPaused && State.ytVideoStartTime) {
+        const estimated = State.ytVideoStartOffset + (Date.now() - State.ytVideoStartTime) / 1000;
+        const diff = Math.abs(ct - estimated);
+        if (diff < 1.0) {
+          State.ytVideoStartOffset = ct - (Date.now() - State.ytVideoStartTime) / 1000;
+        }
+      }
       if (data.playerState !== undefined) handleYtStateChange(data.playerState);
       else if (data.info && data.info.playerState !== undefined) handleYtStateChange(data.info.playerState);
     } else if (data.event === 'onStateChange') {
@@ -3268,6 +3285,8 @@
     State.ytPlayerState = st;
     if (st === 1) { // PLAYING
       State.ytVideoPaused = false;
+      State.ytVideoStartTime = Date.now();
+      State.ytVideoStartOffset = State.ytCurrentTime;
       startSubtitleTicker();
       updatePlayerControlsUI();
     } else if (st === 2 || st === 3) { // PAUSED / BUFFERING
@@ -3574,6 +3593,8 @@
       loadYtVideo(song.youtube_id);
       $('#playerPlaceholder').classList.add('hidden');
       toast('Đang phát: ' + (song.title || ''), 'info', 1600);
+      // Khởi động ticker phụ đề ngay (không chờ YouTube onStateChange)
+      startSubtitleTicker();
       // YouTube có thể chặn autoplay lần đầu -> retry sau 1.5s
       setTimeout(() => ytPlay(), 1500);
     } catch (e) {
