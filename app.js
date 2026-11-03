@@ -3731,18 +3731,19 @@
       State._lastCueKey = cueKey;
       // Render từng cue ASS (engine) — style/vị trí/karaoke
       overlay.innerHTML = '';
-    let rendered = 0;
-    active.forEach((cue) => {
-      const frag = renderAssCue(cue);
-      if (frag && frag.childNodes && frag.childNodes.length) {
-        overlay.appendChild(frag);
-        rendered++;
-      }
-    });
-    if (rendered === 0) { hideSubtitleOverlay(); return; }
-    overlay.classList.add('show');
-    // Tách chồng lấn: nếu nhiều cue hoạt động cùng lúc đè lên nhau, dịch dọc tách ra.
-    resolveSubtitleCollisions(overlay);
+      let rendered = 0;
+      active.forEach((cue) => {
+        const frag = renderAssCue(cue);
+        if (frag && frag.childNodes && frag.childNodes.length) {
+          overlay.appendChild(frag);
+          rendered++;
+        }
+      });
+      if (rendered === 0) { hideSubtitleOverlay(); return; }
+      overlay.classList.add('show');
+      // Tách chồng lấn: nếu nhiều cue hoạt động cùng lúc đè lên nhau, dịch dọc tách ra.
+      resolveSubtitleCollisions(overlay);
+    }
   }
 
   // ── Tách chồng lấn giữa các phụ đề đang hiển thị ──
