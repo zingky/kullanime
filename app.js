@@ -3687,7 +3687,11 @@
     if (State.subsRAF) return;
     (function loop() {
       if (!State.subsRAF) return;
-      updateCurrentSubtitle();
+      try { updateCurrentSubtitle(); } catch (_e) {
+        // Một cue bị lỗi render KHÔNG được phép làm ngắt toàn bộ luồng requestAnimationFrame,
+        // nếu không phụ đề sẽ "đơ 1 frame" và chỉ hồi phục khi bật/tắt nút phụ đề.
+      }
+      // Luôn lên lịch khung hình kế tiếp để phụ đề cập nhật liên tục khi video đang chạy.
       State.subsRAF = requestAnimationFrame(loop);
     })();
   }
@@ -3729,20 +3733,30 @@
     State._lastCueKey = cueKey;
     State.subsFrame = (State.subsFrame || 0) + 1;
 
-    // Render từng cue ASS (engine) — style/vị trí/karaoke
-    overlay.innerHTML = '';
+    // Render từng cue ASS vào fragment trước, rồi gán vào overlay một lần.
+    // Tránh xóa trắng overlay (innerHTML = '') khi có lỗi render 1 cue — đó là nguyên nhân
+    // khiến phụ đề "đơ 1 frame" và chỉ cập nhật lại khi bật/tắt nút phụ đề.
+    const fragAll = document.createDocumentFragment();
     let rendered = 0;
-    active.forEach((cue) => {
-      const frag = renderAssCue(cue);
-      if (frag && frag.childNodes && frag.childNodes.length) {
-        overlay.appendChild(frag);
-        rendered++;
-      }
-    });
+    try {
+      active.forEach((cue) => {
+        const frag = renderAssCue(cue);
+        if (frag && frag.childNodes && frag.childNodes.length) {
+          fragAll.appendChild(frag);
+          rendered++;
+        }
+      });
+    } catch (_e) {
+      rendered = 0;
+    }
     if (rendered === 0) { hideSubtitleOverlay(); return; }
+    overlay.innerHTML = '';
+    overlay.appendChild(fragAll);
     overlay.classList.add('show');
     // Tách chồng lấn: nếu nhiều cue hoạt động cùng lúc đè lên nhau, dịch dọc tách ra.
-    resolveSubtitleCollisions(overlay);
+    try { resolveSubtitleCollisions(overlay); } catch (_e) {
+      // Lỗi tách chồng lấn không được làm hỏng khung hiển thị phụ đề.
+    }
   }
 
   // ── Tách chồng lấn giữa các phụ đề đang hiển thị ──
