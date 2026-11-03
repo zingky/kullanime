@@ -41,6 +41,7 @@
     subsEnabled: false,
     subsTick: null,
     subsRAF: null,
+    subtitleBackupInterval: null, // dự phòng khi requestAnimationFrame bị trình duyệt ngắt
     _lastCueKey: '',
     subSettings: null,     // cài đặt toàn cục phụ đề (fontSize, màu, karaoke...) -> lưu localStorage
     timeShiftMs: 0,        // dời phụ đề theo ms (Timeshift)
@@ -3298,6 +3299,9 @@
           State.ytVideoStartOffset = ct - (Date.now() - State.ytVideoStartTime) / 1000;
         }
       }
+      // Cập nhật phụ đề ngay khi YouTube gửi thời gian mới (mỗi ~300ms),
+      // tránh phụ đề đơ giữa chừng nếu requestAnimationFrame bị trình duyệt ngắt.
+      if (State.subsEnabled) updateCurrentSubtitle();
       if (data.playerState !== undefined) handleYtStateChange(data.playerState);
       else if (data.info && data.info.playerState !== undefined) handleYtStateChange(data.info.playerState);
     } else if (data.event === 'onStateChange') {
@@ -3694,10 +3698,22 @@
       // Luôn lên lịch khung hình kế tiếp để phụ đề cập nhật liên tục khi video đang chạy.
       State.subsRAF = requestAnimationFrame(loop);
     })();
+    // Dự phòng: nếu trình duyệt ngắt requestAnimationFrame (tab ẩn, nền, v.v.),
+    // setInterval vẫn giữ phụ đề cập nhật liên tục.
+    startSubtitleBackup();
   }
   function stopSubtitleTicker() {
     if (State.subsRAF) { cancelAnimationFrame(State.subsRAF); State.subsRAF = null; }
+    if (State.subtitleBackupInterval) { clearInterval(State.subtitleBackupInterval); State.subtitleBackupInterval = null; }
     State._lastCueKey = '';
+  }
+
+  function startSubtitleBackup() {
+    if (State.subtitleBackupInterval) return;
+    State.subtitleBackupInterval = setInterval(() => {
+      if (!State.subsEnabled) { stopSubtitleTicker(); return; }
+      try { updateCurrentSubtitle(); } catch (_e) {}
+    }, 150);
   }
   function updateCurrentSubtitle() {
     const overlay = $('#subtitleOverlay');
