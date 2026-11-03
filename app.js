@@ -3724,26 +3724,25 @@
       }
       return;
     }
-    // Luon cap nhat frame karaoke neu cung cue
-    if (cueKey === State._lastCueKey) {
-      State.subsFrame = (State.subsFrame || 0) + 1;
-    } else {
-      State._lastCueKey = cueKey;
-      // Render từng cue ASS (engine) — style/vị trí/karaoke
-      overlay.innerHTML = '';
-      let rendered = 0;
-      active.forEach((cue) => {
-        const frag = renderAssCue(cue);
-        if (frag && frag.childNodes && frag.childNodes.length) {
-          overlay.appendChild(frag);
-          rendered++;
-        }
-      });
-      if (rendered === 0) { hideSubtitleOverlay(); return; }
-      overlay.classList.add('show');
-      // Tách chồng lấn: nếu nhiều cue hoạt động cùng lúc đè lên nhau, dịch dọc tách ra.
-      resolveSubtitleCollisions(overlay);
-    }
+    // Luon render lai DOM khi co active cues, khong bo qua neu cueKey trung
+    // Đảm bảo phụ đề luôn hiển thị đúng thời điểm hiện tại, không bị đơ 1 frame.
+    State._lastCueKey = cueKey;
+    State.subsFrame = (State.subsFrame || 0) + 1;
+
+    // Render từng cue ASS (engine) — style/vị trí/karaoke
+    overlay.innerHTML = '';
+    let rendered = 0;
+    active.forEach((cue) => {
+      const frag = renderAssCue(cue);
+      if (frag && frag.childNodes && frag.childNodes.length) {
+        overlay.appendChild(frag);
+        rendered++;
+      }
+    });
+    if (rendered === 0) { hideSubtitleOverlay(); return; }
+    overlay.classList.add('show');
+    // Tách chồng lấn: nếu nhiều cue hoạt động cùng lúc đè lên nhau, dịch dọc tách ra.
+    resolveSubtitleCollisions(overlay);
   }
 
   // ── Tách chồng lấn giữa các phụ đề đang hiển thị ──
