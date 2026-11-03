@@ -3256,13 +3256,28 @@
     ytCmd('seekTo', sec, true);
   }
 
-  // Lay thoi gian hien tai. Neu co start time (video da bat dau), tra ve estimated time dua tren Date.now()
-  // de khong phai cho infoDelivery tu YouTube. Neu chua co start time, tra ve State.ytCurrentTime.
+  // Lay thoi gian hien tai. Luon tra ve estimated time tien dien dua tren Date.now()
+  // neu video da bat dau (ytVideoStartTime da duoc gan). Neu chua co start time,
+  // tra ve State.ytCurrentTime (cap nhat tu infoDelivery cua YouTube).
   function ytGetCurrentTime() {
     if (State.ytVideoStartTime) {
       return State.ytVideoStartOffset + (Date.now() - State.ytVideoStartTime) / 1000;
     }
     return State.ytCurrentTime;
+  }
+
+  // Bat buoc cap nhật estimated time ngay khi co thong tin tu YouTube infoDelivery,
+  // tranh truong trang th video dang chay nhung ytVideoStartTime bi reset.
+  function syncYtTimeFromInfoDelivery(ct) {
+    if (ct != null && !isNaN(ct) && ct >= 0) {
+      State.ytCurrentTime = ct;
+      if (!State.ytVideoStartTime) {
+        // Chua co estimated time -> khoi tao tu thoi gian YouTube bao
+        State.ytVideoStartTime = Date.now();
+        State.ytVideoStartOffset = ct;
+        State.ytVideoPaused = false;
+      }
+    }
   }
 
   // Xu ly su kien tu YouTube iframe (infoDelivery, onStateChange)
@@ -3274,7 +3289,7 @@
     // YouTube khong gui target, chi kiem tra event
     if (data.event === 'infoDelivery') {
       const ct = data.currentTime != null ? data.currentTime : (data.info && data.info.currentTime != null ? data.info.currentTime : 0);
-      State.ytCurrentTime = ct;
+      syncYtTimeFromInfoDelivery(ct);
       // Sync offset tu infoDelivery de tranh drift khi video dang chay (chi sync neu chenh lech nho)
       if (!State.ytVideoPaused && State.ytVideoStartTime) {
         const estimated = State.ytVideoStartOffset + (Date.now() - State.ytVideoStartTime) / 1000;
@@ -3709,14 +3724,13 @@
       }
       return;
     }
+    // Luon cap nhat frame karaoke neu cung cue
     if (cueKey === State._lastCueKey) {
-      // Cues không đổi → chỉ cập nhật frame cho hiệu ứng karaoke, không chạm DOM (60fps, nhẹ)
       State.subsFrame = (State.subsFrame || 0) + 1;
-      return;
-    }
-    State._lastCueKey = cueKey;
-    // Render từng cue ASS (engine) — style/vị trí/karaoke
-    overlay.innerHTML = '';
+    } else {
+      State._lastCueKey = cueKey;
+      // Render từng cue ASS (engine) — style/vị trí/karaoke
+      overlay.innerHTML = '';
     let rendered = 0;
     active.forEach((cue) => {
       const frag = renderAssCue(cue);
