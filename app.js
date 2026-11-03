@@ -3217,6 +3217,10 @@
       '?rel=0&modestbranding=1&playsinline=1&enablejsapi=1&autoplay=1&origin=' + encodeURIComponent(window.location.origin);
     iframe.src = url;
     State.ytReady = true;
+    // YouTube co the tu dong phat (autoplay=1) ngay sau khi set src -> khoi tao estimated time ngay
+    State.ytVideoStartTime = Date.now();
+    State.ytVideoStartOffset = 0;
+    State.ytVideoPaused = false;
     // Dang ky lang nghe su kien sau khi iframe da co src (tranh gui den iframe trong trang)
     iframe.onload = () => { setTimeout(ytListen, 300); };
     // Yeu cap nhat thoi gian tu YouTube moi 300ms
@@ -3236,6 +3240,10 @@
   // Tam dung video
   function ytPause() {
     State.ytVideoPaused = true;
+    if (State.ytVideoStartTime) {
+      State.ytVideoStartOffset = State.ytVideoStartOffset + (Date.now() - State.ytVideoStartTime) / 1000;
+      State.ytVideoStartTime = 0;
+    }
     ytCmd('pauseVideo');
   }
 
@@ -3243,14 +3251,15 @@
   function ytSeekTo(sec) {
     State.ytCurrentTime = sec;
     State.ytVideoPaused = false;
+    State.ytVideoStartTime = Date.now();
+    State.ytVideoStartOffset = sec;
     ytCmd('seekTo', sec, true);
   }
 
-  // Lay thoi gian hien tai. Neu video dang chay (khong pause) va co start time,
-  // tra ve estimated time dua tren Date.now() de khong phai cho infoDelivery tu YouTube.
-  // Neu video pause hoac chua co start time, tra ve State.ytCurrentTime (cap nhat boi infoDelivery).
+  // Lay thoi gian hien tai. Neu co start time (video da bat dau), tra ve estimated time dua tren Date.now()
+  // de khong phai cho infoDelivery tu YouTube. Neu chua co start time, tra ve State.ytCurrentTime.
   function ytGetCurrentTime() {
-    if (!State.ytVideoPaused && State.ytVideoStartTime) {
+    if (State.ytVideoStartTime) {
       return State.ytVideoStartOffset + (Date.now() - State.ytVideoStartTime) / 1000;
     }
     return State.ytCurrentTime;
