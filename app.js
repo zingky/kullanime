@@ -3633,6 +3633,7 @@
       if (subFile.cached && subFile.text) {
         // file từ Phụ đề Cache (đã có sẵn text trên máy)
         applyText(subFile.text);
+        startSubtitleTicker();
       } else {
         // Chưa có content cache → tải từ GitHub (raw.githubusercontent.com — CDN, không giới hạn)
         fetch(subFile.download_url)
@@ -3647,6 +3648,7 @@
               renderAssCacheList();
             }
             applyText(text);
+            startSubtitleTicker();
           })
           .catch((e) => {
             console.warn('Lỗi tải .ass:', e);
@@ -3812,8 +3814,13 @@
     }
     if (icon) icon.textContent = State.subsEnabled ? '💬' : '🔇';
     if (label) label.textContent = State.subsEnabled ? 'Phụ đề: Bật' : 'Phụ đề: Tắt';
-    if (State.subsEnabled) updateCurrentSubtitle();
-    else hideSubtitleOverlay();
+    if (State.subsEnabled) {
+      startSubtitleTicker();
+      updateCurrentSubtitle();
+    } else {
+      stopSubtitleTicker();
+      hideSubtitleOverlay();
+    }
   }
 
 /* ──────────────────────────────────────────────────────
