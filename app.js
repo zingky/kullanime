@@ -3323,7 +3323,10 @@
       updatePlayerControlsUI();
       if (st === 2) {
         State.ytVideoPaused = true;
-        hideSubtitleOverlay();
+        // Dừng ticker khi pause để phụ đề FREEZE đúng khung hình pause,
+        // không chạy trôi theo thời gian thực. Vẽ ngay khung hình pause.
+        stopSubtitleTicker();
+        updateCurrentSubtitle();
       }
     } else if (st === 0) { // ENDED
       State.ytVideoPaused = true;
@@ -3551,7 +3554,7 @@
   function togglePlay() {
     if (!State.ytPlayer || !State.currentSong) return;
     try {
-      if (State.ytPlayerState === 1) { ytPause(); hideSubtitleOverlay(); }
+      if (State.ytPlayerState === 1) { ytPause(); }
       else ytPlay();
       updatePlayerControlsUI();
     } catch (_e) { /* ignore */ }
