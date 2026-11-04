@@ -3687,10 +3687,19 @@
     updateSubsToggleUI();
     if (State.subsEnabled) updateCurrentSubtitle();
   }
+  // Cờ tránh khởi động gấp đôi RAF loop khi bật/tắt nút nhanh (race condition).
+  let _subsTickerStarted = false;
+
   function startSubtitleTicker() {
-    if (State.subsRAF) return;
+    // Nếu RAF loop đã được lên lịch (subsRAF khác null) hoặc đã khởi động, không làm gì thêm.
+    if (State.subsRAF || _subsTickerStarted) return;
+    _subsTickerStarted = true;
     (function loop() {
-      if (!State.subsRAF) return;
+      if (!State.subsRAF) {
+        // RAF đã bị hủy bên ngoài → dọn cờ cho lần khởi động sau.
+        _subsTickerStarted = false;
+        return;
+      }
       try { updateCurrentSubtitle(); } catch (_e) {
         // Một cue bị lỗi render KHÔNG được phép làm ngắt toàn bộ luồng requestAnimationFrame,
         // nếu không phụ đề sẽ "đơ 1 frame" và chỉ hồi phục khi bật/tắt nút phụ đề.
@@ -3698,12 +3707,13 @@
       // Luôn lên lịch khung hình kế tiếp để phụ đề cập nhật liên tục khi video đang chạy.
       State.subsRAF = requestAnimationFrame(loop);
     })();
-    // Dự phòng: nếu trình duyệt ngắt requestAnimationFrame (tab ẩn, nền, v.v.),
-    // setInterval vẫn giữ phụ đề cập nhật liên tục.
+    // Dự phòng độc lập: nếu trình duyệt ngắt requestAnimationFrame (tab ẩn, nền, v.v.),
+    // setInterval vẫn giữ phụ đề cập nhật liên tục. Không bị chặn bởi subsRAF.
     startSubtitleBackup();
   }
   function stopSubtitleTicker() {
     if (State.subsRAF) { cancelAnimationFrame(State.subsRAF); State.subsRAF = null; }
+    _subsTickerStarted = false;
     if (State.subtitleBackupInterval) { clearInterval(State.subtitleBackupInterval); State.subtitleBackupInterval = null; }
     State._lastCueKey = '';
   }
