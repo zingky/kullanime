@@ -738,7 +738,9 @@ select.input { appearance: none; -webkit-appearance: none; background-image: url
 .pc-toggle-label { white-space: nowrap; }
 /* Nhóm nút phụ đề trong thanh điều khiển */
 .pc-subs { display: inline-flex; align-items: center; gap: 6px; flex-shrink: 0; }
-.subs-toggle { min-width: 38px; padding: 0; font-size: 15px; height: 36px; }
+.subs-toggle { min-width: 38px; padding: 0; font-size: 15px; height: 36px; font-weight: 700; letter-spacing: -1px; }
+/* Nút CC bật: hiển thị nền */
+.subs-toggle.active { background: rgba(168, 85, 247, 0.22); border-color: var(--primary); color: var(--primary); }
 /* Nút fullscreen trong nhóm pc-subs (trái nút toggle phụ đề) */
 .pc-subs-fs {
   width: 36px; height: 36px; padding: 0; border-radius: 10px; flex-shrink: 0;

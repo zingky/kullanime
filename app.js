@@ -3869,7 +3869,8 @@
       hideSubtitleOverlay();
       return;
     }
-    if (icon) icon.textContent = State.subsEnabled ? '💬' : '🔇';
+    if (btn) btn.classList.toggle('active', State.subsEnabled);
+    if (icon) icon.textContent = 'CC';
     if (label) label.textContent = State.subsEnabled ? 'Phụ đề: Bật' : 'Phụ đề: Tắt';
     if (State.subsEnabled) {
       startSubtitleTicker();
