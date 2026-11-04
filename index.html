@@ -191,6 +191,15 @@
               <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M21 8V5a2 2 0 0 0-2-2h-3"/><path d="M3 16v3a2 2 0 0 0 2 2h3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/></svg>
             </button>
           </div>
+          <!-- Thanh tiến trình video (giữa khung video và thanh điều khiển) -->
+          <div class="video-progress" id="videoProgress" role="slider" aria-label="Tiến trình video" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+            <span class="vp-time vp-current" id="vpCurrent">0:00</span>
+            <div class="vp-track" id="vpTrack">
+              <div class="vp-filled" id="vpFilled"></div>
+              <div class="vp-handle" id="vpHandle"></div>
+            </div>
+            <span class="vp-time vp-duration" id="vpDuration">0:00</span>
+          </div>
           <!-- Thanh điều khiển player: lặp lại / ngẫu nhiên (trái) · lùi / phát / kế tiếp (giữa) · phụ đề (phải) -->
           <div class="player-controls" role="group" aria-label="Điều khiển phát nhạc">
             <div class="pc-group pc-left">

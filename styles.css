@@ -704,6 +704,70 @@ select.input { appearance: none; -webkit-appearance: none; background-image: url
 .np-title { margin: 0; font-weight: 700; font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .np-meta { margin: 3px 0 0; font-size: 12.5px; color: var(--text-dim); }
 
+/* ============ THANH TIẾN TRÌNH VIDEO (giữa khung video và thanh điều khiển) ============ */
+.video-progress {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 34px;
+  padding: 0 12px;
+  background: var(--bg-card);
+  border: var(--glass-border);
+  border-radius: var(--radius);
+  backdrop-filter: blur(10px) saturate(120%);
+  -webkit-backdrop-filter: blur(10px) saturate(120%);
+  box-shadow: var(--shadow-soft);
+  margin-top: 8px;
+  opacity: 0;
+  transition: opacity 0.2s ease, transform 0.2s ease;
+  pointer-events: none;
+  user-select: none;
+}
+.video-progress.visible { opacity: 1; pointer-events: auto; }
+
+.vp-time {
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-dim);
+  min-width: 36px;
+  text-align: center;
+  pointer-events: none;
+}
+
+.vp-track {
+  flex: 1;
+  height: 4px;
+  background: rgba(255,255,255,0.12);
+  border-radius: 2px;
+  overflow: hidden;
+  cursor: pointer;
+  position: relative;
+}
+
+.vp-filled {
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  background: var(--primary);
+  width: 0%;
+  border-radius: 2px;
+  transition: width 0.1s linear;
+}
+
+.vp-handle {
+  position: absolute;
+  left: 0%;
+  top: 50%;
+  width: 10px; height: 10px;
+  background: #fff;
+  border: 2px solid var(--primary);
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  opacity: 0;
+  transition: opacity 0.15s ease, transform 0.15s ease;
+  pointer-events: none;
+}
+.vp-track:hover .vp-handle { opacity: 1; transform: translate(-50%, -50%) scale(1.2); }
+
 /* ============ THANH ĐIỀU KHIỂN PLAYER (dưới khung video) ============ */
 .player-controls {
   position: relative; z-index: 30;

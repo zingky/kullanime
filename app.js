@@ -79,6 +79,7 @@
     _ytTimeInterval: null, // interval yeu cau getCurrentTime tu YouTube
     ytVideoStartTime: 0,   // Date.now() khi video bat dau chay (duoc su dung de estimated time)
     ytVideoStartOffset: 0, // State.ytCurrentTime luc video bat dau chay
+    ytDuration: 0,         // thoi luong video (giay) duoc cap nhat tu YouTube infoDelivery
     autoNext: true,        // tự động chuyển bài kế tiếp khi bài hiện tại kết thúc
     shuffle: false,        // phát ngẫu nhiên khi kết thúc / bấm next
     repeat: false,         // lặp lại 1 bài: khi hết bài thì phát lại chính bài đó
@@ -3302,6 +3303,11 @@
       // Cập nhật phụ đề ngay khi YouTube gửi thời gian mới (mỗi ~300ms),
       // tránh phụ đề đơ giữa chừng nếu requestAnimationFrame bị trình duyệt ngắt.
       if (State.subsEnabled) updateCurrentSubtitle();
+      // Lưu thời luong video neu YouTube gui duoc
+      const dur = data.duration != null ? data.duration : (data.info && data.info.duration != null ? data.info.duration : 0);
+      if (dur && dur > 0) State.ytDuration = dur;
+      // Cap nhat thanh tien trinh ngay khi co thong tin thoi gian moi (khong phu thuoc vao RAF hoac phu de)
+      try { updateVideoProgress(); } catch (_e) {}
       if (data.playerState !== undefined) handleYtStateChange(data.playerState);
       else if (data.info && data.info.playerState !== undefined) handleYtStateChange(data.info.playerState);
     } else if (data.event === 'onStateChange') {
@@ -3625,6 +3631,8 @@
     try {
       loadYtVideo(song.youtube_id);
       $('#playerPlaceholder').classList.add('hidden');
+      const vp = $('#videoProgress');
+      if (vp) vp.classList.add('visible');
       toast('Đang phát: ' + (song.title || ''), 'info', 1600);
       // Khởi động ticker phụ đề ngay (không chờ YouTube onStateChange)
       startSubtitleTicker();
@@ -3693,6 +3701,36 @@
   // Cờ tránh khởi động gấp đôi RAF loop khi bật/tắt nút nhanh (race condition).
   let _subsTickerStarted = false;
 
+  // Chuyen giay (float) sang chuoi "m:ss" hoac "h:mm:ss" (giong YouTube)
+  function formatTime(sec) {
+    const s = Math.max(0, Number(sec) || 0);
+    const h = Math.floor(s / 3600);
+    const m = Math.floor((s % 3600) / 60);
+    const sec2 = Math.floor(s % 60);
+    if (h > 0) return h + ':' + String(m).padStart(2, '0') + ':' + String(sec2).padStart(2, '0');
+    return m + ':' + String(sec2).padStart(2, '0');
+  }
+
+  // Cap nhat thanh tien trinh video (filled %, handle, thoi gian hien tai / tong)
+  function updateVideoProgress() {
+    const curEl = $('#vpCurrent');
+    const durEl = $('#vpDuration');
+    const filled = $('#vpFilled');
+    const handle = $('#vpHandle');
+    if (!curEl || !durEl || !filled || !handle) return;
+
+    const cur = ytGetCurrentTime();
+    const dur = State.ytDuration || 0;
+    curEl.textContent = formatTime(cur);
+    durEl.textContent = dur > 0 ? formatTime(dur) : '0:00';
+
+    const pct = dur > 0 ? Math.min(100, (cur / dur) * 100) : 0;
+    filled.style.width = pct + '%';
+    handle.style.left = pct + '%';
+    const prg = $('#videoProgress');
+    if (prg) prg.setAttribute('aria-valuenow', Math.round(pct));
+  }
+
   function startSubtitleTicker() {
     // Nếu RAF loop đã được lên lịch (subsRAF khác null) hoặc đã khởi động, không làm gì thêm.
     if (State.subsRAF || _subsTickerStarted) return;
@@ -3707,6 +3745,7 @@
         // Một cue bị lỗi render KHÔNG được phép làm ngắt toàn bộ luồng requestAnimationFrame,
         // nếu không phụ đề sẽ "đơ 1 frame" và chỉ hồi phục khi bật/tắt nút phụ đề.
       }
+      try { updateVideoProgress(); } catch (_e) {}
       // Luôn lên lịch khung hình kế tiếp để phụ đề cập nhật liên tục khi video đang chạy.
       State.subsRAF = requestAnimationFrame(loop);
     })();
@@ -10003,6 +10042,19 @@ function setupSubPopupEvents() {
         if (State.subsEnabled) startSubtitleTicker();
         else stopSubtitleTicker();
         updateSubsToggleUI();
+      });
+    }
+
+    // Tua video khi click vao thanh tien trinh
+    const vpTrack = $('#vpTrack');
+    if (vpTrack) {
+      vpTrack.addEventListener('click', (e) => {
+        if (!State.ytDuration || State.ytDuration <= 0) return;
+        const rect = vpTrack.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const pct = Math.max(0, Math.min(1, x / rect.width));
+        ytSeekTo(pct * State.ytDuration);
+        updateVideoProgress();
       });
     }
 
