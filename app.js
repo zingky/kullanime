@@ -3249,8 +3249,8 @@
     iframe.onload = () => { setTimeout(ytListen, 300); };
     stopYtTimeInterval();
     State._ytTimeInterval = setInterval(ytRequestTime, 300);
-    const btn = $('#ytControlsToggle');
-    if (btn) btn.classList.toggle('active', State.ytControlsEnabled);
+    const btn = $('#subYtControlsToggle');
+    if (btn) btn.textContent = State.ytControlsEnabled ? 'YT 🔊' : 'YT 🔇';
     savePlayerPrefs();
   }
 
@@ -4623,6 +4623,7 @@
             '<span class="sub-foot-sep"></span>' +
             '<div class="sub-foot-actions">' +
               '<label class="sub-foot-lab"><input type="checkbox" id="sub-close-outside" ' + (gs.closeOnClickOutside ? 'checked' : '') + '> Đóng khi click ngoài</label>' +
+              '<button type="button" id="subYtControlsToggle" class="pc-toggle" title="Bật/tắt điều khiển YouTube" aria-label="Bật/tắt điều khiển YouTube">' + (State.ytControlsEnabled ? 'YT 🔊' : 'YT 🔇') + '</button>' +
               '<button type="button" id="sub-backup" title="Backup settings + cache">💾</button>' +
               '<button type="button" id="sub-restore" title="Restore từ file JSON">📥</button>' +
             '</div>' +
@@ -5406,6 +5407,16 @@ function setupSubPopupEvents() {
       clo.addEventListener('change', () => {
         State.subSettings.closeOnClickOutside = clo.checked;
         saveSubSettings();
+      });
+    }
+
+    // Bat/tat dieu khien YouTube (controls=1/0) o trong panel
+    const subYtBtn = popup.querySelector('#subYtControlsToggle');
+    if (subYtBtn) {
+      subYtBtn.textContent = State.ytControlsEnabled ? 'YT 🔊' : 'YT 🔇';
+      subYtBtn.addEventListener('click', () => {
+        toggleYtControls(!State.ytControlsEnabled);
+        subYtBtn.textContent = State.ytControlsEnabled ? 'YT 🔊' : 'YT 🔇';
       });
     }
     // Tự xuống dòng khi chữ dài checkbox
@@ -10066,15 +10077,6 @@ function setupSubPopupEvents() {
         if (State.subsEnabled) startSubtitleTicker();
         else stopSubtitleTicker();
         updateSubsToggleUI();
-      });
-    }
-
-    // Bat/tat dieu khien YouTube (controls=1/0)
-    const ytControlsToggle = $('#ytControlsToggle');
-    if (ytControlsToggle) {
-      ytControlsToggle.classList.toggle('active', State.ytControlsEnabled);
-      ytControlsToggle.addEventListener('click', () => {
-        toggleYtControls(!State.ytControlsEnabled);
       });
     }
 
