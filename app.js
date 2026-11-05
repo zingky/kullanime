@@ -80,6 +80,7 @@
     ytVideoStartTime: 0,   // Date.now() khi video bat dau chay (duoc su dung de estimated time)
     ytVideoStartOffset: 0, // State.ytCurrentTime luc video bat dau chay
     ytDuration: 0,         // thoi luong video (giay) duoc cap nhat tu YouTube infoDelivery
+    ytControlsEnabled: true, // bat/tat dieu khien mac dinh cua YouTube (controls=1/0)
     autoNext: true,        // tự động chuyển bài kế tiếp khi bài hiện tại kết thúc
     shuffle: false,        // phát ngẫu nhiên khi kết thúc / bấm next
     repeat: false,         // lặp lại 1 bài: khi hết bài thì phát lại chính bài đó
@@ -3215,8 +3216,9 @@
     State.ytVideoPaused = true;
     const ph = $('#playerPlaceholder');
     if (ph) ph.classList.add('hidden');
+    const controlsParam = State.ytControlsEnabled ? 'controls=1' : 'controls=0';
     const url = 'https://www.youtube.com/embed/' + ytid +
-      '?rel=0&modestbranding=1&playsinline=1&enablejsapi=1&autoplay=1&origin=' + encodeURIComponent(window.location.origin);
+      '?rel=0&modestbranding=1&playsinline=1&enablejsapi=1&autoplay=1&' + controlsParam + '&origin=' + encodeURIComponent(window.location.origin);
     iframe.src = url;
     State.ytReady = true;
     // YouTube co the tu dong phat (autoplay=1) ngay sau khi set src -> khoi tao estimated time ngay
@@ -3229,6 +3231,27 @@
     stopYtTimeInterval();
     State._ytTimeInterval = setInterval(ytRequestTime, 300);
     return true;
+  }
+
+  // Bat/tat dieu khien mac dinh cua YouTube (controls=1/0).
+  // Luu y: gan lai iframe.src se reload YouTube iframe (video co the bat dau lai tu dau).
+  function toggleYtControls(enable) {
+    State.ytControlsEnabled = !!enable;
+    if (!State.ytPlayer || !State.currentSong) return;
+    const iframe = State.ytPlayer;
+    const ytid = State.currentSong.youtube_id;
+    if (!ytid) return;
+    const controlsParam = State.ytControlsEnabled ? 'controls=1' : 'controls=0';
+    const url = 'https://www.youtube.com/embed/' + ytid +
+      '?rel=0&modestbranding=1&playsinline=1&enablejsapi=1&autoplay=1&' + controlsParam + '&origin=' + encodeURIComponent(window.location.origin);
+    iframe.src = url;
+    State.ytReady = true;
+    iframe.onload = () => { setTimeout(ytListen, 300); };
+    stopYtTimeInterval();
+    State._ytTimeInterval = setInterval(ytRequestTime, 300);
+    const btn = $('#ytControlsToggle');
+    if (btn) btn.classList.toggle('active', State.ytControlsEnabled);
+    savePlayerPrefs();
   }
 
   // Phat video (goi sau khi iframe da co src)
@@ -4102,10 +4125,11 @@
       if (typeof p.autoNext === 'boolean') State.autoNext = p.autoNext;
       if (typeof p.shuffle === 'boolean') State.shuffle = p.shuffle;
       if (typeof p.repeat === 'boolean') State.repeat = p.repeat;
+      if (typeof p.ytControlsEnabled === 'boolean') State.ytControlsEnabled = p.ytControlsEnabled;
     } catch (_e) { /* ignore */ }
   }
   function savePlayerPrefs() {
-    try { localStorage.setItem(PLAYER_PREFS_KEY, JSON.stringify({ autoNext: State.autoNext, shuffle: State.shuffle, repeat: State.repeat })); } catch (_e) { /* ignore */ }
+    try { localStorage.setItem(PLAYER_PREFS_KEY, JSON.stringify({ autoNext: State.autoNext, shuffle: State.shuffle, repeat: State.repeat, ytControlsEnabled: State.ytControlsEnabled })); } catch (_e) { /* ignore */ }
   }
 
   // ===================== HIỆU ỨNG NỀN (đêm sao + hoa anh đào) =====================
@@ -10042,6 +10066,15 @@ function setupSubPopupEvents() {
         if (State.subsEnabled) startSubtitleTicker();
         else stopSubtitleTicker();
         updateSubsToggleUI();
+      });
+    }
+
+    // Bat/tat dieu khien YouTube (controls=1/0)
+    const ytControlsToggle = $('#ytControlsToggle');
+    if (ytControlsToggle) {
+      ytControlsToggle.classList.toggle('active', State.ytControlsEnabled);
+      ytControlsToggle.addEventListener('click', () => {
+        toggleYtControls(!State.ytControlsEnabled);
       });
     }
 
