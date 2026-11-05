@@ -3216,7 +3216,7 @@
     const ph = $('#playerPlaceholder');
     if (ph) ph.classList.add('hidden');
     const url = 'https://www.youtube.com/embed/' + ytid +
-      '?rel=0&modestbranding=1&playsinline=1&enablejsapi=1&autoplay=1&controls=0&origin=' + encodeURIComponent(window.location.origin);
+      '?rel=0&modestbranding=1&playsinline=1&enablejsapi=1&autoplay=1&origin=' + encodeURIComponent(window.location.origin);
     iframe.src = url;
     State.ytReady = true;
     // YouTube co the tu dong phat (autoplay=1) ngay sau khi set src -> khoi tao estimated time ngay
@@ -3325,9 +3325,6 @@
       State.ytVideoStartOffset = State.ytCurrentTime;
       startSubtitleTicker();
       updatePlayerControlsUI();
-      // Khi phát: hiển thị overlay chặn click khoảng trống player (tránh tác động vô tình)
-      const ytBlocker = $('#ytBlocker');
-      if (ytBlocker) ytBlocker.style.display = 'block';
     } else if (st === 2 || st === 3) { // PAUSED / BUFFERING
       updatePlayerControlsUI();
       if (st === 2) {
@@ -3336,10 +3333,6 @@
         // không chạy trôi theo thời gian thực. Vẽ ngay khung hình pause.
         stopSubtitleTicker();
         updateCurrentSubtitle();
-        // Khi pause: ẩn overlay chặn click để cho phép bấm các nút của YouTube
-        // (tiêu đề, kênh, chia sẻ, video khác, logo YouTube...)
-        const ytBlocker = $('#ytBlocker');
-        if (ytBlocker) ytBlocker.style.display = 'none';
       }
     } else if (st === 0) { // ENDED
       State.ytVideoPaused = true;
