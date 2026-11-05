@@ -3216,7 +3216,7 @@
     const ph = $('#playerPlaceholder');
     if (ph) ph.classList.add('hidden');
     const url = 'https://www.youtube.com/embed/' + ytid +
-      '?rel=0&modestbranding=1&playsinline=1&enablejsapi=1&autoplay=1&origin=' + encodeURIComponent(window.location.origin);
+      '?rel=0&modestbranding=1&playsinline=1&enablejsapi=1&autoplay=1&controls=0&origin=' + encodeURIComponent(window.location.origin);
     iframe.src = url;
     State.ytReady = true;
     // YouTube co the tu dong phat (autoplay=1) ngay sau khi set src -> khoi tao estimated time ngay
