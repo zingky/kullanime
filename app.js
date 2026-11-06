@@ -3629,15 +3629,8 @@
     State.subtitles = [];
     hideSubtitleOverlay();
 
-    // Cập nhật UI now-playing
-    $('#npTitle').textContent = song.title || 'Không tên';
-    $('#npMeta').textContent = [song.artist, song.anime, song.song_type].filter(Boolean).join(' · ') || '—';
-    const thumb = $('#npThumb');
-    if (song.cover_url) {
-      thumb.innerHTML = '<img src="' + esc(song.cover_url) + '" alt="" loading="lazy" onerror="this.remove()" />';
-    } else {
-      thumb.innerHTML = '<span class="np-thumb-ph">🎜</span>';
-    }
+    // Cập nhật tên video (1 dòng căn giữa dưới thanh điều khiển)
+    $('#videoTitle').textContent = song.title || 'Không tên';
 
     // Highlight trong danh sách
     $$('.song-item').forEach((el) => el.classList.remove('active'));
