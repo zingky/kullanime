@@ -252,38 +252,37 @@
               <div class="sub-panel-body" id="subPanelBody"><!-- JS render --></div>
             </aside>
           </div>
-        </div>
 
-        <!-- Phụ đề .ass -->
-        <aside class="playlist-column" aria-label="Phụ đề .ass từ GitHub">
-          <div class="ass-status-card">
-            <p class="ass-status-title">📑 Phụ đề .ass từ GitHub <span id="assRepoCount"></span></p>
-            <p class="ass-status-text" id="assStatus">Đang kiểm tra kho phụ đề...</p>
-            <input type="search" id="assSearch" class="ass-search" placeholder="🔍 Tìm file .ass theo tên..." autocomplete="off" />
-            <div class="ass-files" id="assFileList"></div>
-          </div>
+          <!-- Phụ đề .ass -->
+          <aside class="playlist-column" aria-label="Phụ đề .ass từ GitHub">
+            <div class="ass-status-card">
+              <p class="ass-status-title">📑 Phụ đề .ass từ GitHub <span id="assRepoCount"></span></p>
+              <p class="ass-status-text" id="assStatus">Đang kiểm tra kho phụ đề...</p>
+              <input type="search" id="assSearch" class="ass-search" placeholder="🔍 Tìm file .ass theo tên..." autocomplete="off" />
+              <div class="ass-files" id="assFileList"></div>
+            </div>
 
-          <!-- Phụ đề Cache (lưu trên máy người dùng, không đồng bộ) -->
-          <div class="ass-status-card ass-cache-card">
-            <p class="ass-status-title">💾 Cache video <em class="ass-cache-tag">máy</em></p>
-            <div class="ass-cache-row1">
-              <input type="text" id="assCacheYt" class="ass-cache-link" placeholder="🔗 Link YouTube..." autocomplete="off" />
-              <div class="ass-cache-search-wrap">
-                <input type="text" id="assCacheSearch" class="ass-cache-search-input" placeholder="🔍 Tên file .ass..." autocomplete="off" />
-                <div class="ass-cache-dropdown hidden" id="assCacheDropdown"></div>
+            <!-- Phụ đề Cache (lưu trên máy người dùng, không đồng bộ) -->
+            <div class="ass-status-card ass-cache-card">
+              <p class="ass-status-title">💾 Cache video <em class="ass-cache-tag">máy</em></p>
+              <div class="ass-cache-row1">
+                <input type="text" id="assCacheYt" class="ass-cache-link" placeholder="🔗 Link YouTube..." autocomplete="off" />
+                <div class="ass-cache-search-wrap">
+                  <input type="text" id="assCacheSearch" class="ass-cache-search-input" placeholder="🔍 Tên file .ass..." autocomplete="off" />
+                  <div class="ass-cache-dropdown hidden" id="assCacheDropdown"></div>
+                </div>
+                <label class="ass-cache-upload icon-btn" for="assCacheFile" title="Upload file .ass">📤</label>
+                <button type="button" id="assCacheApply" class="ass-cache-apply icon-btn" title="Phát video + load sub">▶</button>
+                <input type="file" id="assCacheFile" class="hidden" accept=".ass,text/plain,application/octet-stream" />
               </div>
-              <label class="ass-cache-upload icon-btn" for="assCacheFile" title="Upload file .ass">📤</label>
-              <button type="button" id="assCacheApply" class="ass-cache-apply icon-btn" title="Phát video + load sub">▶</button>
-              <input type="file" id="assCacheFile" class="hidden" accept=".ass,text/plain,application/octet-stream" />
+              <div class="ass-cache-row2">
+                <input type="text" id="assCacheId" class="ass-cache-id" placeholder="ID video" autocomplete="off" />
+                <input type="text" id="assCacheTitle" class="ass-cache-title" placeholder="Tiêu đề video" autocomplete="off" />
+              </div>
+              <div class="ass-files" id="assCacheList"></div>
             </div>
-            <div class="ass-cache-row2">
-              <input type="text" id="assCacheId" class="ass-cache-id" placeholder="ID video" autocomplete="off" />
-              <input type="text" id="assCacheTitle" class="ass-cache-title" placeholder="Tiêu đề video" autocomplete="off" />
-            </div>
-            <div class="ass-files" id="assCacheList"></div>
-          </div>
-        </aside>
-      </div>
+          </aside>
+        </div>
     </section>
 
   </main>
