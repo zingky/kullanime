@@ -4463,12 +4463,20 @@
     const fab = $('#subsSettingsBtn');
     if (fab) fab.setAttribute('aria-expanded', 'true');
     if (fab) fab.classList.add('active');
-    // Đặt panel FIXED ngay dưới nút Cài đặt phụ đề, không bung layout giao diện.
-    const rect = fab ? fab.getBoundingClientRect() : null;
-    if (rect) {
-      _subPopupEl.style.top = (window.scrollY + rect.bottom + 8) + 'px';
-      _subPopupEl.style.left = (window.scrollX + rect.left) + 'px';
-      _subPopupEl.style.width = '440px';
+    // Đặt panel FIXED ngay dưới khung video player, chiều rộng bằng cột player,
+    // che từ thanh tiến trình trở xuống, KHÔNG bung layout giao diện (mobile không bị kéo ngang).
+    const videoWrap = $('.video-wrap');
+    const playerCol = $('.player-column');
+    const vRect = videoWrap ? videoWrap.getBoundingClientRect() : null;
+    const pRect = playerCol ? playerCol.getBoundingClientRect() : null;
+    if (vRect && pRect) {
+      _subPopupEl.style.top = (window.scrollY + vRect.bottom) + 'px';   // ngay dưới khung video
+      _subPopupEl.style.left = (window.scrollX + pRect.left) + 'px';   // bám lề trái cột player
+      _subPopupEl.style.width = pRect.width + 'px';                    // rộng bằng cột player
+    } else {
+      _subPopupEl.style.top = '';
+      _subPopupEl.style.left = '';
+      _subPopupEl.style.width = '';
     }
     // Vị trí indicator tab cần được cập nhật SAU khi panel hiển thị (getBoundingClientRect
     // trả về zeros nếu element đang display:none). Dùng requestAnimationFrame để đảm bảo

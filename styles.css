@@ -621,7 +621,6 @@ select.input { appearance: none; -webkit-appearance: none; background-image: url
   display: flex; flex-direction: column;
   position: fixed;
   top: 0; left: 0;
-  width: 440px;
   max-height: 85vh;
   overflow-y: auto;
   z-index: 1000;
