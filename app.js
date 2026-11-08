@@ -3944,7 +3944,9 @@
   const SUB_ACTIVE_TAB_KEY = 'kullanime_sub_active_tab_v1'; // nhớ tab lớn (Global/All/Style/Effect) đang chọn
   const SUB_SETTINGS_DEFAULTS = {
     fontSize: 90, outlineWidth: 3, blur: 6, color1: '#ffffff', color3: '#000000',
-    spacing: 0, letterSpacing: 0.3, textZoom: 1.0, fontScale: 100, lineSpacing: 135,
+    spacing: 0, letterSpacing: 0.3, textZoom: 1.0, fontScale: 90, lineSpacing: 135,
+    // fontScale: 90 -> ASS cỡ 100 hiển thị khoảng 90px trên web (gần với render MP4),
+    // giúp chữ không to quá so với các trình phát video thường.
     useBox: false, deepGlow: false, boxColor: '#000000', boxOpacity: 0.5, boxBlur: 0, fontFamily: 'VNF-Comic Sans',
     fadIn: 200, fadOut: 200, popupOpacity: 0.95, popupZoom: 1.0,
     posX: 350, posY: 100, width: 820, height: 600,
