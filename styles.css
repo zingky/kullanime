@@ -539,13 +539,15 @@ select.input { appearance: none; -webkit-appearance: none; background-image: url
   opacity: 0; transition: opacity 0.15s ease, transform 0.15s ease, background 0.15s ease;
   pointer-events: none;
 }
-/* Nút cài đặt phụ đề trong khung video — nằm bên trái nút fullscreen */
+/* Nút cài đặt phụ đề trong khung video — nằm góc TRAI-TREN, khong bi che boi nut fullscreen */
 .video-wrap .video-sub-settings-btn.video-fs-btn {
-  right: 52px;
+  left: 10px; top: 10px; right: auto;
   width: 34px; height: 34px; border-radius: 8px;
   background: rgba(255,255,255,0.08); border-color: rgba(255,255,255,0.25); color: #fff;
   font-size: 17px;
 }
+/* Luon hien nut ca dat trong khung video khi co chuot vao vung video (khong can hoi nut fullscreen) */
+.video-wrap:hover .video-sub-settings-btn.video-fs-btn { opacity: 1; pointer-events: auto; }
 /* Hiện nút khi: rê/chạm vùng trên (hover-zone) · đang hover lên nút · nút có
    class .revealed (JS) · nút được focus từ bàn phím. Tự ẩn khi nhàn rỗi (JS). */
 .video-wrap:has(.fs-hover-zone:hover) .video-fs-btn,
