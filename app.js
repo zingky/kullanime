@@ -4460,7 +4460,7 @@
   }
   function showSubPanel() {
     if (_subPopupEl) _subPopupEl.classList.remove('hidden', 'is-closing');
-    const fab = $('#subsSettingsBtn');
+    const fab = $('#videoSubSettingsBtn');
     if (fab) fab.setAttribute('aria-expanded', 'true');
     if (fab) fab.classList.add('active');
     // Đặt panel FIXED ngay dưới khung video player, chiều rộng bằng cột player,
@@ -4493,7 +4493,7 @@
   function hideSubPanel() {
     if (_subPopupEl) _subPopupEl.classList.add('is-closing');
     setTimeout(() => { if (_subPopupEl) _subPopupEl.classList.add('hidden'); }, 160);
-    const fab = $('#subsSettingsBtn');
+    const fab = $('#videoSubSettingsBtn');
     if (fab) fab.setAttribute('aria-expanded', 'false');
     if (fab) fab.classList.remove('active');
   }
@@ -4954,7 +4954,7 @@ function setupSubPopupEvents() {
       window.__subCloseOutBound = true;
       document.addEventListener('mousedown', function __subCloseOutside(e) {
         if (!isSubPanelOpen()) return;
-        const btn = $('#subsSettingsBtn');
+        const btn = $('#videoSubSettingsBtn');
         if (_subPopupEl.contains(e.target) || (btn && btn.contains(e.target))) return;
         if (!State.subSettings || !State.subSettings.closeOnClickOutside) return;
         hideSubPanel();
@@ -10102,13 +10102,17 @@ function setupSubPopupEvents() {
       });
     }
 
-    // SUB ⚙️ — mở popup cài đặt phụ đề
-    const subsSettingsBtn = $('#subsSettingsBtn');
-    if (subsSettingsBtn) {
-      subsSettingsBtn.addEventListener('click', () => {
+    // SUB ⚙️ — mở popup cài đặt phụ đề (nút trong thanh tiến trình + nút trong khung video)
+    const videoSubSettingsBtn = $('#videoSubSettingsBtn');
+    const videoSubSettingsBtn2 = $('#videoSubSettingsBtn2');
+    const setupSubSettingsClick = (btn) => {
+      if (btn) btn.addEventListener('click', (e) => {
+        e.stopPropagation();
         toggleSubPopup();
       });
-    }
+    };
+    setupSubSettingsClick(videoSubSettingsBtn);
+    setupSubSettingsClick(videoSubSettingsBtn2);
 
     // Nút phóng to video full màn hình + cập nhật icon khi vào/thoát fullscreen
     const videoFsBtn = $('#videoFullscreenBtn');
@@ -11228,7 +11232,7 @@ function setupSubPopupEvents() {
     // Đóng popup cài đặt phụ đề nếu đang mở khi rời tab Song
     if (tabName !== 'music') {
       const sp = _subPopupEl;
-      const fab = $('#subsSettingsBtn');
+      const fab = $('#videoSubSettingsBtn');
       if (sp && isSubPanelOpen()) {
         hideSubPanel();
         if (fab) fab.setAttribute('aria-expanded', 'false');

@@ -542,14 +542,22 @@ select.input { appearance: none; -webkit-appearance: none; background-image: url
 /* Hiện nút khi: rê/chạm vùng trên (hover-zone) · đang hover lên nút · nút có
    class .revealed (JS) · nút được focus từ bàn phím. Tự ẩn khi nhàn rỗi (JS). */
 .video-wrap:has(.fs-hover-zone:hover) .video-fs-btn,
+.video-wrap:has(.fs-hover-zone:hover) .video-sub-settings-btn,
 .video-fs-btn:hover,
+.video-sub-settings-btn:hover,
 .video-fs-btn:focus-visible,
-.video-fs-btn.revealed { opacity: 1; pointer-events: auto; }
+.video-sub-settings-btn:focus-visible,
+.video-fs-btn.revealed,
+.video-sub-settings-btn.revealed { opacity: 1; pointer-events: auto; }
 .video-fs-btn:hover { background: rgba(16, 24, 48, 0.8); transform: scale(1.08); }
 .video-fs-btn:active { transform: scale(0.94); }
 .video-fs-btn.active { background: rgba(244, 63, 94, 0.75); }
 /* Hiệu ứng mờ dần khi ẩn/tự ẩn */
-.video-fs-btn.hiding { opacity: 0; pointer-events: none; }
+.video-fs-btn.hiding,
+.video-sub-settings-btn.hiding { opacity: 0; pointer-events: none; }
+/* Nút cài đặt phụ đề trong thanh tiến trình (bên phải) */
+.video-sub-settings-btn { min-width: 38px; height: 30px; padding: 0; border-radius: 8px; border: 1px solid transparent; background: rgba(255,255,255,0.06); color: var(--text); cursor: pointer; font-size: 16px; line-height: 1; display: flex; align-items: center; justify-content: center; transition: background 0.15s ease; }
+.video-sub-settings-btn:hover { background: rgba(255,255,255,0.14); }
 /* Fullscreen: giữ video tỷ lệ 16:9 giữa màn hình (letterbox) để không bị giãn méo
    overlay phụ đề + placeholder cũng nằm trong cùng ô 16:9 nên vị trí % vẫn khớp video */
 .video-wrap:fullscreen {
