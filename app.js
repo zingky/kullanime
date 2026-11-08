@@ -4458,25 +4458,36 @@
   function isSubPanelOpen() {
     return !!(_subPopupEl && !_subPopupEl.classList.contains('hidden') && !_subPopupEl.classList.contains('is-closing'));
   }
+  // Luu nut cuoi cung duoc nhan de xac dinh vi tri hien menu (duoi nut trong khung player hoac duoi khung video)
+  let _lastSubBtn = null;
+
   function showSubPanel() {
     if (_subPopupEl) _subPopupEl.classList.remove('hidden', 'is-closing');
     const fab = $('#videoSubSettingsBtn');
     if (fab) fab.setAttribute('aria-expanded', 'true');
     if (fab) fab.classList.add('active');
-    // Đặt panel FIXED ngay dưới khung video player, chiều rộng bằng cột player,
-    // che từ thanh tiến trình trở xuống, KHÔNG bung layout giao diện (mobile không bị kéo ngang).
-    const videoWrap = $('.video-wrap');
-    const playerCol = $('.player-column');
-    const vRect = videoWrap ? videoWrap.getBoundingClientRect() : null;
-    const pRect = playerCol ? playerCol.getBoundingClientRect() : null;
-    if (vRect && pRect) {
-      _subPopupEl.style.top = (window.scrollY + vRect.bottom) + 'px';   // ngay dưới khung video
-      _subPopupEl.style.left = (window.scrollX + pRect.left) + 'px';   // bám lề trái cột player
-      _subPopupEl.style.width = pRect.width + 'px';                    // rộng bằng cột player
+    // Xac dinh vi tri hien menu: neu mo tu nut trong khung player -> duoi nut do; con lai -> duoi khung video
+    const btnRect = (_lastSubBtn && _lastSubBtn.id === 'videoSubSettingsBtn2') ? _lastSubBtn.getBoundingClientRect() : null;
+    if (btnRect) {
+      _subPopupEl.style.top = (window.scrollY + btnRect.bottom + 4) + 'px';   // ngay duoi nut trong khung player
+      _subPopupEl.style.left = (window.scrollX + btnRect.left) + 'px';       // bat dau tu trai cua nut
+      _subPopupEl.style.width = 'auto';                                      // rong theo noi dung
+      _subPopupEl.style.maxWidth = '440px';
     } else {
-      _subPopupEl.style.top = '';
-      _subPopupEl.style.left = '';
-      _subPopupEl.style.width = '';
+      // Mac dinh: duoi khung video player, rong bang cot player
+      const videoWrap = $('.video-wrap');
+      const playerCol = $('.player-column');
+      const vRect = videoWrap ? videoWrap.getBoundingClientRect() : null;
+      const pRect = playerCol ? playerCol.getBoundingClientRect() : null;
+      if (vRect && pRect) {
+        _subPopupEl.style.top = (window.scrollY + vRect.bottom) + 'px';
+        _subPopupEl.style.left = (window.scrollX + pRect.left) + 'px';
+        _subPopupEl.style.width = pRect.width + 'px';
+      } else {
+        _subPopupEl.style.top = '';
+        _subPopupEl.style.left = '';
+        _subPopupEl.style.width = '';
+      }
     }
     // Vị trí indicator tab cần được cập nhật SAU khi panel hiển thị (getBoundingClientRect
     // trả về zeros nếu element đang display:none). Dùng requestAnimationFrame để đảm bảo
@@ -10108,6 +10119,7 @@ function setupSubPopupEvents() {
     const setupSubSettingsClick = (btn) => {
       if (btn) btn.addEventListener('click', (e) => {
         e.stopPropagation();
+        _lastSubBtn = btn;   // luu nut da nhan de xac dinh vi tri menu
         toggleSubPopup();
       });
     };

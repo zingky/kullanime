@@ -545,9 +545,14 @@ select.input { appearance: none; -webkit-appearance: none; background-image: url
   width: 34px; height: 34px; border-radius: 8px;
   background: rgba(255,255,255,0.08); border-color: rgba(255,255,255,0.25); color: #fff;
   font-size: 17px;
+  opacity: 0; pointer-events: none;
+  transition: opacity 0.15s ease 1.5s; /* hien thi 1.5s sau khi chuot ra khoi vung video */
 }
-/* Luon hien nut ca dat trong khung video khi co chuot vao vung video (khong can hoi nut fullscreen) */
-.video-wrap:hover .video-sub-settings-btn.video-fs-btn { opacity: 1; pointer-events: auto; }
+/* Hien nut ca dat trong khung video khi: chuot vao vung video · chuot vao nut · nut da active. */
+.video-wrap:hover .video-sub-settings-btn.video-fs-btn,
+.video-sub-settings-btn.video-fs-btn:hover,
+.video-sub-settings-btn.video-fs-btn.revealed,
+.video-sub-settings-btn.video-fs-btn:focus-visible { opacity: 1; pointer-events: auto; transition-delay: 0s; }
 /* Hiện nút khi: rê/chạm vùng trên (hover-zone) · đang hover lên nút · nút có
    class .revealed (JS) · nút được focus từ bàn phím. Tự ẩn khi nhàn rỗi (JS). */
 .video-wrap:has(.fs-hover-zone:hover) .video-fs-btn,
