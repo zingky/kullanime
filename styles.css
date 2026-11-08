@@ -619,6 +619,13 @@ select.input { appearance: none; -webkit-appearance: none; background-image: url
 /* ============ POPUP REDESIGN (responsive): layout + helper ============ */
 .sub-panel {
   display: flex; flex-direction: column;
+  position: fixed;
+  top: 0; left: 0;
+  width: 440px;
+  max-height: 85vh;
+  overflow-y: auto;
+  z-index: 1000;
+  box-sizing: border-box;
   background: rgba(13, 17, 30, 0.94);
   backdrop-filter: blur(24px) saturate(140%);
   -webkit-backdrop-filter: blur(24px) saturate(140%);

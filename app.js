@@ -4463,7 +4463,13 @@
     const fab = $('#subsSettingsBtn');
     if (fab) fab.setAttribute('aria-expanded', 'true');
     if (fab) fab.classList.add('active');
-    // Panel nằm in-flow ngay dưới thanh now-playing — chỉ cần bỏ lớp .hidden để sổ xuống.
+    // Đặt panel FIXED ngay dưới nút Cài đặt phụ đề, không bung layout giao diện.
+    const rect = fab ? fab.getBoundingClientRect() : null;
+    if (rect) {
+      _subPopupEl.style.top = (window.scrollY + rect.bottom + 8) + 'px';
+      _subPopupEl.style.left = (window.scrollX + rect.left) + 'px';
+      _subPopupEl.style.width = '440px';
+    }
     // Vị trí indicator tab cần được cập nhật SAU khi panel hiển thị (getBoundingClientRect
     // trả về zeros nếu element đang display:none). Dùng requestAnimationFrame để đảm bảo
     // browser đã compute layout trước khi đo toạ độ.
