@@ -4466,21 +4466,29 @@
   // Cap nhat vi tri cua menu cai dat phu de (goi tu showSubPanel va fullscreenchange)
   function updateSubPanelPosition() {
     if (!_subPopupEl || _subPopupEl.classList.contains('hidden') || _subPopupEl.classList.contains('is-closing')) return;
+
     const isFull = !!document.fullscreenElement;
     const btn = _lastOpenBtn || _lastSubBtn;
     const btnRect = (btn && btn.id === 'videoSubSettingsBtn2') ? btn.getBoundingClientRect() : null;
-    if (btnRect) {
+
+    if (isFull && document.fullscreenElement) {
+      // Fullscreen: hien menu o giua man hinh, khong bi che boi bat cu lop nao
+      const vw = window.innerWidth;
+      const vh = window.innerHeight;
+      _subPopupEl.style.top = (vh * 0.30) + 'px';
+      _subPopupEl.style.left = ((vw - 506) / 2) + 'px';
+      _subPopupEl.style.width = '506px';
+      _subPopupEl.style.maxWidth = '506px';
+      _subPopupEl.style.zIndex = '2147483647';
+    } else if (btnRect) {
+      // Nut trong khung player: hien ngay duoi nut do
       _subPopupEl.style.top = (window.scrollY + btnRect.bottom + 4) + 'px';
       _subPopupEl.style.left = (window.scrollX + btnRect.left) + 'px';
       _subPopupEl.style.width = 'auto';
       _subPopupEl.style.maxWidth = '506px';
-    } else if (isFull && document.fullscreenElement) {
-      const vw = window.innerWidth;
-      const vh = window.innerHeight;
-      _subPopupEl.style.top = (vh * 0.25) + 'px';
-      _subPopupEl.style.left = ((vw - 506) / 2) + 'px';
-      _subPopupEl.style.width = '506px';
+      _subPopupEl.style.zIndex = '2147483647';
     } else {
+      // Mac dinh (nut thanh tien trinh): duoi khung video player, rong dung cot player
       const videoWrap = $('.video-wrap');
       const playerCol = $('.player-column');
       const vRect = videoWrap ? videoWrap.getBoundingClientRect() : null;
@@ -4489,10 +4497,12 @@
         _subPopupEl.style.top = (window.scrollY + vRect.bottom) + 'px';
         _subPopupEl.style.left = (window.scrollX + pRect.left) + 'px';
         _subPopupEl.style.width = pRect.width + 'px';
+        _subPopupEl.style.zIndex = '2147483647';
       } else {
         _subPopupEl.style.top = '';
         _subPopupEl.style.left = '';
         _subPopupEl.style.width = '';
+        _subPopupEl.style.zIndex = '2147483647';
       }
     }
   }
