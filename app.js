@@ -4460,54 +4460,55 @@
   }
   // Luu nut cuoi cung duoc nhan de xac dinh vi tri hien menu (duoi nut trong khung player hoac duoi khung video)
   let _lastSubBtn = null;
+  // Luu nut da mo menu de cap nhat vi tri khi fullscreenchange
+  let _lastOpenBtn = null;
+
+  // Cap nhat vi tri cua menu cai dat phu de (goi tu showSubPanel va fullscreenchange)
+  function updateSubPanelPosition() {
+    if (!_subPopupEl || _subPopupEl.classList.contains('hidden') || _subPopupEl.classList.contains('is-closing')) return;
+    const isFull = !!document.fullscreenElement;
+    const btn = _lastOpenBtn || _lastSubBtn;
+    const btnRect = (btn && btn.id === 'videoSubSettingsBtn2') ? btn.getBoundingClientRect() : null;
+    if (btnRect) {
+      _subPopupEl.style.top = (window.scrollY + btnRect.bottom + 4) + 'px';
+      _subPopupEl.style.left = (window.scrollX + btnRect.left) + 'px';
+      _subPopupEl.style.width = 'auto';
+      _subPopupEl.style.maxWidth = '506px';
+    } else if (isFull && document.fullscreenElement) {
+      const vw = window.innerWidth;
+      const vh = window.innerHeight;
+      _subPopupEl.style.top = (vh * 0.25) + 'px';
+      _subPopupEl.style.left = ((vw - 506) / 2) + 'px';
+      _subPopupEl.style.width = '506px';
+    } else {
+      const videoWrap = $('.video-wrap');
+      const playerCol = $('.player-column');
+      const vRect = videoWrap ? videoWrap.getBoundingClientRect() : null;
+      const pRect = playerCol ? playerCol.getBoundingClientRect() : null;
+      if (vRect && pRect) {
+        _subPopupEl.style.top = (window.scrollY + vRect.bottom) + 'px';
+        _subPopupEl.style.left = (window.scrollX + pRect.left) + 'px';
+        _subPopupEl.style.width = pRect.width + 'px';
+      } else {
+        _subPopupEl.style.top = '';
+        _subPopupEl.style.left = '';
+        _subPopupEl.style.width = '';
+      }
+    }
+  }
 
   function showSubPanel() {
     if (_subPopupEl) _subPopupEl.classList.remove('hidden', 'is-closing');
     const fab = $('#videoSubSettingsBtn');
     if (fab) fab.setAttribute('aria-expanded', 'true');
     if (fab) fab.classList.add('active');
-    // Xac dinh che do fullscreen
-    const isFull = !!document.fullscreenElement;
-    // Xac dinh vi tri hien menu: neu mo tu nut trong khung player -> duoi nut do; con lai -> duoi khung video
-    const btnRect = (_lastSubBtn && _lastSubBtn.id === 'videoSubSettingsBtn2') ? _lastSubBtn.getBoundingClientRect() : null;
-    if (btnRect) {
-      // Nut trong khung player: rong hon 15% so voi mac dinh
-      _subPopupEl.style.top = (window.scrollY + btnRect.bottom + 4) + 'px';
-      _subPopupEl.style.left = (window.scrollX + btnRect.left) + 'px';
-      _subPopupEl.style.width = 'auto';
-      _subPopupEl.style.maxWidth = '506px';  // 440 * 1.15
-    } else {
-      // Mac dinh (nut thanh tien trinh): duoi khung video player, rong dung cot player
-      const videoWrap = $('.video-wrap');
-      const playerCol = $('.player-column');
-      const vRect = videoWrap ? videoWrap.getBoundingClientRect() : null;
-      const pRect = playerCol ? playerCol.getBoundingClientRect() : null;
-      let top, left, width;
-      if (isFull && document.fullscreenElement) {
-        // Fullscreen: dat menu o vi tri tuyen doi tren man hinh, khong bi che boi khung video
-        top = (window.scrollY + (vRect ? vRect.bottom : 0)) + 'px';
-        left = (window.scrollX + (pRect ? pRect.left : 0)) + 'px';
-        width = (pRect ? pRect.width : window.innerWidth * 0.9) + 'px';
-      } else if (vRect && pRect) {
-        top = (window.scrollY + vRect.bottom) + 'px';
-        left = (window.scrollX + pRect.left) + 'px';
-        width = pRect.width + 'px';
-      } else {
-        top = ''; left = ''; width = '';
-      }
-      _subPopupEl.style.top = top;
-      _subPopupEl.style.left = left;
-      _subPopupEl.style.width = width;
-    }
-    // Vị trí indicator tab cần được cập nhật SAU khi panel hiển thị (getBoundingClientRect
-    // trả về zeros nếu element đang display:none). Dùng requestAnimationFrame để đảm bảo
-    // browser đã compute layout trước khi đo toạ độ.
+    _lastOpenBtn = _lastSubBtn;
+    updateSubPanelPosition();
     requestAnimationFrame(() => {
       if (!_subPopupEl) return;
       const bar = _subPopupEl.querySelector('.sub-mtabs');
       const active = _subPopupEl.querySelector('.sub-mtab.active');
       if (bar && active) moveTabIndicator(bar, active);
-      // Co/giãn các ô số cho vừa số ký tự giá trị sau khi panel đã hiển thị (layout sẵn sàng).
       autoSizeAllNumInputs(_subPopupEl);
     });
   }
@@ -10144,8 +10145,8 @@ function setupSubPopupEvents() {
         toggleVideoFullscreen();
       });
     }
-    document.addEventListener('fullscreenchange', () => { updateVideoFsIcon(); if (document.fullscreenElement) lockLandscapeOnFullscreen(); });
-    document.addEventListener('webkitfullscreenchange', () => { updateVideoFsIcon(); if (document.fullscreenElement) lockLandscapeOnFullscreen(); }); // Safari
+    document.addEventListener('fullscreenchange', () => { updateVideoFsIcon(); if (document.fullscreenElement) lockLandscapeOnFullscreen(); updateSubPanelPosition(); });
+    document.addEventListener('webkitfullscreenchange', () => { updateVideoFsIcon(); if (document.fullscreenElement) lockLandscapeOnFullscreen(); updateSubPanelPosition(); }); // Safari
     // Nút fullscreen: tự ẩn khi nhàn rỗi (cả trong/ngoài fullscreen) + hiện khi chạm/rê gần mép trên
     initVideoFsAutohide();
 

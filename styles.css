@@ -645,7 +645,7 @@ select.input { appearance: none; -webkit-appearance: none; background-image: url
   top: 0; left: 0;
   max-height: 85vh;
   overflow-y: auto;
-  z-index: 1000;
+  z-index: 2147483647;
   box-sizing: border-box;
   background: rgba(13, 17, 30, 0.94);
   backdrop-filter: blur(24px) saturate(140%);
