@@ -3466,6 +3466,8 @@
     const allBtns = [btn, subBtn].filter(Boolean);
     const scheduleHide = () => {
       if (hideTimer) clearTimeout(hideTimer);
+      // Khi đang fullscreen KHÔNG tự ẩn nút cài đặt phụ đề
+      if (document.fullscreenElement || document.webkitFullscreenElement) return;
       hideTimer = setTimeout(() => {
         const anyHover = allBtns.some(b => b && b.matches(':hover'));
         if (!anyHover) {
