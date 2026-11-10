@@ -4503,43 +4503,49 @@
   function updateSubPanelPosition() {
     if (!_subPopupEl || _subPopupEl.classList.contains('hidden') || _subPopupEl.classList.contains('is-closing')) return;
 
-    const isFull = !!document.fullscreenElement;
     const btn = _lastOpenBtn || _lastSubBtn;
-    const btnRect = (btn && btn.id === 'videoSubSettingsBtn2') ? btn.getBoundingClientRect() : null;
+    _subPopupEl.style.position = 'fixed';
+    _subPopupEl.style.zIndex = '2147483647';
 
-    if (isFull && document.fullscreenElement) {
-      // Fullscreen: hien menu o giua man hinh, luon hien duoc, khong bi che
-      const vw = window.innerWidth;
-      const vh = window.innerHeight;
-      _subPopupEl.style.top = (vh * 0.30) + 'px';
-      _subPopupEl.style.left = ((vw - 506) / 2) + 'px';
-      _subPopupEl.style.width = '506px';
-      _subPopupEl.style.maxWidth = '506px';
-      _subPopupEl.style.zIndex = '2147483647';
-    } else if (btnRect) {
-      // Nut trong khung player: hien ngay duoi nut do
+    // Nut cai dat phu de trong khung video (videoSubSettingsBtn2): hien ngay duoi nut bam,
+    // khong o giua man hinh, rong tu dong du de hien het thong so.
+    if (btn && btn.id === 'videoSubSettingsBtn2') {
+      const btnRect = btn.getBoundingClientRect();
       _subPopupEl.style.top = (window.scrollY + btnRect.bottom + 4) + 'px';
       _subPopupEl.style.left = (window.scrollX + btnRect.left) + 'px';
       _subPopupEl.style.width = 'auto';
-      _subPopupEl.style.maxWidth = '506px';
-      _subPopupEl.style.zIndex = '2147483647';
-    } else {
-      // Mac dinh (nut thanh tien trinh): duoi khung video player, rong dung cot player
-      const videoWrap = $('.video-wrap');
+      _subPopupEl.style.maxWidth = 'min(600px, calc(100vw - 24px))';
+      return;
+    }
+
+    // Nut cai dat phu de trong thanh dieu khien video (videoSubSettingsBtn): popup do xuong
+    // tu phia duoi thanh tien trinh, rong bang chieu rong cot video player.
+    if (btn && btn.id === 'videoSubSettingsBtn') {
+      const btnRect = btn.getBoundingClientRect();
       const playerCol = $('.player-column');
-      const vRect = videoWrap ? videoWrap.getBoundingClientRect() : null;
       const pRect = playerCol ? playerCol.getBoundingClientRect() : null;
-      if (vRect && pRect) {
-        _subPopupEl.style.top = (window.scrollY + vRect.bottom) + 'px';
-        _subPopupEl.style.left = (window.scrollX + pRect.left) + 'px';
-        _subPopupEl.style.width = pRect.width + 'px';
-        _subPopupEl.style.zIndex = '2147483647';
-      } else {
-        _subPopupEl.style.top = '';
-        _subPopupEl.style.left = '';
-        _subPopupEl.style.width = '';
-        _subPopupEl.style.zIndex = '2147483647';
-      }
+      _subPopupEl.style.top = (window.scrollY + btnRect.bottom + 4) + 'px';
+      _subPopupEl.style.left = (window.scrollX + (pRect ? pRect.left : btnRect.left)) + 'px';
+      _subPopupEl.style.width = pRect ? pRect.width + 'px' : 'auto';
+      _subPopupEl.style.maxWidth = '506px';
+      return;
+    }
+
+    // Mac dinh: duoi khung video player, rong dung cot player
+    const videoWrap = $('.video-wrap');
+    const playerCol = $('.player-column');
+    const vRect = videoWrap ? videoWrap.getBoundingClientRect() : null;
+    const pRect = playerCol ? playerCol.getBoundingClientRect() : null;
+    if (vRect && pRect) {
+      _subPopupEl.style.top = (window.scrollY + vRect.bottom) + 'px';
+      _subPopupEl.style.left = (window.scrollX + pRect.left) + 'px';
+      _subPopupEl.style.width = pRect.width + 'px';
+      _subPopupEl.style.maxWidth = '506px';
+    } else {
+      _subPopupEl.style.top = '';
+      _subPopupEl.style.left = '';
+      _subPopupEl.style.width = '';
+      _subPopupEl.style.maxWidth = '';
     }
   }
 
