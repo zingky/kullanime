@@ -3517,6 +3517,10 @@
         });
       } else {
         hideNow();
+        // Đưa panel về .player-column khi thoát fullscreen (nếu panel vẫn còn trong .video-wrap)
+        const subPanel = $('#subPanel');
+        const playerCol = $('.player-column');
+        if (subPanel && playerCol && !playerCol.contains(subPanel)) playerCol.appendChild(subPanel);
       }
     });
     document.addEventListener('webkitfullscreenchange', () => {
@@ -3527,6 +3531,9 @@
         });
       } else {
         hideNow();
+        const subPanel = $('#subPanel');
+        const playerCol = $('.player-column');
+        if (subPanel && playerCol && !playerCol.contains(subPanel)) playerCol.appendChild(subPanel);
       }
     });
   }
@@ -4543,6 +4550,12 @@
       if (fab) { fab.setAttribute('aria-expanded', 'true'); fab.classList.add('active'); }
     });
     _lastOpenBtn = _lastSubBtn;
+    // Khi đang fullscreen: di chuyển panel vào trong .video-wrap để nằm cùng top layer với video,
+    // tránh bị che bởi phần tử fullscreen (Fullscreen API chỉ render top layer của phần tử đang fullscreen).
+    if ((document.fullscreenElement || document.webkitFullscreenElement) && _subPopupEl) {
+      const wrap = $('.video-wrap');
+      if (wrap && !wrap.contains(_subPopupEl)) wrap.appendChild(_subPopupEl);
+    }
     updateSubPanelPosition();
     requestAnimationFrame(() => {
       if (!_subPopupEl) return;
@@ -4554,7 +4567,14 @@
   }
   function hideSubPanel() {
     if (_subPopupEl) _subPopupEl.classList.add('is-closing');
-    setTimeout(() => { if (_subPopupEl) _subPopupEl.classList.add('hidden'); }, 160);
+    setTimeout(() => {
+      if (_subPopupEl) _subPopupEl.classList.add('hidden');
+      // Đưa panel về vị trí gốc trong .player-column khi không còn fullscreen
+      if (_subPopupEl && !(document.fullscreenElement || document.webkitFullscreenElement)) {
+        const playerCol = $('.player-column');
+        if (playerCol && !playerCol.contains(_subPopupEl)) playerCol.appendChild(_subPopupEl);
+      }
+    }, 160);
     ['#videoSubSettingsBtn', '#videoSubSettingsBtn2'].forEach(sel => {
       const fab = $(sel);
       if (fab) { fab.setAttribute('aria-expanded', 'false'); fab.classList.remove('active'); }
