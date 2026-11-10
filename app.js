@@ -4535,7 +4535,6 @@
   }
 
   function showSubPanel() {
-  function showSubPanel() {
     if (_subPopupEl) _subPopupEl.classList.remove('hidden', 'is-closing');
     ['#videoSubSettingsBtn', '#videoSubSettingsBtn2'].forEach(sel => {
       const fab = $(sel);
