@@ -3458,24 +3458,31 @@
   function initVideoFsAutohide() {
     const wrap = $('.video-wrap');
     const btn = $('#videoFullscreenBtn');
+    const subBtn = $('#videoSubSettingsBtn2');
     const zone = wrap ? wrap.querySelector('.fs-hover-zone') : null;
     if (!wrap || !btn) return;
     let hideTimer = null;
     const HIDE_MS = 2500;
+    const allBtns = [btn, subBtn].filter(Boolean);
     const scheduleHide = () => {
       if (hideTimer) clearTimeout(hideTimer);
       hideTimer = setTimeout(() => {
-        if (!btn.matches(':hover')) {
-          btn.classList.remove('revealed');
-          btn.classList.add('hiding');
-          setTimeout(() => btn.classList.remove('hiding'), 300);
+        const anyHover = allBtns.some(b => b && b.matches(':hover'));
+        if (!anyHover) {
+          allBtns.forEach(b => {
+            b.classList.remove('revealed');
+            b.classList.add('hiding');
+            setTimeout(() => b.classList.remove('hiding'), 300);
+          });
         }
       }, HIDE_MS);
     };
     const reveal = () => {
       if (hideTimer) clearTimeout(hideTimer);
-      btn.classList.remove('hiding');
-      btn.classList.add('revealed');
+      allBtns.forEach(b => {
+        b.classList.remove('hiding');
+        b.classList.add('revealed');
+      });
       scheduleHide();
     };
     // Vùng trên: rê/chạm vào khung video → hiện nút (bao gồm touch trên điện thoại).
@@ -3483,8 +3490,10 @@
     wrap.addEventListener('pointerenter', reveal);
     wrap.addEventListener('pointerdown', reveal, { passive: true });
     // Giữ nút hiển thị khi rê đang nằm trên nút.
-    btn.addEventListener('pointerenter', reveal);
-    btn.addEventListener('pointerleave', scheduleHide);
+    allBtns.forEach(b => {
+      b.addEventListener('pointerenter', reveal);
+      b.addEventListener('pointerleave', scheduleHide);
+    });
     // Dự phòng: theo dõi toàn viewport để bắt trường hợp con trỏ lướt tới vùng trên
     // (vì iframe YouTube "nuốt" con trỏ nên wrap không luôn nhận được sự kiện).
     window.addEventListener('pointermove', (e) => {
@@ -3493,13 +3502,31 @@
       if (r.height > 0 && e.clientY >= r.top && e.clientY <= r.bottom &&
           e.clientX >= r.left && e.clientX <= r.right) reveal();
     }, { passive: true });
-    // Bất kỳ lúc vào/ra fullscreen đều ẩn nút (không bật mãi khi fullscreen).
+    // Vào fullscreen: hiện cả 2 nút; ra fullscreen: ẩn nút (không bật mãi khi fullscreen).
     const hideNow = () => {
-      btn.classList.remove('revealed', 'hiding');
+      allBtns.forEach(b => b.classList.remove('revealed', 'hiding'));
       if (hideTimer) clearTimeout(hideTimer);
     };
-    document.addEventListener('fullscreenchange', hideNow);
-    document.addEventListener('webkitfullscreenchange', hideNow);
+    document.addEventListener('fullscreenchange', () => {
+      if (document.fullscreenElement) {
+        allBtns.forEach(b => {
+          b.classList.remove('hiding');
+          b.classList.add('revealed');
+        });
+      } else {
+        hideNow();
+      }
+    });
+    document.addEventListener('webkitfullscreenchange', () => {
+      if (document.webkitFullscreenElement) {
+        allBtns.forEach(b => {
+          b.classList.remove('hiding');
+          b.classList.add('revealed');
+        });
+      } else {
+        hideNow();
+      }
+    });
   }
 
   // Chọn bài kế tiếp — tôn trọng chế độ ngẫu nhiên (shuffle)
@@ -4472,7 +4499,7 @@
     const btnRect = (btn && btn.id === 'videoSubSettingsBtn2') ? btn.getBoundingClientRect() : null;
 
     if (isFull && document.fullscreenElement) {
-      // Fullscreen: hien menu o giua man hinh, khong bi che boi bat cu lop nao
+      // Fullscreen: hien menu o giua man hinh, luon hien duoc, khong bi che
       const vw = window.innerWidth;
       const vh = window.innerHeight;
       _subPopupEl.style.top = (vh * 0.30) + 'px';
@@ -4508,10 +4535,12 @@
   }
 
   function showSubPanel() {
+  function showSubPanel() {
     if (_subPopupEl) _subPopupEl.classList.remove('hidden', 'is-closing');
-    const fab = $('#videoSubSettingsBtn');
-    if (fab) fab.setAttribute('aria-expanded', 'true');
-    if (fab) fab.classList.add('active');
+    ['#videoSubSettingsBtn', '#videoSubSettingsBtn2'].forEach(sel => {
+      const fab = $(sel);
+      if (fab) { fab.setAttribute('aria-expanded', 'true'); fab.classList.add('active'); }
+    });
     _lastOpenBtn = _lastSubBtn;
     updateSubPanelPosition();
     requestAnimationFrame(() => {
@@ -4525,9 +4554,10 @@
   function hideSubPanel() {
     if (_subPopupEl) _subPopupEl.classList.add('is-closing');
     setTimeout(() => { if (_subPopupEl) _subPopupEl.classList.add('hidden'); }, 160);
-    const fab = $('#videoSubSettingsBtn');
-    if (fab) fab.setAttribute('aria-expanded', 'false');
-    if (fab) fab.classList.remove('active');
+    ['#videoSubSettingsBtn', '#videoSubSettingsBtn2'].forEach(sel => {
+      const fab = $(sel);
+      if (fab) { fab.setAttribute('aria-expanded', 'false'); fab.classList.remove('active'); }
+    });
   }
   function createSubPopup() {
     if (_subPopupEl && document.body.contains(_subPopupEl) && ($('#subPanelBody') && $('#subPanelBody').children.length)) return _subPopupEl;
@@ -4986,8 +5016,9 @@ function setupSubPopupEvents() {
       window.__subCloseOutBound = true;
       document.addEventListener('mousedown', function __subCloseOutside(e) {
         if (!isSubPanelOpen()) return;
-        const btn = $('#videoSubSettingsBtn');
-        if (_subPopupEl.contains(e.target) || (btn && btn.contains(e.target))) return;
+        const btn1 = $('#videoSubSettingsBtn');
+        const btn2 = $('#videoSubSettingsBtn2');
+        if (_subPopupEl.contains(e.target) || (btn1 && btn1.contains(e.target)) || (btn2 && btn2.contains(e.target))) return;
         if (!State.subSettings || !State.subSettings.closeOnClickOutside) return;
         hideSubPanel();
       });
@@ -11265,10 +11296,8 @@ function setupSubPopupEvents() {
     // Đóng popup cài đặt phụ đề nếu đang mở khi rời tab Song
     if (tabName !== 'music') {
       const sp = _subPopupEl;
-      const fab = $('#videoSubSettingsBtn');
       if (sp && isSubPanelOpen()) {
         hideSubPanel();
-        if (fab) fab.setAttribute('aria-expanded', 'false');
       }
       // Thoát fullscreen video nếu đang bật
       if (document.fullscreenElement) {
