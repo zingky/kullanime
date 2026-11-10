@@ -4526,8 +4526,13 @@
       const pRect = playerCol ? playerCol.getBoundingClientRect() : null;
       _subPopupEl.style.top = (window.scrollY + btnRect.bottom + 4) + 'px';
       _subPopupEl.style.left = (window.scrollX + (pRect ? pRect.left : btnRect.left)) + 'px';
-      _subPopupEl.style.width = pRect ? pRect.width + 'px' : 'auto';
-      _subPopupEl.style.maxWidth = '506px';
+      if (pRect) {
+        _subPopupEl.style.setProperty('width', pRect.width + 'px', 'important');
+        _subPopupEl.style.setProperty('max-width', 'none', 'important');
+      } else {
+        _subPopupEl.style.width = 'auto';
+        _subPopupEl.style.maxWidth = '506px';
+      }
       return;
     }
 
