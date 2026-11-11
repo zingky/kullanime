@@ -3472,7 +3472,7 @@
           allBtns.forEach(b => {
             b.classList.remove('revealed');
             b.classList.add('hiding');
-            setTimeout(() => b.classList.remove('hiding'), 300);
+            // .hiding duoc giu nguyen cho den khi reveal() duoc goi (chuot vao video/nut)
           });
         }
       }, HIDE_MS);
