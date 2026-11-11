@@ -3462,12 +3462,10 @@
     const zone = wrap ? wrap.querySelector('.fs-hover-zone') : null;
     if (!wrap || !btn) return;
     let hideTimer = null;
-    const HIDE_MS = 2500;
+    const HIDE_MS = 3000;
     const allBtns = [btn, subBtn].filter(Boolean);
     const scheduleHide = () => {
       if (hideTimer) clearTimeout(hideTimer);
-      // Khi đang fullscreen KHÔNG tự ẩn nút cài đặt phụ đề
-      if (document.fullscreenElement || document.webkitFullscreenElement) return;
       hideTimer = setTimeout(() => {
         const anyHover = allBtns.some(b => b && b.matches(':hover'));
         if (!anyHover) {
@@ -3515,6 +3513,8 @@
           b.classList.remove('hiding');
           b.classList.add('revealed');
         });
+        // Sau 3 giây không tương tác → tự ẩn 2 nút trong fullscreen
+        scheduleHide();
       } else {
         hideNow();
         // Đưa panel về .player-column khi thoát fullscreen (nếu panel vẫn còn trong .video-wrap)
@@ -3529,6 +3529,8 @@
           b.classList.remove('hiding');
           b.classList.add('revealed');
         });
+        // Sau 3 giây không tương tác → tự ẩn 2 nút trong fullscreen
+        scheduleHide();
       } else {
         hideNow();
         const subPanel = $('#subPanel');

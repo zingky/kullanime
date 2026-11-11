@@ -2765,15 +2765,6 @@ select.input option { background: #141a2d; color: var(--text); }
 .comment-page-input::-webkit-outer-spin-button,
 .comment-page-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
 /* Mobile hẹp: giãn nhỏ lại, chừa maximum chỗ cho dãy số 2 bên cụm */
-/* Trong fullscreen, nút cài đặt phụ đề luôn hiện và có thể nhấn — không bị tự ẩn */
-.video-wrap:fullscreen .video-sub-settings-btn.video-fs-btn,
-.video-wrap:-webkit-full-screen .video-sub-settings-btn.video-fs-btn {
-    opacity: 1 !important;
-    pointer-events: auto !important;
-    transition-delay: 0s !important;
-    transition: none !important;
-}
-
 @media (max-width: 480px) {
   .comment-pagination, .anime-pagination {
     gap: 5px; padding: 0;
